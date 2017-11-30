@@ -1,0 +1,11 @@
+sites	100000
+time	5000
+stationary
+-0.2	-4
+-4	-0.8
+baseline
+0	0
+0	0
+init
+-0.1	-4
+-4	-0.05

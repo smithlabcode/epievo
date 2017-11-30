@@ -1,4 +1,4 @@
-all_subdirs=prog common ${SMITHLAB_CPP}
+all_subdirs=prog ${SMITHLAB_CPP}
 app_subdirs=prog
 
 all:
