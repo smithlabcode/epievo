@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <random>
-#include <math.h>       /* exp */
+#include <math.h>       /* exp, sqrt, pow */
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -14,6 +14,13 @@ using std::vector;
 using std::endl;
 using std::cerr;
 using std::string;
+
+
+bool file_exist(string param_file) {
+  std::ifstream in(param_file.c_str());
+  return in.good();
+}
+
 
 struct model_param {
   size_t n_site;
@@ -163,8 +170,9 @@ void intersect_paths(const path &pa, const path &pb, environment &env) {
 void gibbs_sample_path(const model_param &p, vector<path>& paths) {
   std::random_device rd;
   std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-  
-  for (size_t i = 1; i < paths.size() - 1; ++i) {
+  std::uniform_int_distribution<int> uni(1,  paths.size()-2);
+  for (size_t n = 1; n < paths.size() - 1; ++n) {
+    size_t i = uni(gen);
     environment env;    
     intersect_paths(paths[i-1], paths[i+1], env);
 
@@ -255,6 +263,32 @@ void sequence_at_time(const vector<path> &paths,
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// stationary and Markov chain
+////////////////////////////////////////////////////////////////////////////////
+void covert_parameter(const vector<vector<double> > &stationary_logfac,
+                      vector<vector<double> > &T) {
+  vector<vector<double> > Q = stationary_logfac;
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      Q[i][j] = exp(stationary_logfac[i][j]);
+  double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
+  // transition probability matrix
+  T = Q; 
+  T[1][1] = 2*Q[1][1] /(Q[0][0]+Q[1][1] + delta );
+  T[0][0] = 2*Q[0][0] /(Q[0][0]+Q[1][1] + delta );
+  T[0][1] =4*Q[0][1]*Q[1][0]/(pow(Q[0][0] + delta, 2) -Q[1][1]*Q[1][1]);
+  T[1][0] =4*Q[0][1]*Q[1][0]/(pow(Q[1][1] + delta, 2) -Q[0][0]*Q[0][0]);
+
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// SIMULATION
+////////////////////////////////////////////////////////////////////////////////
+
 int main(int argc, const char **argv){
 
   try{
@@ -288,13 +322,27 @@ int main(int argc, const char **argv){
       return EXIT_SUCCESS;
     }
     const string param_file(leftover_args.back());
+    if (!file_exist(param_file)) {
+      cerr << "File "<< param_file << "doesn't exist." << endl;
+      cerr << opt_parse.help_message() << endl;
+      return  EXIT_SUCCESS;
+      }
 
+    
     model_param p;
+    if (VERBOSE) cerr << "Reading parameter from file " << param_file << endl;
     read_param(param_file, p);
     cerr << "read in params initial distribution factors" << endl;
     cerr << p.init_logfac[0][0] << "\t" << p.init_logfac[0][1] << endl
          << p.init_logfac[1][0] << "\t" << p.init_logfac[1][1] << endl;
 
+    vector<vector<double> > T;
+    covert_parameter(p.stationary_logfac, T);
+    cerr << "Markov chain transition matrix correspondint to stationary distribution" << endl;
+    cerr <<"[" << T[0][0] << "\t" << T[0][1] << endl
+         <<" " << T[1][0] << "\t" << T[1][1] << "]"<< endl;
+
+    
     // initial sequence
     vector<bool> seq;
     get_random_sequence(p.n_site, seq); 
