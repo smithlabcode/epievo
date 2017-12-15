@@ -1,6 +1,7 @@
 \documentclass[11pt]{article}
 
 \usepackage{fullpage,times,namedplus,pgf, amsmath}
+\usepackage{kbordermatrix}% http://www.hss.caltech.edu/~kcb/TeX/kbordermatrix.sty
 \DeclareMathOperator*{\argmax}{arg\,max}
 
 \newcommand{\myroot}{\ensuremath{\mathrm{root}}}
@@ -45,9 +46,9 @@ the union of their jumping times
 the states of $l$ and $r$ stayed constant.
 
 \paragraph{Stationary Gibbs measure as Markov chain}
-The stationary distribution in \ref{eqn:stationary} is euqivalent to
+The stationary distribution in (\ref{eqn:stationary}) is euqivalent to
 the distribution of a Markov chain. We can derive the relationship
-between the factors in  \ref{eqn:stationary} and the transition
+between the factors in (\ref{eqn:stationary}) and the transition
 probabilities of the Markov chain. The pair-wise potentials are
 $Q(a,b)=\exp(\phi(a, b))$, where $a, b\in\{0,1\}$ are binary
 states. The largest eigen value of $Q$ is
@@ -70,10 +71,96 @@ To be more specific,
     T(1,0) &= \frac{4Q_{01}Q_{10}}{(Q_{11}+\sqrt{\Delta})^2 -Q_{00}^2}.
   \end{aligned}
 \end{equation}
-The expected methylation level is thus $1-
-\frac{2Q_{01}Q_{10}}{(Q_{00}-Q_{11})^2 + 4Q_{01}Q_{10} +
-(Q_{11}-Q_{00})\sqrt{\Delta}}.$
+The expected methylation level is thus $1- \frac{2Q_{01}Q_{10}}{(Q_{00}-Q_{11})^2 + 4Q_{01}Q_{10} + (Q_{11}-Q_{00})\sqrt{\Delta}}.$
 
+\paragraph{Relationship between mutation rates and stationary distribution}
+What transition rate function $\gamma$ can lead to a stationary
+distribution determined by $\phi$?  The Proposition 1 of
+\citetext{jensen2000probabilistic} gives a sufficient condition:
+\begin{equation}\label{eqn:prop1}
+  \frac{\gamma(l, s, r)} {\gamma(l, \bar{s}, r)} = \frac{\exp(\phi(l, \bar{s})+ \phi(\bar{s}, r))}{\exp(\phi(l, s)+ \phi(s, r))},
+\end{equation}
+which is derived from the reversibility property of the stationary
+distribution.
+
+The proposition 2 and 3 give a way of specifying $\gamma$ from $\phi$.
+Assume that the log intensities can be written as
+\[
+  \log(\gamma(l, s, r)) = -g(l, s, r) + \ell(l, r),
+\]
+and that there exists a function $q(l, r)$ such that
+\[
+g(l, s, r) = g(l, s, *) - g(l, *, *) + g(s, r, *) -g(s, *, *) + q(l, r)
+\]
+Then $g$ bridges $\gamma$ and $\phi$ with
+\[
+\phi(l, s) = g(l, s, *) - g(l, *, *),
+\]
+where `*' stands for averaged function value over all values of the
+indicated operands. So we only need to specify function $g$, which has
+8 possible input configurations. Based on empirical understanding of
+epigenomes, we want $g$ (and $\gamma$) to have left-right symmetry,
+i.e. $g(a, b, c) = g(c, b, a)$. Under this assumption, two pairs of
+configurations are equivalent, leaving 6 distinct configurations.
+% Let
+% the values of $g$ be as specified in table~\ref{tab:level}.
+% \begin{table}[t!]
+%   \centering
+%   \begin{tabular}{|p{4cm}|p{4cm}|p{4cm}|}\hline
+%      & \multicolumn{2}{|c|}{\textbf{Mutation type in patterns ($g$ parameter )}} \\\hline
+%     \textbf{$\gamma$ level} & 0$\rightarrow$ 1& 1$\rightarrow$ 0 \\\hline
+%     low & 0,0,0 ($x_1$)& 1,1,1 ($y_1$) \\\hline
+%     medium & 0,0,1 ($x_2$) & 1,1,0 ($y_2$) \\\hline
+%     medium & 1,0,0 ($x_2$)& 0,1,1 ($y_2$)\\\hline
+%     high & 1,0,1 ($x_3$)& 0,1,0 ($y_3$) \\\hline    
+%   \end{tabular}
+%   \caption{Level of mutation rates in different patterns}
+%   \label{tab:level}
+% \end{table}
+
+However, we can directly verify that if we define mutation rates as follows,
+\begin{equation}
+\log (\gamma(l, s, r)) =  \ell(l, r) + (\phi(l, \bar{s}) +\phi(\bar{s}, r)),
+\end{equation}
+where $\ell$ is some function independent of $s$, then the rates
+satisfy the condition in Equation~\ref{eqn:prop1}. 
+
+We can organzie the mutaion rates into a $8\times8$ matrix as follows:
+\renewcommand{\kbldelim}{(}% Left delimiter
+\renewcommand{\kbrdelim}{)}% Right delimiter
+\[
+  \Gamma = \kbordermatrix{
+        & 000 & 010 & 001 & 011 & 100 & 110 & 101 & 111 \\
+    000 & . & a & 0 & 0 & 0 & 0 & 0 & 0 \\
+    010 & b & . & 0 & 0 & 0 & 0 & 0 & 0 \\
+    001 & 0 & 0 & . & c & 0 & 0 & 0 & 0 \\
+    011 & 0 & 0 & d & . & 0 & 0 & 0 & 0 \\
+    100 & 0 & 0 & 0 & 0 & . & c & 0 & 0 \\
+    110 & 0 & 0 & 0 & 0 & d & . & 0 & 0 \\
+    101 & 0 & 0 & 0 & 0 & 0 & 0 & . & e \\
+    111 & 0 & 0 & 0 & 0 & 0 & 0 & f & .
+  }
+\]
+
+If a methylome sequence with mutation rates $\Gamma$ has stationary
+distribution (\ref{eqn:stationary}), then the condition in
+(\ref{eqn:prop1}) holds, which leads to the following constraints on
+the mutation reates:
+\[
+  ad^2e=bc^2f.
+\]
+Given the mutation rates $a,b,c,d$, it is sufficient to derive the relationship
+between the potentials:
+\begin{equation}\label{eqn:rel}
+  \phi(0,0) = \phi(0,1) +\frac{1}{2}\log(\frac{b}{a}), ~\text{and~}
+  \phi(1,1) = \phi(0,1) +\frac{1}{2}\log(\frac{bc^2}{ad^2}).
+\end{equation}
+
+In summary, the mutation rate matrix can have 5 free parameters. If we
+add a constraint on the expected number of changes per unit time, then
+there will be only 4 free parameters. The two ratios $\frac{b}{a}$ and
+$\frac{bc^2}{ad^2}$ can uniquely determine the stationary distribution
+(\ref{eqn:stationary}) through equation (\ref{eqn:rel}).
 
 \section{Simulation scheme 1}
 We are going to simulate a full history of epigenome evolution for a
@@ -113,56 +200,6 @@ time interval $[0, t]$.
   a stable distribution.
 \end{enumerate}
 
-\paragraph{Relationship between mutation rates and stationary distribution}
-What transition rate function $\gamma$ can lead to a stationary
-distribution determined by $\phi$?  The Proposition 1 of
-\citetext{jensen2000probabilistic} gives a sufficient condition:
-\begin{equation}\label{eqn:prop1}
-  \frac{\gamma(l, s, r)} {\gamma(l, \bar{s}, r)} = \frac{\exp(\phi(l, \bar{s})+ \phi(\bar{s}, r))}{\exp(\phi(l, s)+ \phi(s, r))},
-\end{equation}
-which is derived from the reversibility property of the stationary
-distribution.
-
-The proposition 2 and 3 give a way of specifying $\gamma$ from $\phi$.
-Assume that the log intensities can be written as
-\[
-  \log(\gamma(l, s, r)) = -g(l, s, r) + \ell(l, r),
-\]
-and that there exists a function $q(l, r)$ such that
-\[
-g(l, s, r) = g(l, s, *) - g(l, *, *) + g(s, r, *) -g(s, *, *) + q(l, r)
-\]
-Then $g$ bridges $\gamma$ and $\phi$ with
-\[
-\phi(l, s) = g(l, s, *) - g(l, *, *),
-\]
-where `*' stands for averaged function value over all values of the
-indicated operands. So we only need to specify function $g$, which has
-8 possible input configurations. Based on empirical understanding of
-epigenomes, we want $g$ (and $\gamma$) to have left-right symmetry,
-i.e. $g(a, b, c) = g(c, b, a)$. Under this assumption, two pairs of
-configurations are equivalent, leaving 6 distinct configurations. Let
-the values of $g$ be as specified in table~\ref{tab:level}.
-\begin{table}[t!]
-  \centering
-  \begin{tabular}{|p{4cm}|p{4cm}|p{4cm}|}\hline
-     & \multicolumn{2}{|c|}{\textbf{Mutation type in patterns ($g$ parameter )}} \\\hline
-    \textbf{$\gamma$ level} & 0$\rightarrow$ 1& 1$\rightarrow$ 0 \\\hline
-    low & 0,0,0 ($x_1$)& 1,1,1 ($y_1$) \\\hline
-    medium & 0,0,1 ($x_2$) & 1,1,0 ($y_2$) \\\hline
-    medium & 1,0,0 ($x_2$)& 0,1,1 ($y_2$)\\\hline
-    high & 1,0,1 ($x_3$)& 0,1,0 ($y_3$) \\\hline    
-  \end{tabular}
-  \caption{Level of mutation rates in different patterns}
-  \label{tab:level}
-\end{table}
-
-However, we can directly verify that if we define mutation rates as follows,
-\begin{equation}
-\log (\gamma(l, s, r)) =  \ell(l, r) + (\phi(l, \bar{s}) +\phi(\bar{s}, r)),
-\end{equation}
-where $\ell$ is some function independent of $s$, then the rates
-satisfy the condition in Equation~\ref{eqn:prop1}. 
 
 \section{Simulation scheme 2}
 We model the evolution of the entire sequence that with a
@@ -176,9 +213,9 @@ Consider the $2^N \times 2^N$ transition rate matrix $M$, for any
 methylome $a$ and methylome $b$ that have a single difference at a
 position where $a$ has state $j$ and $b$ has state $\bar{j}$, and the
 neighboring positions have states $i$ and $k$ in both methylomes, the
-rate of such a jump is $\lambda_{ijk}$.  The rate parameters are
-symetric for $i$ and $k$, i.e. $\lambda_{ijk}=\lambda_{kji}$. Thus, we
-have 6 rate parameters. 
+rate of such a jump is $\lambda_{ijk} = \gamma(i, j, k)$.  The rate
+parameters are symetric for $i$ and $k$,
+i.e. $\lambda_{ijk}=\lambda_{kji}$. Thus, we have 6 rate parameters.
 
 Given the current methylome $a$, the holding time
 \[
@@ -198,6 +235,9 @@ Given that the first jump happened, the probability that the jump
 occurred in the context of $ijk$ is proportional to
 $c_{ijk}(a)\lambda_{ijk}$. Given that a jump happend in context $ijk$,
 the jump is equally likely among positions with this context.
+
+Expected number of changes per site per unit time is $\sum\limits_{ijk}\pi_{ijk}\lambda_{ijk}$,
+where $\pi_{ijk}$ is the stationary probability of pattern $ijk$ in the methylome.
 
 To summarize, we have the following simulation procedure for the evolution
 process for a methylome with $N$ sites over time interval $[0, T]$, given
