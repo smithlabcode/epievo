@@ -4,7 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <random>
-#include <math.h>       /* exp, sqrt, pow */
+#include <math.h>   /* exp, sqrt, pow */
+#include <numeric>  /* std::inner_product */
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -13,6 +14,7 @@
 using std::vector;
 using std::endl;
 using std::cerr;
+using std::cout;
 using std::string;
 
 
@@ -25,8 +27,8 @@ bool file_exist(string param_file) {
 struct model_param {
   size_t n_site;
   double tot_time;
-  vector<vector<double> > stationary_logfac;
-  vector<vector<double> > stationary_logbaseline;
+  vector<vector<double> > stationary_logfac; // 2 by 2
+  vector<vector<double> > stationary_logbaseline;  // 2 by 2 
   vector<vector<double> > init_logfac;
 };
 
@@ -57,7 +59,8 @@ void read_param(const string param_file, model_param &p) {
 void get_random_sequence(const size_t N, vector<bool>&s) {
   s.resize(N, true);
   std::random_device rd;
-  std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+  //Standard mersenne_twister_engine seeded with rd()
+  std::mt19937 gen(rd()); 
   std::uniform_real_distribution<double> unif(0.0,1.0);
   for (size_t i = 0; i < N; ++i) 
     if (unif(gen) < 0.5)
@@ -73,7 +76,6 @@ void summary(const vector<bool> &seq, vector<vector<double> > &stat) {
     for (size_t j = 0; j < 2; ++j)
       stat[i][j] = stat[i][j]/(seq.size()-1);
 }
-
 
 void gibbs_sample_init_state(const size_t n_site,
                              const vector<vector<double> > &logfac,
@@ -91,8 +93,6 @@ void gibbs_sample_init_state(const size_t n_site,
     }
   vector<vector<double> > stat;
   summary(seq, stat);
-  // cerr << "(" << stat[0][0] << ",\t" << stat[0][1] << ",\t"
-  //      << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -228,11 +228,6 @@ void gibbs_sample_path(const model_param &p, vector<path>& paths) {
 
     // update path
     paths[i] = new_path;
-    // if (paths[i].jumps.size()) {
-    //   for (size_t n = 0; n < paths[i].jumps.size(); ++n)
-    //     cerr << paths[i].jumps[n] << ";";
-    //   cerr << endl;
-    // }
   }
 }
 
@@ -264,6 +259,102 @@ void sequence_at_time(const vector<path> &paths,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Continuous time Markov chain of sequences
+////////////////////////////////////////////////////////////////////////////////
+size_t ord(bool i, bool j, bool k) {
+  return i*4+j*2+k;
+}
+
+void ord_to_state(size_t context,
+                  bool &i, bool &j, bool &k) {
+  assert(context < 8);
+  i = (bool)(context/4);
+  context %= 4; 
+  j = (bool)(context/2);
+  context %= 2;
+  k = (bool)(context);   
+}
+
+void sum_triplet(const vector<bool> &seq, vector<size_t> &triplet_stat) {
+  triplet_stat = vector<size_t>(8, 0);
+  for (size_t i = 1; i < seq.size()-1; ++i) 
+    ++triplet_stat[ord(seq[i-1], seq[i], seq[i+1])];  
+}
+
+void get_expo_rate(const model_param &p, vector<double> &triplet_rate) {
+  triplet_rate = vector<double>(8, 0);
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      for (size_t k =0; k < 2; ++k)
+        triplet_rate[4*i+2*j+k] = exp(p.stationary_logfac[i][1-j] +
+                                      p.stationary_logfac[1-j][k] +
+                                      p.stationary_logbaseline[i][k]);
+}
+
+void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
+                vector<bool> &seq, vector<size_t> &triplet_stat,
+                vector<path> &paths, double &time) {
+  const double rate = std::inner_product(triplet_stat.begin(), triplet_stat.end(),
+                                         triplet_rate.begin(), 0);
+  std::exponential_distribution<double> exp_distr(rate);
+
+  // sample time of first jump
+  const double holding_time = exp_distr(gen);
+  
+  // sample which state context to jump from
+  vector<double> context_prob(triplet_stat.size(), 0.0);
+  for (size_t i = 0; i < triplet_stat.size(); ++i) {
+    context_prob[i] = triplet_stat[i]*triplet_rate[i]/rate;
+  }
+  std::uniform_real_distribution<double> unif(0.0,1.0);
+  const double sample = unif(gen);
+  double cdf = context_prob[0];
+  size_t context = 0;
+  while (sample > cdf && context < 8) {
+    ++context;
+    cdf += context_prob[context];
+  }
+
+  // sample which position to flip
+  size_t position = 0;
+  const  size_t n = ((size_t)(unif(gen)*triplet_stat[context])) % triplet_stat[context] + 1;
+  bool found = false;
+  size_t count = 0;
+  bool I,J,K;
+  ord_to_state(context, I, J, K);
+  for (size_t i=1; !found && i < seq.size()-1; ++i) {
+    if ( !( (seq[i-1]^I) | (seq[i]^J) | (seq[i+1]^K) ) )
+      ++count;
+    
+    if (count == n) {
+      found = true;
+      position = i;
+    }
+  }
+
+  // flip the position and update triplet_stat
+  if (position > 1) {
+    --triplet_stat[ord(seq[position-2], seq[position-1], seq[position])];
+    ++triplet_stat[ord(seq[position-2], seq[position-1], !seq[position])];
+  }
+  --triplet_stat[ord(seq[position-1], seq[position], seq[position+1])];
+  ++triplet_stat[ord(seq[position-1], !seq[position], seq[position+1])];
+  if (position < seq.size()-2) {
+    --triplet_stat[ord(seq[position], seq[position+1], seq[position+2])];
+    ++triplet_stat[ord(!seq[position], seq[position+1], seq[position+2])];
+  }
+  seq[position] = !seq[position];
+
+  // update paths
+  if (time+holding_time < paths[position].tot_time)
+    paths[position].jumps.push_back(time+holding_time);
+
+  //update time
+  time += holding_time;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 // stationary and Markov chain
 ////////////////////////////////////////////////////////////////////////////////
 void covert_parameter(const vector<vector<double> > &stationary_logfac,
@@ -277,21 +368,18 @@ void covert_parameter(const vector<vector<double> > &stationary_logfac,
   T = Q; 
   T[1][1] = 2*Q[1][1] /(Q[0][0]+Q[1][1] + delta );
   T[0][0] = 2*Q[0][0] /(Q[0][0]+Q[1][1] + delta );
-  T[0][1] =4*Q[0][1]*Q[1][0]/(pow(Q[0][0] + delta, 2) -Q[1][1]*Q[1][1]);
-  T[1][0] =4*Q[0][1]*Q[1][0]/(pow(Q[1][1] + delta, 2) -Q[0][0]*Q[0][0]);
+  T[0][1] = 4*Q[0][1]*Q[1][0]/(pow(Q[0][0] + delta, 2) -Q[1][1]*Q[1][1]);
+  T[1][0] = 4*Q[0][1]*Q[1][0]/(pow(Q[1][1] + delta, 2) -Q[0][0]*Q[0][0]);
 
 }
-
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // SIMULATION
 ////////////////////////////////////////////////////////////////////////////////
 
-int main(int argc, const char **argv){
+int main(int argc, const char **argv) {
 
-  try{
+  try {
 
     string outfile;
     bool VERBOSE = false;
@@ -344,17 +432,16 @@ int main(int argc, const char **argv){
 
     
     // initial sequence
-    vector<bool> seq;
-    get_random_sequence(p.n_site, seq); 
+    vector<bool> root_seq;
+    get_random_sequence(p.n_site, root_seq); 
     for (size_t i = 0; i < 500; ++i) {
-      gibbs_sample_init_state(p.n_site, p.init_logfac, seq);
+      gibbs_sample_init_state(p.n_site, p.init_logfac, root_seq);
     }
     vector<vector<double> > stat;
-    summary(seq, stat);
+    summary(root_seq, stat);
     cerr << "initial frquencies" << endl
          << "(" << stat[0][0] << ",\t" << stat[0][1] << ",\t"
          << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
-
 
     //target sequence
     vector<bool> target_seq;
@@ -367,30 +454,63 @@ int main(int argc, const char **argv){
          << "(" << stat[0][0] << ",\t" << stat[0][1] << ",\t"
          << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
 
-
-    // path pa, pb;
-    // pa.init_state = true;
-    // pb.init_state = false;                         
-    // pa.tot_time = 10;
-    // pb.tot_time = 10;
-    // pa.jumps = vector<double>(3, 0.0);
-    // pb.jumps = vector<double>(4, 0.0);
-    // pa.jumps[0] = 3.0; pa.jumps[1] = 5.0; pa.jumps[2] = 6.0;
-    // pb.jumps[0] = 2.0; pb.jumps[1] = 5.0; pb.jumps[2] = 6.5; pb.jumps[3] = 7.0;
-    // environment env; 
-    // intersect_paths(pa, pb, env);
-
-    vector<bool> end_seq;
+    // initialize paths
     vector<path> paths;
-    initialize_paths(p, seq, paths);
-    for (size_t i = 0; i < 1000; ++i) {
-      gibbs_sample_path(p, paths);
-      end_sequence(paths, end_seq);
-      summary(end_seq, stat);
-      cerr << "(" << stat[0][0] << ",\t" << stat[0][1] << ",\t"
-           << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
-    }
+    initialize_paths(p, root_seq, paths);
 
+    // starting context frequencies
+    vector<size_t> triplet_stat;
+    sum_triplet(root_seq, triplet_stat);
+
+    // evolution rates (constant throughout the evolution)
+    vector<double> triplet_rate;
+    get_expo_rate(p, triplet_rate);
+    double tot_rate = 0;
+    for (size_t i = 0; i < triplet_rate.size(); ++i) {
+      bool I,J,K;
+      ord_to_state(i, I, J, K);
+      cerr << int(I)<< int(J) << int(K) << "\t"
+           << triplet_rate[i] << "\t"
+           << (double)(triplet_stat[i])/root_seq.size() <<endl;
+      tot_rate += triplet_rate[i]*triplet_stat[i]/root_seq.size();
+    }
+    cerr << tot_rate << " mutation per site (at root)" << endl;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    vector<bool> seq = root_seq; 
+    double time = 0;
+    size_t n_jumps = 0;
+    summary(seq, stat);
+    cout << n_jumps << "\t" << time << "\t"
+         << stat[0][0] << "\t" << stat[0][1] << "\t"
+         << stat[1][0] << "\t" << stat[1][1] << endl;
+    while (time < p.tot_time) {
+      first_jump(triplet_rate, gen, seq, triplet_stat, paths, time);
+      ++n_jumps;
+      if (n_jumps % 1000 == 0) {
+        summary(seq, stat);
+        cout << n_jumps << "\t" << time << "\t"
+             << stat[0][0] << "\t" << stat[0][1] << "\t"
+             << stat[1][0] << "\t" << stat[1][1] << endl;
+      }
+    }
+    summary(seq, stat);
+    cout << n_jumps << "\t" << p.tot_time << "\t"
+         << stat[0][0] << "\t" << stat[0][1] << "\t"
+         << stat[1][0] << "\t" << stat[1][1] << endl;
+    
+    /* old way */
+    // vector<bool> end_seq;
+    // for (size_t i = 0; i < 1000; ++i) {
+    //   gibbs_sample_path(p, paths);
+    //   end_sequence(paths, end_seq);
+    //   summary(end_seq, stat);
+    //   cerr << "(" << stat[0][0] << ",\t" << stat[0][1] << ",\t"
+    //        << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
+    // }
+    
     if (!outfile.empty()) {
       std::ofstream out(outfile.c_str());
       for (size_t i = 0; i < paths.size(); ++i) {
@@ -404,6 +524,7 @@ int main(int argc, const char **argv){
           out << endl;
       }
     }
+
     
   }
   catch (std::bad_alloc &ba) {
