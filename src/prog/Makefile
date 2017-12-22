@@ -15,7 +15,7 @@ CXXFLAGS += $(OPTFLAGS)
 endif
 
 COMMON_DIR = $(realpath ../common)
-INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP)
+INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP) $(TREETOOL)
 INCLUDEARGS = $(addprefix -I, $(INCLUDEDIRS))
 
 all: $(PROGS)
@@ -27,7 +27,9 @@ all: $(PROGS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS) $(LIBS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o \
-	smithlab_os.o)
+	smithlab_os.o) \
+	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o) \
+	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
 
 install: all
