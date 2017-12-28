@@ -102,21 +102,6 @@ indicated operands. So we only need to specify function $g$, which has
 epigenomes, we want $g$ (and $\gamma$) to have left-right symmetry,
 i.e. $g(a, b, c) = g(c, b, a)$. Under this assumption, two pairs of
 configurations are equivalent, leaving 6 distinct configurations.
-% Let
-% the values of $g$ be as specified in table~\ref{tab:level}.
-% \begin{table}[t!]
-%   \centering
-%   \begin{tabular}{|p{4cm}|p{4cm}|p{4cm}|}\hline
-%      & \multicolumn{2}{|c|}{\textbf{Mutation type in patterns ($g$ parameter )}} \\\hline
-%     \textbf{$\gamma$ level} & 0$\rightarrow$ 1& 1$\rightarrow$ 0 \\\hline
-%     low & 0,0,0 ($x_1$)& 1,1,1 ($y_1$) \\\hline
-%     medium & 0,0,1 ($x_2$) & 1,1,0 ($y_2$) \\\hline
-%     medium & 1,0,0 ($x_2$)& 0,1,1 ($y_2$)\\\hline
-%     high & 1,0,1 ($x_3$)& 0,1,0 ($y_3$) \\\hline    
-%   \end{tabular}
-%   \caption{Level of mutation rates in different patterns}
-%   \label{tab:level}
-% \end{table}
 
 However, we can directly verify that if we define mutation rates as follows,
 \begin{equation}
@@ -145,7 +130,7 @@ We can organzie the mutaion rates into a $8\times8$ matrix as follows:
 If a methylome sequence with mutation rates $\Gamma$ has stationary
 distribution (\ref{eqn:stationary}), then the condition in
 (\ref{eqn:prop1}) holds, which leads to the following constraints on
-the mutation reates:
+the mutation rates:
 \[
   ad^2e=bc^2f.
 \]
@@ -162,105 +147,108 @@ there will be only 4 free parameters. The two ratios $\frac{b}{a}$ and
 $\frac{bc^2}{ad^2}$ can uniquely determine the stationary distribution
 (\ref{eqn:stationary}) through equation (\ref{eqn:rel}).
 
-\section{Simulation scheme 1}
-We are going to simulate a full history of epigenome evolution for a
-time interval $[0, t]$.
+% \section{Simulation scheme 1}
+% We are going to simulate a full history of epigenome evolution for a
+% time interval $[0, t]$.
 
-\begin{enumerate}
-\item Simulate the starting methylome using a binary-state Markov model
-\item Initialize all paths $L_n = \{s_n(0), k_n=0, T_n=\emptyset, t\}$, for $n=1,\ldots, N.$
-\item (For simplicity, fix the paths $L_1$ and $L_N$ as initialized.) For
-  site $n = 2, \ldots, N-1$, simulate $L_n$ given the current paths of
-  $L_{n-1}$ and $L_{n+1}$:
-  \begin{itemize}
-  \item Collect the time intervals from site $n-1$ and site $n+1$, so
-    that within each of the intervals the states of the neighboring
-    sites are unchanged. Let the intervals be represented by a sorted
-    array $\{t_0, t_1, \cdots, t_M\}$.
-  \item For $m = 1, \ldots, M$:
-    \begin{itemize}
-      \item Let $X$ be a random variable from an exponential
-        distribution, representing the jumping time of the middle site given
-        that the states of its two neighbors are constant.  For a time
-        interval $[t_{m-1}, t_m]$ during which the neighboring sites' states
-        are unchanged, suppose $X\sim \text{Exp}(\lambda)$. The parameter
-        $\lambda$ is a function of current state and the states of the two
-        neighboring sites.
-      \item Let $t = t_{m-1}$, and a sample value of $X=x$.
-      \item While $t +x < t_m$:
-        \begin{enumerate}
-        \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
-        \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
-        \item[(3)] Update $t \leftarrow  t+x$,
-        \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda)$. 
-        \end{enumerate}
-      \end{itemize}
-  \end{itemize}
-\item Repeat step 3, until the epigenome summary statistics converge to
-  a stable distribution.
-\end{enumerate}
+% \begin{enumerate}
+% \item Simulate the starting methylome using a binary-state Markov model
+% \item Initialize all paths $L_n = \{s_n(0), k_n=0, T_n=\emptyset, t\}$, for $n=1,\ldots, N.$
+% \item (For simplicity, fix the paths $L_1$ and $L_N$ as initialized.) For
+%   site $n = 2, \ldots, N-1$, simulate $L_n$ given the current paths of
+%   $L_{n-1}$ and $L_{n+1}$:
+%   \begin{itemize}
+%   \item Collect the time intervals from site $n-1$ and site $n+1$, so
+%     that within each of the intervals the states of the neighboring
+%     sites are unchanged. Let the intervals be represented by a sorted
+%     array $\{t_0, t_1, \cdots, t_M\}$.
+%   \item For $m = 1, \ldots, M$:
+%     \begin{itemize}
+%       \item Let $X$ be a random variable from an exponential
+%         distribution, representing the jumping time of the middle site given
+%         that the states of its two neighbors are constant.  For a time
+%         interval $[t_{m-1}, t_m]$ during which the neighboring sites' states
+%         are unchanged, suppose $X\sim \text{Exp}(\lambda)$. The parameter
+%         $\lambda$ is a function of current state and the states of the two
+%         neighboring sites.
+%       \item Let $t = t_{m-1}$, and a sample value of $X=x$.
+%       \item While $t +x < t_m$:
+%         \begin{enumerate}
+%         \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
+%         \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
+%         \item[(3)] Update $t \leftarrow  t+x$,
+%         \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda)$. 
+%         \end{enumerate}
+%       \end{itemize}
+%   \end{itemize}
+% \item Repeat step 3, until the epigenome summary statistics converge to
+%   a stable distribution.
+% \end{enumerate}
 
 
-\section{Simulation scheme 2}
+\paragraph{Simulation scheme}
 We model the evolution of the entire sequence that with a
 continuous time Makov chain that allows instantaneous jump from one
 sequence to another only if they differ at one position, and the rate
 of such jumps are dependent on the states of their neighboring
-sites. Same as before, we assume that the states of the starting and
-ending sites are fixed.
+sites. We assume that the states of the first and last sites are fixed.
 
 Consider the $2^N \times 2^N$ transition rate matrix $M$, for any
 methylome $a$ and methylome $b$ that have a single difference at a
 position where $a$ has state $j$ and $b$ has state $\bar{j}$, and the
 neighboring positions have states $i$ and $k$ in both methylomes, the
-rate of such a jump is $\lambda_{ijk} = \gamma(i, j, k)$.  The rate
-parameters are symetric for $i$ and $k$,
-i.e. $\lambda_{ijk}=\lambda_{kji}$. Thus, we have 6 rate parameters.
+rate of such a jump is $\lambda_{ijk} = \gamma(i, j, k) = \Gamma_{ijk,
+i\bar{j}k}$.
 
 Given the current methylome $a$, the holding time
 \[
   X_a\sim Exp(-M_{aa})
 \]
-is an exponential variable. The exponential rate
-parameter $-M_{aa}$ is the sum of all instantaneous rates for jumps
-from $a$ to a methylome that only differs with $a$ at one
-position. Specifically,
+is an exponential variable. Its rate parameter $-M_{aa}$ is the
+sum of all instantaneous rates for jumps from $a$ to a methylome that
+only differs with $a$ at one position:
 \[
   -M_{aa} =  \sum\limits_{i,j,k}c_{ijk}(a)\lambda_{ijk},
 \]
-where $c_{ijk}(a) = \sum_{n=1}^{N-2}I(a_{n}=i, a_{n+1}=j, a_{n+2}=k)$ is the total number
-of the tripplet pattern $ijk$ in methylome $a$.
+where $c_{ijk}(a) = \sum_{n=1}^{N-2}I(a_{n}=i, a_{n+1}=j, a_{n+2}=k)$
+is the total number of the tripplet pattern $ijk$ in methylome $a$.
 
 Given that the first jump happened, the probability that the jump
 occurred in the context of $ijk$ is proportional to
 $c_{ijk}(a)\lambda_{ijk}$. Given that a jump happend in context $ijk$,
 the jump is equally likely among positions with this context.
+%%
+The expected number of changes per site per unit time is
+$\sum\limits_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
+stationary probability of pattern $ijk$ in the methylome.
 
-Expected number of changes per site per unit time is $\sum\limits_{ijk}\pi_{ijk}\lambda_{ijk}$,
-where $\pi_{ijk}$ is the stationary probability of pattern $ijk$ in the methylome.
-
-To summarize, we have the following simulation procedure for the evolution
+In summary, we have the following simulation procedure for the evolution
 process for a methylome with $N$ sites over time interval $[0, T]$, given
 that the initial methylome is $a(0)$:
-\begin{itemize}
-\item $t \leftarrow 0$.
+\begin{enumerate}
+\item Let $t \leftarrow 0$, and initialize all paths $L_n = \{a_n(0),
+  k_n=0, T_n=\emptyset, t\}$, for $n=1,\ldots, N.$
 \item While $t < T$:
   \begin{enumerate}
   \item Generate $x\sim \text{Exp}(-M_{a(t)a(t)})$, where
-    $-M_{a(t)a(t)} = \sum\limits_{i,j,k}c_{ijk}(a(t))\lambda_{ijk}$. \\
-    If $t+x < T$:
+    $-M_{a(t)a(t)} = \sum\limits_{i,j,k}c_{ijk}(a(t))\lambda_{ijk}$.
     \begin{itemize}
-    \item Choose pattern $ijk$ from $\{ijk: i,j,k\in\{0,1\}\}$ with
-      probability proportional to $c_{ijk}(a(t))\lambda_{ijk}$.
-    \item Scan methylome $a(t)$, uniformaly choose one position $n$
-      out of the $c_{ijk}$ positions all with the pattern $ijk$ in $a(t)$.
-    \item Set $a(t+x) \leftarrow a(t)_{1\ldots n-1} \overline{a(t)_n}
-      a(t)_{n+1 \ldots N}$.
+    \item[If] $t+x < T$:
+      \begin{itemize}
+      \item Choose pattern $ijk$ from $\{ijk: i,j,k\in\{0,1\}\}$ with
+        probability proportional to $c_{ijk}(a(t))\lambda_{ijk}$.
+      \item Scan methylome $a(t)$, uniformaly choose one position $n$
+        out of the $c_{ijk}$ positions all with the pattern $ijk$ in $a(t)$.
+      \item Set $a(t+x) \leftarrow a(t)_{1\ldots n-1} \overline{a(t)_n}
+        a(t)_{n+1 \ldots N}$.
+      \item Add jump time to the path of position $n$: 
+        $$k_n \leftarrow k_n +1, ~~ T_n \leftarrow T_n\cup \{t+x\}.$$
+      \end{itemize}
+    \item[Else] $a(T) \leftarrow a(t)$.
     \end{itemize}
-    Else: $a(T) \leftarrow a(t)$.
   \item $t \leftarrow t+x$
   \end{enumerate}
-\end{itemize}
+\end{enumerate}
 
 \bibliographystyle{namedplus}
 \bibliography{biblio}
