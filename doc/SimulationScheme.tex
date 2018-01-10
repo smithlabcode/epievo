@@ -1,8 +1,10 @@
 \documentclass[11pt]{article}
 
-\usepackage{fullpage,times,namedplus,pgf, amsmath}
+\usepackage{fullpage,times,namedplus,pgf}
+\usepackage{amsmath,amssymb}
 \usepackage{kbordermatrix}% http://www.hss.caltech.edu/~kcb/TeX/kbordermatrix.sty
 \DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\E}{\mathbb{E}}
 
 \newcommand{\myroot}{\ensuremath{\mathrm{root}}}
 
@@ -63,7 +65,7 @@ Then the Markov chain transition matrix is
   T(a,b) = \frac{Q(a,b)r(b)}{qr(a)}, \text{ where } a,b\in \{0,1\}.
 \]
 To be more specific,
-\begin{equation}
+\begin{equation} \label{eqn:gibbs2markov}
   \begin{aligned}
     T(1,1) &= \frac{2Q_{11}}{Q_{00}+Q_{11}+\sqrt{\Delta}}, \\
     T(0,0) &= \frac{2Q_{00}}{Q_{00}+Q_{11}+\sqrt{\Delta}}, \\
@@ -100,7 +102,7 @@ where `*' stands for averaged function value over all values of the
 indicated operands. So we only need to specify function $g$, which has
 8 possible input configurations. Based on empirical understanding of
 epigenomes, we want $g$ (and $\gamma$) to have left-right symmetry,
-i.e. $g(a, b, c) = g(c, b, a)$. Under this assumption, two pairs of
+\textit{i.e.} $g(a, b, c) = g(c, b, a)$. Under this assumption, two pairs of
 configurations are equivalent, leaving 6 distinct configurations.
 
 However, we can directly verify that if we define mutation rates as follows,
@@ -111,9 +113,9 @@ where $\ell$ is some function independent of $s$, then the rates
 satisfy the condition in Equation~\ref{eqn:prop1}. 
 
 We can organzie the mutaion rates into a $8\times8$ matrix as follows:
+\begin{equation}\label{eqn:Gamma}
 \renewcommand{\kbldelim}{(}% Left delimiter
 \renewcommand{\kbrdelim}{)}% Right delimiter
-\[
   \Gamma = \kbordermatrix{
         & 000 & 010 & 001 & 011 & 100 & 110 & 101 & 111 \\
     000 & . & a & 0 & 0 & 0 & 0 & 0 & 0 \\
@@ -125,15 +127,15 @@ We can organzie the mutaion rates into a $8\times8$ matrix as follows:
     101 & 0 & 0 & 0 & 0 & 0 & 0 & . & e \\
     111 & 0 & 0 & 0 & 0 & 0 & 0 & f & .
   }
-\]
+\end{equation}
 
 If a methylome sequence with mutation rates $\Gamma$ has stationary
 distribution (\ref{eqn:stationary}), then the condition in
 (\ref{eqn:prop1}) holds, which leads to the following constraints on
 the mutation rates:
-\[
+\begin{equation}\label{eqn:constraint}
   ad^2e=bc^2f.
-\]
+\end{equation}
 Given the mutation rates $a,b,c,d$, it is sufficient to derive the relationship
 between the potentials:
 \begin{equation}\label{eqn:rel}
@@ -250,6 +252,121 @@ that the initial methylome is $a(0)$:
   \item $t \leftarrow t+x$
   \end{enumerate}
 \end{enumerate}
+
+\paragraph{Parameter inference} When we're given the complete
+epigenome evolution path from time $0$ to time $t$, can we effectively
+recover the initial distribution and mutation parameters and
+evolutionary time? We are interested in the parameters describing the
+evolutionary process, which are the mutation rates
+$\{\lambda_{ijk}\}$. These parameters will be inferred from the state
+changes in the evolutionary path of the entire epigenome. Meanwhile,
+we do not require the process to be stationary, so we are also
+interested in the epigenome properties at time 0, which are
+characterized by the Markov chain transition probabilities
+$T_{0}$. These transition probabilities are easy to infer given the
+complete observations at the time-0 epigenome. 
+
+Let $c_{ij} = \sum_{n=1}^{N-1}I\{s_n(0) =i, s_{n+1}(0)=j\}$. Then 
+\[ \hat{T}(0, 0) = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~ 
+\hat{T}(1,1) = \frac{c_{11}}{\sum_{n=1}^{N-1}I\{s_n(0) = 1\}}.
+\]
+
+Let's first assume that the time span of this complete evolutionary
+history is known, \textit{i.e.} the value of $t$ is give.
+
+Recall that $L_n = \{s_n(0), K, \{t_k\}_{k=1}^K, t\}$ is a full path
+at position $n$ in the epigenome. We can pool all the jumping times at
+all positions in to a sorted sequence $J = \{(t_m, \text{pos}_m,
+\text{context}_m \}_{m=1}^{M}$, where $\text{pos}_m$ is the position of the
+$m$-th jump in the entire evolutionary history of the epigenome,
+$\text{context}_m$ is the 3-tuple context of the mutation.
+
+Let $\Delta_m = t_m - t_{m-1}$ be the holding time before the $m$-th
+jump. Then $\Delta_m$ is an exponential variable 
+\[
+\Delta_m \sim \text{Exp}(\lambda_m), \text{where } \lambda_m = \sum\limits_{i,j,k}c_{ijk}(t_m - \epsilon)\lambda_{ijk},
+\]
+where constant $\epsilon \in (0, \min\limits_{1\le m \le M}\{\Delta_{m}\})$ so that $c_{ijk}(t_m - \epsilon)$ is the 
+sequence context distribution between the $(m-1)$th jump and the $m$-th jump.
+
+The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
+\begin{equation}
+\begin{aligned}
+L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\text{context}_m}}{\lambda_m} \\
+&=\prod\limits_{m=1}^{M}\lambda_{\text{context}_m}\exp(-\lambda_m\Delta_m)
+\end{aligned}
+\end{equation}
+
+The log-likelihood function is 
+\begin{equation}\label{eqn:loglik1}
+\begin{aligned}
+l & = \sum\limits_{ijk} \big( \sum_{m=1}^M{\log\lambda_{ijk}\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m } \big) \\
+& = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk}-  D_{ijk}\lambda_{ijk} \big)
+\end{aligned}
+\end{equation}
+where $J_{ijk} = \sum_{m=1}^M I_{\{\text{context}_m = ijk\}}$, and $D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_m-\epsilon)\Delta_m$.
+
+Constraints on the mutation rates $\{\lambda_{ijk}\}$ as indicated in
+equations (\ref{eqn:Gamma},\ref{eqn:constraint}) are 
+\begin{equation}\label{eqn:constraints}
+\left\{
+  \begin{array}{ll}
+    \lambda_{001} = \lambda_{100}\\
+    \lambda_{011} = \lambda_{110}\\
+    \lambda_{000}\lambda_{110}^2\lambda_{101} = \lambda_{010}\lambda_{100}^2\lambda_{111}
+  \end{array}
+\right.
+\end{equation}
+
+Then the log-likelihood function (\ref{eqn:loglik1}) becomes
+\begin{equation}\label{eqn:loglik2}
+\begin{aligned}
+l = & J_{000}\log\lambda_{000} - D_{000}\lambda_{000} + \\ 
+& J_{010}\log\lambda_{010} - D_{010}\lambda_{010} + \\ 
+& J_{101}\log\lambda_{101} - D_{101}\lambda_{101} + \\ 
+& (J_{100} + J_{001})\log\lambda_{001} - (D_{100}+D_{001})\lambda_{001} +  \\
+& (J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011} +  \\ 
+& J_{111}\log(\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}) - D_{111}\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}.
+\end{aligned}
+\end{equation}
+
+When the time span of this complete evolutionary history is unknown,
+the value of $t$ is also a model parameter to be estimated. We assume
+that all the jumping times are expressed as a fraction of $t$. Then
+the problem of estimating the mutation rates and evolutionary time
+becomes identifiable. We need an extra constraint -- the unit branch
+length corresponds to 1 expected mutation per site. This is a common
+constraint in phylogenetic studies.
+
+Here we explain how to formulate this constraint on the
+$\{\lambda_{ijk}\}$ parameters. Given $\{\lambda_{ijk}\}$, according
+to (\ref{eqn:rel}) $\frac{\lambda_{010}}{\lambda_{000}}$ and
+$\frac{\lambda_{001}}{\lambda_{011}}$ can uniquely determine the
+stationary distribution of the epigenome that is described with a
+Gibbs measure of form (\ref{eqn:stationary}).  The Gibbs measure for
+the epigenomic sequence, in turn, is equivalent to a Markov chain
+(\ref{eqn:gibbs2markov}). Given the Markov chain formulation, we can
+easily compute the expected abundance of triplet patterns $p_{ijk} =
+\frac{1}{N}\E(c_{ijk})$, where $c_{ijk}$ is the frequency of the
+triplet pattern in an epigenomic sequence of length $N$ sampled from
+the Gibbs distribution. Then, we can compute the expected number of
+changes per position per unit time as
+$\sum_{ijk}p_{ijk}\lambda_{ijk}$. When the evolutionary time is also 
+unknown, we add the following constraint:
+\begin{equation}\label{eqn:tidentifiable}
+\sum_{ijk}p_{ijk}\lambda_{ijk} = 1, 
+\end{equation}
+where $\{p_{ijk}\}$ as explained above are functions of
+$\{\lambda_{ijk}\}$.  We maximize the log-likelihood
+(\ref{eqn:loglik1}) over $\{\lambda_{ijk}\}\cup\{t\}$ under the
+constraints (\ref{eqn:constraints}) and (\ref{eqn:tidentifiable}),
+where the unknown parameter $t$ is buried within $\{D_{ijk}\}$ in
+(\ref{eqn:loglik1}).
+
+
+
+
+
 
 \bibliographystyle{namedplus}
 \bibliography{biblio}
