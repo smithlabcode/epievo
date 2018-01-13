@@ -277,7 +277,7 @@ history is known, \textit{i.e.} the value of $t$ is give.
 Recall that $L_n = \{s_n(0), K, \{t_k\}_{k=1}^K, t\}$ is a full path
 at position $n$ in the epigenome. We can pool all the jumping times at
 all positions in to a sorted sequence $J = \{(t_m, \text{pos}_m,
-\text{context}_m \}_{m=1}^{M}$, where $\text{pos}_m$ is the position of the
+\text{context}_m) \}_{m=1}^{M}$, where $\text{pos}_m$ is the position of the
 $m$-th jump in the entire evolutionary history of the epigenome,
 $\text{context}_m$ is the 3-tuple context of the mutation.
 
@@ -286,11 +286,13 @@ jump. Then $\Delta_m$ is an exponential variable
 \[
 \Delta_m \sim \text{Exp}(\lambda_m), \text{where } \lambda_m = \sum\limits_{i,j,k}c_{ijk}(t_m - \epsilon)\lambda_{ijk},
 \]
-where constant $\epsilon \in (0, \min\limits_{1\le m \le M}\{\Delta_{m}\})$ so that $c_{ijk}(t_m - \epsilon)$ is the 
-sequence context distribution between the $(m-1)$th jump and the $m$-th jump.
+where constant 
+$\epsilon \in (0, \min\limits_{1\le m \le M}\{\Delta_{m}\})$ so that 
+$c_{ijk}(t_m - \epsilon)$ is the sequence
+context distribution between the $(m-1)$th jump and the $m$-th jump.
 
 The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
-\begin{equation}
+\begin{equation}\label{eqn:lik}
 \begin{aligned}
 L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\text{context}_m}}{\lambda_m} \\
 &=\prod\limits_{m=1}^{M}\lambda_{\text{context}_m}\exp(-\lambda_m\Delta_m)
@@ -300,8 +302,9 @@ L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lam
 The log-likelihood function is 
 \begin{equation}\label{eqn:loglik1}
 \begin{aligned}
-l & = \sum\limits_{ijk} \big( \sum_{m=1}^M{\log\lambda_{ijk}\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m } \big) \\
-& = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk}-  D_{ijk}\lambda_{ijk} \big)
+l & = \sum\limits_{ijk} \big( 
+\sum_{m=1}^M{\log\lambda_{ijk}\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m } \big) \\
+& = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
 \end{aligned}
 \end{equation}
 where $J_{ijk} = \sum_{m=1}^M I_{\{\text{context}_m = ijk\}}$, and $D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_m-\epsilon)\Delta_m$.
@@ -364,13 +367,108 @@ where the unknown parameter $t$ is buried within $\{D_{ijk}\}$ in
 (\ref{eqn:loglik1}).
 
 
+\paragraph{Posterior distribution of a path given two neighboring paths} We
+assume that the model parameters $\{\lambda_{ijk}\}$ and total
+evolutionary time $t$ are known, the starting state of the epigenome
+are known except for position $n$, and that the jumping times $J =
+\{(t_m, \text{pos}_m, \text{context}_m) \}_{m=1}^{M}$ are known for
+all positions except position $n$. How can we estimate the posterior
+distribution of path $L_{n}$ (a sequence of jumping times)?
+\[
+\Pr(L_n|L_{-n}, \{\lambda_{ijk}\}) \propto \Pr(L_n\cup L_{-n})
+\]
+We propose to use MCMC to sample from the posterior
+distribution of $L_n$. 
+
+\textbf{Method 1.} First, sample a starting state $s_0$ from a
+Bernoulli distribution with probabilities $(\pi_0, \pi_1)$.  Then,
+propose a number $K$ of jumps from a Poisson distribution with rate
+parameter $\lambda = \frac{1}{8}\sum\lambda_{ijk}$, which is chosen to
+approximate average mutation rate among different contexts. Given $K$,
+sample jumping times uniformly on the time interval $(0, t)$,
+\textit{i.e.}  from the Dirichlet distribution with concentration
+parameters all equal to 1. Therefore, the probability (density) of
+proposing a specific path $L' = \{s_0, K, \{t_k\}_{k=1}^K, t\}$ is
+\[
+q(L') = \pi_{s_0} \frac{\lambda^K \exp(-\lambda)}{K!} \frac{1}{(K-1)!}.
+\]
+This is an \textit{independence sampler}. Suppose the current guess of path at position $n$ is $L_n$, we accept the move to the proposed path $L'$ with probability
+\begin{equation}\label{eqn:rejection}
+\alpha(L') = \min\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\}, 
+\end{equation}
+where $\pi()$ is the complete data likelihood function (\ref{eqn:lik}). 
+
+\textbf{Method 2.} The previous method proposes paths from an
+approximately uniform distribution. This may be a very inefficient
+(high rejection rate) sampling process, although
+\citetext{jensen2000probabilistic} used a sampling procedure in the
+same spirit. If we use more information from the paths at neighboring
+sites, we may be able to improve the efficiency of sampling. The
+neighboring paths $L_{n-1}$ and $L_{n+1}$ fragments the evolutionary
+time interval $(0,t)$ into smaller segments, within each of which the
+states at positions $n-1$ and $n+1$ stay unchanged. 
+
+\begin{itemize}
+\item Collect the time intervals from site $n-1$ and site $n+1$, so
+  that within each of the intervals the states of the neighboring
+  sites are unchanged. Let the intervals be represented by a sorted
+  array $\{t_0, t_1, \cdots, t_M\}$.
+\item For $m = 1, \ldots, M$:
+  \begin{itemize}
+  \item Let $X$ be a random variable from an exponential
+    distribution, representing the jumping time of the middle site
+    given that the states of its two neighbors are constant.  For a time
+    interval $[t_{m-1}, t_m]$ during which the neighboring sites' states
+    are unchanged, suppose $X\sim \text{Exp}(\lambda_{ijk})$, where $i$
+    and $k$ are the states of the two neighboring sites in this time
+    interval, and $j$ is the starting state of position $n$.
+  \item Let $t = t_{m-1}$, and a sample value of $X=x$.
+  \item While $t +x < t_m$:
+    \begin{enumerate}
+    \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
+    \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
+    \item[(3)] Update $t \leftarrow  t+x$,
+    \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda_{ijk})$. 
+    \end{enumerate}
+  \end{itemize}
+\end{itemize}
+
+The proposal probability density $q()$ is thus the product of the
+appropriate Exponential distribution probability densities for the
+holding times at position $n$. The proposal distribution is
+independent of any current guess of the path. Therefore, this is also
+an \textit{independence sampler}. The rejection rule stays the same,
+as in (\ref{eqn:rejection}).
 
 
+\textbf{Additional note:} A jump at time $\tau$ in the path $L_{n}$
+will affect the probability of all jumps that occur after time $\tau$
+regardless of their genomic position, because it affects
+$\{c_{ijk}(t)\}$ for any $t > \tau$. Therefore, we can't cancel out
+factors in the likelihood function. However, we may try to make things
+easy by only considering the evolutionary paths at positions $n-2$,
+$n-1$, $n+1$, and $n+2$. 
 
+
+\paragraph{Posterior distribution of a path given two neighboring
+paths in a tree structure with fixed leaf data} Suppose we are given a
+tree structure representing the evolutionary relationship between
+ancestral and extant species. Let $(u,v)$, $(v,a)$ $(v, b)$ be three
+branches in the phylogenetic tree.  Suppose we are given the
+evolutionary paths on the entire tree for all positions, except for
+the paths along these 3 branches at position $n$. In other words, the
+states at position $n$ of species $u$, $a$, $b$ are known, but how the
+state at position $n$ evolved from $u$ and diverge into states at $a$
+and $b$ through their last common ancestor $v$ is unknown. How do we
+sample from the posterior distribution of $L_n|v$, which is the path
+at position $n$ restricted to branches with one end as node $v$ and
+the other end with known states. 
+
+\citetext{hobolth2009simulation} reviewed and compared three
+approaches to sample paths of discrete-state continuous-time Markov
+chain conditional on end-point states.  
 
 \bibliographystyle{namedplus}
 \bibliography{biblio}
 
 \end{document}
-
- 
