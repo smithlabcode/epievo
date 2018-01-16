@@ -8,7 +8,7 @@
 
 \newcommand{\myroot}{\ensuremath{\mathrm{root}}}
 
-\title{Simulate binary-state epigenome evoluiton}
+\title{Simulate binary-state epigenome evolution}
 
 \begin{document}
 \maketitle
@@ -47,7 +47,7 @@ the union of their jumping times
 \] defines time intervals, within each of which
 the states of $l$ and $r$ stayed constant.
 
-\paragraph{Stationary Gibbs measure as Markov chain}
+\section{Stationary Gibbs measure as Markov chain}
 The stationary distribution in (\ref{eqn:stationary}) is euqivalent to
 the distribution of a Markov chain. We can derive the relationship
 between the factors in (\ref{eqn:stationary}) and the transition
@@ -75,7 +75,8 @@ To be more specific,
 \end{equation}
 The expected methylation level is thus $1- \frac{2Q_{01}Q_{10}}{(Q_{00}-Q_{11})^2 + 4Q_{01}Q_{10} + (Q_{11}-Q_{00})\sqrt{\Delta}}.$
 
-\paragraph{Relationship between mutation rates and stationary distribution}
+\section{Relationship between mutation rates and stationary distribution}
+
 What transition rate function $\gamma$ can lead to a stationary
 distribution determined by $\phi$?  The Proposition 1 of
 \citetext{jensen2000probabilistic} gives a sufficient condition:
@@ -85,32 +86,21 @@ distribution determined by $\phi$?  The Proposition 1 of
 which is derived from the reversibility property of the stationary
 distribution.
 
-The proposition 2 and 3 give a way of specifying $\gamma$ from $\phi$.
-Assume that the log intensities can be written as
-\[
-  \log(\gamma(l, s, r)) = -g(l, s, r) + \ell(l, r),
-\]
-and that there exists a function $q(l, r)$ such that
-\[
-g(l, s, r) = g(l, s, *) - g(l, *, *) + g(s, r, *) -g(s, *, *) + q(l, r)
-\]
-Then $g$ bridges $\gamma$ and $\phi$ with
-\[
-\phi(l, s) = g(l, s, *) - g(l, *, *),
-\]
-where `*' stands for averaged function value over all values of the
-indicated operands. So we only need to specify function $g$, which has
-8 possible input configurations. Based on empirical understanding of
-epigenomes, we want $g$ (and $\gamma$) to have left-right symmetry,
-\textit{i.e.} $g(a, b, c) = g(c, b, a)$. Under this assumption, two pairs of
-configurations are equivalent, leaving 6 distinct configurations.
-
-However, we can directly verify that if we define mutation rates as follows,
+The proposition 2 gives a way of specifying $\gamma$ from $\phi$: mutation 
+densities $\gamma$ satisfy the relation (\ref{eqn:prop1}) if and only if 
+we can write 
+\begin{equation}\label{eqn:prop1}
+ \log(\gamma(l, s, r)) = -\psi(l, s, r) + \ell(l, r),
+\end{equation}
+The $\ell$ function in the original proposition is written as $\ell(s,
+t; l, r)$, which is symmetric in $(s, t)$. The states in our problem
+setting are binary, thus $\ell$ is only a function of the two
+neighboring states $(l,r)$. Moreover, we can directly verify that if
+we define mutation rates as follows,
 \begin{equation}
 \log (\gamma(l, s, r)) =  \ell(l, r) + (\phi(l, \bar{s}) +\phi(\bar{s}, r)),
 \end{equation}
-where $\ell$ is some function independent of $s$, then the rates
-satisfy the condition in Equation~\ref{eqn:prop1}. 
+then the rates satisfy the condition (\ref{eqn:prop1}). 
 
 We can organzie the mutaion rates into a $8\times8$ matrix as follows:
 \begin{equation}\label{eqn:Gamma}
@@ -188,7 +178,8 @@ $\frac{bc^2}{ad^2}$ can uniquely determine the stationary distribution
 % \end{enumerate}
 
 
-\paragraph{Simulation scheme}
+\section{Simulation scheme}
+
 We model the evolution of the entire sequence that with a continuous
 time Makov chain that allows instantaneous jump from one sequence to
 another only if they differ at one position. The jumping rate at each
@@ -253,18 +244,19 @@ that the initial methylome is $a(0)$:
   \end{enumerate}
 \end{enumerate}
 
-\paragraph{Parameter inference} When we're given the complete
-epigenome evolution path from time $0$ to time $t$, can we effectively
-recover the initial distribution and mutation parameters and
-evolutionary time? We are interested in the parameters describing the
-evolutionary process, which are the mutation rates
-$\{\lambda_{ijk}\}$. These parameters will be inferred from the state
-changes in the evolutionary path of the entire epigenome. Meanwhile,
-we do not require the process to be stationary, so we are also
-interested in the epigenome properties at time 0, which are
-characterized by the Markov chain transition probabilities
+\section{Parameter inference} 
+
+When we're given the complete epigenome evolution path from time $0$
+to time $t$, can we effectively recover the initial distribution and
+mutation parameters and evolutionary time? We are interested in the
+parameters describing the evolutionary process, which are the mutation
+rates $\{\lambda_{ijk}\}$. These parameters will be inferred from the
+state changes in the evolutionary path of the entire
+epigenome. Meanwhile, we do not require the process to be stationary,
+so we are also interested in the epigenome properties at time 0, which
+are characterized by the Markov chain transition probabilities
 $T_{0}$. These transition probabilities are easy to infer given the
-complete observations at the time-0 epigenome. 
+complete observations at the time-0 epigenome.
 
 Let $c_{ij} = \sum_{n=1}^{N-1}I\{s_n(0) =i, s_{n+1}(0)=j\}$. Then 
 \[ \hat{T}(0, 0) = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~ 
@@ -392,7 +384,9 @@ proposing a specific path $L' = \{s_0, K, \{t_k\}_{k=1}^K, t\}$ is
 \[
 q(L') = \pi_{s_0} \frac{\lambda^K \exp(-\lambda)}{K!} \frac{1}{(K-1)!}.
 \]
-This is an \textit{independence sampler}. Suppose the current guess of path at position $n$ is $L_n$, we accept the move to the proposed path $L'$ with probability
+This is an \textit{independence sampler}. Suppose the current guess of
+path at position $n$ is $L_n$, we accept the move to the proposed path
+$L'$ with probability
 \begin{equation}\label{eqn:rejection}
 \alpha(L') = \min\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\}, 
 \end{equation}
@@ -406,7 +400,7 @@ same spirit. If we use more information from the paths at neighboring
 sites, we may be able to improve the efficiency of sampling. The
 neighboring paths $L_{n-1}$ and $L_{n+1}$ fragments the evolutionary
 time interval $(0,t)$ into smaller segments, within each of which the
-states at positions $n-1$ and $n+1$ stay unchanged. 
+states at positions $n-1$ and $n+1$ stay unchanged.
 
 \begin{itemize}
 \item Collect the time intervals from site $n-1$ and site $n+1$, so
@@ -450,8 +444,10 @@ easy by only considering the evolutionary paths at positions $n-2$,
 $n-1$, $n+1$, and $n+2$. 
 
 
-\paragraph{Posterior distribution of a path given two neighboring
-paths in a tree structure with fixed leaf data} Suppose we are given a
+\section{Posterior distribution of a path given two neighboring
+paths in a tree structure with fixed leaf data} 
+
+Suppose we are given a
 tree structure representing the evolutionary relationship between
 ancestral and extant species. Let $(u,v)$, $(v,a)$ $(v, b)$ be three
 branches in the phylogenetic tree.  Suppose we are given the
@@ -462,11 +458,36 @@ state at position $n$ evolved from $u$ and diverge into states at $a$
 and $b$ through their last common ancestor $v$ is unknown. How do we
 sample from the posterior distribution of $L_n|v$, which is the path
 at position $n$ restricted to branches with one end as node $v$ and
-the other end with known states. 
+the other end with known states.
 
 \citetext{hobolth2009simulation} reviewed and compared three
 approaches to sample paths of discrete-state continuous-time Markov
-chain conditional on end-point states.  
+chain conditional on end-point states, namely the rejection sampling,
+direct sampling and uniformization. Method 1 in the previous
+section is similar to uniformization, since the neighboring sites may
+have state changes, and the rate of jumps depends on the contemporary
+states of the neighboring sites. We proposed to use an averaged rate
+to for the Poisson distribution, and let the acceptance probability to
+do most of the work of correcting the proposal distribution towards the
+posterior distribution. Method 2 is forward sampling, which is the
+basis of rejection sampling. 
+
+\textbf{Rejection sampling} Do forward sampling as described in Method
+2 for position $n$ along the branch $(u,v)$ and $(v, a)$. Reject the
+path unless the end state agree with the given state at node $a$ at
+position $n$.  Then do forward sampling along the branch $(v, b)$,
+with the accepted simulated state of node $v$. If the end state does
+not agree with the given state at node $b$ at position $n$, start over
+the sampling from the beginning, \textit{i.e.} start over from node
+$u$. Because we are not taking site $n-2$ and $n+2$ into
+consideration, we are not directly sampling from the posterior
+distribution of the paths, therefore the rejection sampling procedure
+is a way to propose viable paths, then we use the MCMC acceptance rule
+(\ref{eqn:rejection}) to reshape the proposal distribution to
+the posterior distribution. 
+
+
+
 
 \bibliographystyle{namedplus}
 \bibliography{biblio}
