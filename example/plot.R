@@ -1,20 +1,23 @@
 #!/usr/bin/env Rscript
 args = commandArgs(trailingOnly=TRUE)
-if (length(args)<2) {
-  stop("Rscript plot.R <paths.txt> <paths.pdf>.n", call.=FALSE)
-} else if (length(args)==2) {
+if (length(args)<1) {
+  stop("Rscript plot.R <prefix>.n", call.=FALSE)
+} else if (length(args)==1) {
   # default output file
-  paths <- args[1]	
-  pathplot <- args[2]
+  paths <- paste(args[1], "_path.txt", sep="")
+  pathplot <- paste(args[1], "_path.pdf", sep="")
+  hmrplot <- paste(args[1], "_hmrsizes.pdf", sep="")
 }
 
 
 dat <- read.table(paths, as.is=T)
+names(dat) <- c("node", "pos", "s0", "jumps")
 
+pdf(pathplot, width=120, height=3, pointsize=8 )
 colors <- c("cadetblue", "black")
-pdf (pathplot, width=120, height=3, pointsize=8 )
-for (node in unique(dat$V1)) {
-  x <- dat[dat$V1==node,-1]
+for (node in unique(dat$node)) {
+  x <- dat[dat[,"node"]==node,-1]
+  # assuming first site has no state change
   tot <- as.numeric(unlist(strsplit(x[1, 3], ",")))[2]
   plot(x=c(0,nrow(x)), y=c(0,tot), pch="", xlab= "Position", ylab="Time", main=paste("Node", node))
   rect(xleft=0, ybottom=0, xright=nrow(x), ytop=tot)
@@ -31,14 +34,130 @@ for (node in unique(dat$V1)) {
     }
   }
 }
-
 dev.off()
 
-#y <- read.table(freqs)
-#pdf(freqplot, width=4, height=4, pointsize=8)
-#par(mfrow=c(2,2), mar=c(5,4,1,1))
-#plot(y$V2, y$V3, xlab="Time", ylab="Freq 00")
-#plot(y$V2, y$V6, xlab="Time", ylab="Freq 11")
-#plot(y$V2, y$V4, xlab="Time", ylab="Freq 01")
-#plot(y$V2, y$V5, xlab="Time", ylab="Freq 10")
-#dev.off()
+get_states <- function(dat, node, time) {
+  subdat <- dat[which(dat$node == node), ]
+  states <- rep(0, nrow(subdat))
+  tot <- as.numeric(unlist(strsplit(subdat$jumps[1], ",")))[2]
+  for (pos in 1:nrow(subdat)) {
+    endpoints <- as.numeric(unlist(strsplit(subdat$jumps[pos], ",")))
+    jumps <- endpoints[-c(1, length(endpoints))]
+    states[pos] <- (subdat$s0[pos] + sum(jumps < time)) %%2
+  }
+  return (states)
+}
+
+hmr_sizes <- function(states) {
+  x <- numeric(0)
+  in_hmr <- F
+  y <- 0
+  for (i in 1:length(states)) {
+    if (states[i] == 0) {
+      y <- y + 1
+    } else {
+      if (y > 0) {x <- c(x, y)}
+      y <- 0
+    }
+  }
+  if (y > 0) { x <- c(x, y)}
+  return (x)
+}
+
+get_hmr_sizes <- function(dat, node, time) {
+  states <- get_states(dat, node, time)
+  sizes <- hmr_sizes(states)
+  return (sizes)
+}
+
+get_hmr_frac <- function(dat, node, time) {
+  states <- get_states(dat, node, time)
+  frac <- 1- sum(states)/length(states)
+  return (frac)
+}
+
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+library(ggplot2)
+
+pdf(hmrplot, width=7, height=4, pointsize=8)
+par(mfrow =c(1,2))
+for (node in unique(dat$node)) {
+  subdat <- dat[which(dat$node == node), ]
+  tot <- as.numeric(unlist(strsplit(subdat$jumps[1], ",")))[2]
+  time_step <- tot/10
+  time_points <- seq(time_step, tot, by=time_step)
+  size <- data.frame(time=numeric(0), hmrsize=numeric(0))
+  frac <- data.frame(time=numeric(0), hmrfrac=numeric(0))
+  for (t in time_points) {
+    hs <- get_hmr_sizes(dat, node, t)
+    size <- rbind(size, data.frame(time=rep(t, length(hs)), hmrsize=hs))
+    frac <- rbind(frac,data.frame(time=t, hmrfrac=get_hmr_frac(dat, node, t)))
+  }
+  size$time <- as.factor(size$time)
+
+  p1 <- ggplot(size, aes(x=time, y=hmrsize)) +  geom_violin() +
+       geom_boxplot(width=0.1, outlier.size=0.2) + theme_bw() +
+       ggtitle(paste("branch", node)) + ylab("HMR size") +
+       theme(panel.border = element_rect(), panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             axis.line = element_line(colour = "black"),
+             plot.title = element_text(hjust = 0.5),
+             axis.text.x = element_text(angle = 90, hjust = 0))
+  p2 <- ggplot() + geom_line(aes(y = hmrfrac, x = time),data = frac, stat="identity") +
+      ggtitle(paste("branch", node)) + ylab("HMR fraction") +theme_bw() +
+      theme(panel.border = element_rect(), panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             axis.line = element_line(colour = "black"),
+             plot.title = element_text(hjust = 0.5),
+             axis.text.x = element_text(angle = 90, hjust = 0))
+ multiplot(p1, p2, cols=2)
+
+}
+dev.off()
+
