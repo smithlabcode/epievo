@@ -4,7 +4,7 @@ CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
 OPTFLAGS = -O2
 DEBUGFLAGS = -g
-LIBS = -lgsl -lgslcblas 
+LIBS = -lgsl -lgslcblas
 
 ifdef DEBUG
 CXXFLAGS += $(DEBUGFLAGS)
