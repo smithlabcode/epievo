@@ -27,7 +27,7 @@ bool file_exist(string param_file) {
 struct model_param {
   PhyloTreePreorder t;
   size_t n_site;
-  //  double tot_time;
+  // double tot_time;
   vector<vector<double> > stationary_logfac; // 2 by 2
   vector<vector<double> > stationary_logbaseline;  // 2 by 2
   vector<vector<double> > init_logfac;
@@ -36,7 +36,7 @@ struct model_param {
 
 void read_param(const string param_file, model_param &p) {
   std::ifstream in(param_file.c_str());
-    if (!in)
+  if (!in)
     throw SMITHLABException("cannot read: " + param_file);
   string dummy_label;
   in >> dummy_label >> p.t;
@@ -61,7 +61,6 @@ void read_param(const string param_file, model_param &p) {
   assert(dummy_label == "init");
   p.init_logfac[1][0] = p.init_logfac[0][1];
 }
-
 
 void get_random_sequence(const size_t N, vector<bool>&s) {
   s.resize(N, true);
@@ -97,7 +96,7 @@ void gibbs_sample_init_state(const size_t n_site,
           logfac[seq[i-1]][s] - logfac[s][seq[i+1]]);
     if (unif(gen) < accept_prob)
       seq[i] = !seq[i];
-    }
+  }
   vector<vector<double> > stat;
   summary(seq, stat);
 }
@@ -298,7 +297,7 @@ int main(int argc, const char **argv) {
     bool VERBOSE = false;
 
     OptionParser opt_parse(strip_path(argv[0]), "simulate methylome evolution",
-                            "<params-file>");
+                           "<params-file>");
     opt_parse.add_opt("output", 'o', "name of output file for methylomes"
                       "(default: stdout)", false, outfile);
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths"
@@ -329,7 +328,7 @@ int main(int argc, const char **argv) {
       cerr << "File "<< param_file << "doesn't exist." << endl;
       cerr << opt_parse.help_message() << endl;
       return  EXIT_SUCCESS;
-      }
+    }
 
     if (VERBOSE)
       cerr << "Reading parameter from file " << param_file << endl;
@@ -347,11 +346,10 @@ int main(int argc, const char **argv) {
     covert_parameter(p.stationary_logfac, T);
 
     if (VERBOSE)
-    cerr << "Markov chain transition matrix corresponds "
-         << "to stationary distribution" << endl
-         << "[" << T[0][0] << "\t" << T[0][1] << endl
-         << " " << T[1][0] << "\t" << T[1][1] << "]"<< endl;
-
+      cerr << "Markov chain transition matrix corresponds "
+           << "to stationary distribution" << endl
+           << "[" << T[0][0] << "\t" << T[0][1] << endl
+           << " " << T[1][0] << "\t" << T[1][1] << "]"<< endl;
 
     std::ofstream outpath;
     if (!pathfile.empty()){
@@ -359,6 +357,7 @@ int main(int argc, const char **argv) {
       outpath << "## paths" << endl;
       outpath.close();
     }
+
     // initial sequence
     vector<bool> root_seq;
     get_random_sequence(p.n_site, root_seq);
