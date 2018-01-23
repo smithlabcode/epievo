@@ -1,5 +1,5 @@
 
-PROGS = evosim
+PROGS = evosim estparam
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
 OPTFLAGS = -O2
