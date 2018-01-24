@@ -11,7 +11,8 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "PhyloTreePreorder.hpp"
-#include "path.hpp"  /* related to path and vector of paths*/
+#include "path.hpp"  /* related to Path */
+#include "param.hpp" /* model_param */
 
 using std::vector;
 using std::endl;
@@ -22,44 +23,6 @@ using std::string;
 bool file_exist(string param_file) {
   std::ifstream in(param_file.c_str());
   return in.good();
-}
-
-struct model_param {
-  PhyloTreePreorder t;
-  size_t n_site;
-  // double tot_time;
-  vector<vector<double> > stationary_logfac; // 2 by 2
-  vector<vector<double> > stationary_logbaseline;  // 2 by 2
-  vector<vector<double> > init_logfac;
-};
-
-
-void read_param(const string param_file, model_param &p) {
-  std::ifstream in(param_file.c_str());
-  if (!in)
-    throw SMITHLABException("cannot read: " + param_file);
-  string dummy_label;
-  in >> dummy_label >> p.t;
-  in >> dummy_label >> p.n_site;
-  //  in >> dummy_label >> p.tot_time;
-  p.stationary_logfac =
-    vector<vector<double> >(2, vector<double>(2, 0.0));
-  p.stationary_logbaseline =
-    vector<vector<double> >(2, vector<double>(2, 0.0));
-  p.init_logfac =
-    vector<vector<double> >(2, vector<double>(2, 0.0));
-  in >> dummy_label >> p.stationary_logfac[0][0]
-     >> p.stationary_logfac[0][1] >> p.stationary_logfac[1][1];
-  assert(dummy_label == "stationary");
-  p.stationary_logfac[1][0] = p.stationary_logfac[0][1];
-  in >> dummy_label >> p.stationary_logbaseline[0][0]
-     >> p.stationary_logbaseline[0][1] >> p.stationary_logbaseline[1][1];
-  assert(dummy_label == "baseline");
-  p.stationary_logbaseline[1][0] = p.stationary_logbaseline[0][1];
-  in >> dummy_label >> p.init_logfac[0][0]
-     >> p.init_logfac[0][1] >> p.init_logfac[1][1];
-  assert(dummy_label == "init");
-  p.init_logfac[1][0] = p.init_logfac[0][1];
 }
 
 void get_random_sequence(const size_t N, vector<bool>&s) {

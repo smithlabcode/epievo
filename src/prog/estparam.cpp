@@ -12,8 +12,10 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "PhyloTreePreorder.hpp"
-#include "path.hpp"  /* related to path and vector of paths*/
+#include "path.hpp"  /* related to Path */
 #include "TwoStateSeq.hpp"
+#include "param.hpp" /* model_param */
+
 
 using std::vector;
 using std::endl;
@@ -23,11 +25,11 @@ using std::string;
 
 bool DEBUG = true;
 
-
 struct Jump {
   double t;
   size_t pos;
   size_t context;
+  vector<size_t> freq;
   Jump(double time, size_t position): t(time), pos(position) {};
 };
 
@@ -47,18 +49,46 @@ void get_jumps(const vector<Path> &paths, vector<Jump> &jumps) {
   vector<bool> seq;
   get_inital_seq(paths, seq);
   TwoStateSeq tss(seq);
-  vector<vector<size_t> > freq_before_jump;
 
-  for (size_t i =0; i < jumps.size(); ++i) {
-    vector<size_t> freq;
-    tss.count_s3(freq);
-    freq_before_jump.push_back(freq);
+  for (size_t i = 0; i < jumps.size(); ++i) {    
+    tss.count_s3(jumps[i].freq); // get context frequencies before the jump
     tss.mutate(jumps[i].pos, jumps[i].context); //get mutation context
   }
 }
 
-void est_two_state_markov_trans_prob(const vector<bool> &seq,
-                                     vector<vector<double> > & trans_prob) {
+
+void get_suff_stat(const vector<Jump> &jumps,
+                   vector<size_t> &tot_freq,
+                   vector<double> &weights) {
+  tot_freq.resize(8, 0);
+  weights.resize(8, 0);
+  double prev_jump_time = 0;
+  for (size_t i = 0; i < jumps.size(); ++i) {
+    ++tot_freq[jumps[i].context];
+    weights[jumps[i].context] +=
+      jumps[i].freq[jumps[i].context] * (jumps[i].t - prev_jump_time);
+  }
+}
+
+
+double llk(const vector<size_t> &tot_freq,
+           const vector<double> &weights,
+           const vector<double> &rates) {
+  double l = 0;
+  for (size_t i = 0; i < 8; ++i) {
+    l += tot_freq[i]*log(rates[i]) - weights[i]*rates[i];
+  }
+
+  return l;
+}
+
+
+
+
+
+
+void est_trans_prob(const vector<bool> &seq,
+                    vector<vector<double> > & trans_prob) {
   double c00(0), c01(0), c10(0), c11(0), c0(0), c1(1);
   for (size_t i = 0; i < seq.size() -1; ++i) {
     c00 += (size_t)((!seq[i]) & (!seq[i+1]));
@@ -129,7 +159,7 @@ int main(int argc, const char **argv) {
     get_inital_seq(paths[0], seq);
 
     vector<vector<double> > trans_prob;
-    est_two_state_markov_trans_prob(seq, trans_prob);
+    est_trans_prob(seq, trans_prob);
 
     if (VERBOSE) {
       cerr << "Root transition probabilities are" << endl
