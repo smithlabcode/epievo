@@ -55,17 +55,17 @@ void TwoStateSeq::count_s3(std::vector<size_t> &freq) const {
     freq[0] += std::max(0, r - l - 1);     // 000
     if (i > 0)
       freq[7] += std::max(0, (int)(l - fg_intervals[i-1].second -3));       // 111
-    freq[2] += (size_t)(i > 0 && l == fg_intervals[i-1].second + 2); // 010
+    freq[2] += (size_t)(i > 0 && l - fg_intervals[i-1].second - 2 == 0); // 010
     freq[5] += (size_t)(l == r); // 101
     freq[1] += (size_t)(l < r);  // 001
     freq[4] += (size_t)(l < r);  // 100
     // 011
-    freq[3] += (size_t)(i < fg_intervals.size() - 1 &&
-                        r + 2 < fg_intervals[i+1].first);
-    freq[3] += (size_t)(i == fg_intervals.size() - 1 && r + 2 < n_site);
+    freq[3] += (size_t)(i + 1 - fg_intervals.size() < 0 &&
+                        r + 2 - fg_intervals[i+1].first < 0);
+    freq[3] += (size_t)(i + 1 - fg_intervals.size() == 0 && r + 2 - n_site < 0);
     //110
     freq[6] += (size_t)((i == 0 && l > 1) |
-                        (i > 0 && l > fg_intervals[i-1].second + 2));
+                        (i > 0 && l - (fg_intervals[i-1].second + 2) > 0));
   }
 }
 
@@ -134,8 +134,8 @@ TwoStateSeq::TwoStateSeq(const std::vector<bool> &seq) {
   fg_intervals.clear();
   n_site = seq.size();
   bool in_domain = false;
-  size_t start;
-  size_t end;
+  size_t start = 0;
+  size_t end = 0;
   for (size_t i = 0; i < seq.size(); ++i) {
     if (!seq[i] && !in_domain) {
       start = i;
