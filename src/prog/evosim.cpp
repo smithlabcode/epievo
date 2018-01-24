@@ -102,17 +102,17 @@ void gibbs_sample_init_state(const size_t n_site,
 }
 
 
-void gibbs_sample_path(const model_param &p, vector<path>& paths) {
+void gibbs_sample_path(const model_param &p, vector<Path>& paths) {
   std::random_device rd;
   std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
   std::uniform_int_distribution<int> uni(1,  paths.size()-2);
   for (size_t n = 1; n < paths.size() - 1; ++n) {
     size_t i = uni(gen);
-    environment env;
+    Environment env;
     intersect_paths(paths[i-1], paths[i+1], env);
 
     // Propose a new path
-    path new_path = paths[i];
+    Path new_path = paths[i];
     new_path.jumps.clear();
 
     // track current state and current time
@@ -201,7 +201,7 @@ void get_expo_rate(const model_param &p, vector<double> &triplet_rate) {
 
 void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
                 vector<bool> &seq, vector<size_t> &triplet_stat,
-                vector<path> &paths, double &time) {
+                vector<Path> &paths, double &time) {
   const double rate = std::inner_product(triplet_stat.begin(), triplet_stat.end(),
                                          triplet_rate.begin(), 0);
   std::exponential_distribution<double> exp_distr(rate);
@@ -445,7 +445,7 @@ int main(int argc, const char **argv) {
       size_t n_jumps = 0;
 
       // initialize paths
-      vector<path> paths;
+      vector<Path> paths;
       initialize_paths(evolution[node_id], branches[node_id], paths);
 
       if (VERBOSE) {
