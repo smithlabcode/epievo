@@ -43,31 +43,44 @@ void TwoStateSeq::simulate() {
   }
 }
 
-
 void TwoStateSeq::count_s3(std::vector<size_t> &freq) const {
   freq.resize(8, 0);
-  // 111
-  freq[7] += std::max(0, (int)(fg_intervals[0].first - 2)) ;
-  freq[7] += std::max(0, (int)(n_site - 3 - fg_intervals.back().second));
-  for (size_t i = 0; i < fg_intervals.size(); ++i) {
-    int l = fg_intervals[i].first;
-    int r = fg_intervals[i].second;
-    freq[0] += std::max(0, r - l - 1);     // 000
-    if (i > 0)
-      freq[7] += std::max(0, (int)(l - fg_intervals[i-1].second -3));       // 111
-    freq[2] += (size_t)(i > 0 && l - fg_intervals[i-1].second - 2 == 0); // 010
-    freq[5] += (size_t)(l == r); // 101
-    freq[1] += (size_t)(l < r);  // 001
-    freq[4] += (size_t)(l < r);  // 100
-    // 011
-    freq[3] += (size_t)(i + 1 - fg_intervals.size() < 0 &&
-                        r + 2 - fg_intervals[i+1].first < 0);
-    freq[3] += (size_t)(i + 1 - fg_intervals.size() == 0 && r + 2 - n_site < 0);
-    //110
-    freq[6] += (size_t)((i == 0 && l > 1) |
-                        (i > 0 && l - (fg_intervals[i-1].second + 2) > 0));
+  if (fg_intervals.size() == 0) {
+    freq[7] = n_site - 2; 
+  } else {
+    size_t l = fg_intervals[0].first;
+    size_t r = fg_intervals[0].second;
+    size_t prev_r = 0;
+    // 111
+    if (l > 2) freq[7] += l - 2; // 111 before first interval
+    if (l > 0 && l < r) ++freq[4];  // 100
+    if (l > 1) ++freq[6]; // 110 (0 in first interval)
+    for (size_t i = 0; i < fg_intervals.size(); ++i) {
+      l = fg_intervals[i].first;
+      r = fg_intervals[i].second;
+      if (r > l + 1)
+        freq[0] += r - l - 1;     // 000
+      if (i > 0) {
+        if (l > prev_r + 3 )
+          freq[7] += l - prev_r -3; // 111 ( before this interval)
+        if (l == prev_r + 2)
+          ++ freq[2]; // 010
+        if (l > prev_r +2) {
+          ++ freq[3]; // 011 (0 in previous interval)
+          ++ freq[6]; // 110 (0 in current interval)
+        }        
+      } 
+      if (l == r) ++freq[5]; // 101
+      if (l < r) {
+        if (r < n_site - 1) ++freq[1];  // 001
+        ++freq[4];  // 100
+      }
+      prev_r = r;
+    }
+    if (r+3 < n_site) freq[7] += n_site - r - 3; // after last interval
   }
 }
+
 
 void TwoStateSeq::mutate(const size_t pos, size_t &context) {
   assert(pos > 0 and pos < n_site - 1);

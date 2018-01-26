@@ -35,7 +35,6 @@ struct Jump {
 
 bool jump_compare(Jump lhs, Jump rhs) { return lhs.t < rhs.t;}
 
-
 // full paths -> initial seq, jumps -> sorted jumps -> jump context
 
 void get_jumps(const vector<Path> &paths, vector<Jump> &jumps) {
@@ -49,13 +48,32 @@ void get_jumps(const vector<Path> &paths, vector<Jump> &jumps) {
   vector<bool> seq;
   get_inital_seq(paths, seq);
   TwoStateSeq tss(seq);
+  
+  if (DEBUG) {
+    vector<size_t> tf(8,0);
+    for (size_t i = 2; i <seq.size(); ++i)
+      ++tf[(size_t)(seq[i-2])*4 + (size_t)(seq[i-1])*2 + (size_t)(seq[i])];
 
+    cerr << "Seq-freq:";
+    for (size_t i = 0; i <tf.size(); ++i)
+      cerr << tf[i] << "\t";
+    cerr << endl;
+  }    
+  
   for (size_t i = 0; i < jumps.size(); ++i) {    
     tss.count_s3(jumps[i].freq); // get context frequencies before the jump
     tss.mutate(jumps[i].pos, jumps[i].context); //get mutation context
-  }
-}
 
+    if (i==0 && DEBUG) {
+      cerr << "Cnt-freq:";
+      for (size_t j = 0; j <8; ++j)
+        cerr << jumps[i].freq[j] << "\t";
+      cerr << endl;
+    }
+      
+  }
+  
+}
 
 void get_suff_stat(const vector<Jump> &jumps,
                    vector<size_t> &tot_freq,
@@ -67,24 +85,22 @@ void get_suff_stat(const vector<Jump> &jumps,
     ++tot_freq[jumps[i].context];
     weights[jumps[i].context] +=
       jumps[i].freq[jumps[i].context] * (jumps[i].t - prev_jump_time);
+    prev_jump_time = jumps[i].t;
   }
 }
 
 
-double llk(const vector<size_t> &tot_freq,
+double llk(const vector<Jump> &jumps,
+           const vector<size_t> &tot_freq,
            const vector<double> &weights,
            const vector<double> &rates) {
   double l = 0;
   for (size_t i = 0; i < 8; ++i) {
-    l += tot_freq[i]*log(rates[i]) - weights[i]*rates[i];
+    l += tot_freq[i]*(log(rates[i]) - log(jumps[i].freq[jumps[i].context])) - weights[i]*rates[i];
   }
 
   return l;
 }
-
-
-
-
 
 
 void est_trans_prob(const vector<bool> &seq,
@@ -108,17 +124,17 @@ void est_trans_prob(const vector<bool> &seq,
 }
 
 
-
 int main(int argc, const char **argv) {
 
   try {
 
     string outfile;
+    string param_file;
     bool VERBOSE = false;
-
 
     OptionParser opt_parse(strip_path(argv[0]), "estimate parameter from paths",
                            "<path-file>");
+    opt_parse.add_opt("param", 'p', "params file", false, param_file);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     vector<string> leftover_args;
@@ -139,7 +155,7 @@ int main(int argc, const char **argv) {
     if (leftover_args.size() < 1) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
-    }
+    }    
     const string path_file(leftover_args.back());
 
     if (VERBOSE)
@@ -147,12 +163,6 @@ int main(int argc, const char **argv) {
 
     vector<vector<Path> > paths; // along multiple branches
     read_paths(path_file, paths);
-
-    if (DEBUG) {
-    cerr << paths.size() << endl
-         << paths[0].size() << "\t positions" << endl
-         << paths[0][1].jumps.size() << "\t jumps" << endl;
-    }
 
     const size_t n_sites = paths[0].size();
     vector<bool> seq;
@@ -176,16 +186,53 @@ int main(int argc, const char **argv) {
 
     vector<Jump> jumps;
     get_jumps(paths[0], jumps);
+    
+    if (VERBOSE) {
+      cerr << "Total sites: " << paths[0].size() << endl;
+      cerr << "Total jumps: " << jumps.size() << endl;
+    }
     if (DEBUG) {
-      cerr << "[DEBUG]===" << endl
-           << "Total jumps: " << jumps.size() << endl
+      cerr << "==========" << endl
            << "First 10 jumps:" << endl;
       for (size_t i = 0; i < 10; ++i)
         cerr << "position-" << jumps[i].pos << "\ttime-" << jumps[i].t
              << "\tcontext-" << jumps[i].context << endl;
       cerr << "==========" << endl;
-     }
+    }
 
+    if (!param_file.empty()) {
+      model_param p;
+      read_param(param_file, p);
+      vector<size_t> tot_freq;
+      vector<double> weights;
+      get_suff_stat(jumps, tot_freq, weights);
+
+      if (DEBUG) {
+        for (size_t i = 0; i < 10; ++i) {
+          cerr << "J" << i << "\tT(" << jumps[i].t << ")\t";
+          for (size_t j = 0; j < 8; ++j)
+            cerr << jumps[i].freq[j] << "\t";
+          cerr << endl;
+        }
+        for (size_t i = 0; i < 10; ++i) {
+          cerr << "J" << jumps.size()-11+i << "\tT(" << jumps[i].t << ")\t";               
+          for (size_t j = 0; j < 8; ++j)
+            cerr << jumps[jumps.size()-11+i].freq[j] << "\t";
+          cerr << endl;
+        }
+      }
+
+      vector<double> rates;
+      get_rates(p, rates);
+      
+      if (DEBUG) {
+        cerr << "rates:\t";
+        for (size_t i = 0; i < rates.size(); ++i) cerr << rates[i] << "\t";        
+        cerr << endl;
+        cerr << "log-likelihood= " << llk(jumps, tot_freq, weights, rates) << endl;
+      }
+      
+    }
   }
   catch (std::bad_alloc &ba) {
     cerr << "ERROR: could not allocate memory" << endl;
