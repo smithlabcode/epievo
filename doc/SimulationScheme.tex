@@ -276,18 +276,18 @@ $\text{context}_m$ is the 3-tuple context of the mutation.
 Let $\Delta_m = t_m - t_{m-1}$ be the holding time before the $m$-th
 jump. Then $\Delta_m$ is an exponential variable 
 \[
-\Delta_m \sim \text{Exp}(\lambda_m), \text{where } \lambda_m = \sum\limits_{i,j,k}c_{ijk}(t_m - \epsilon)\lambda_{ijk},
+\Delta_m \sim \text{Exp}(\lambda_m), \text{where } \lambda_m = \sum\limits_{i,j,k}c_{ijk}^{(t_m - \epsilon)}\lambda_{ijk},
 \]
 where constant 
 $\epsilon \in (0, \min\limits_{1\le m \le M}\{\Delta_{m}\})$ so that 
-$c_{ijk}(t_m - \epsilon)$ is the sequence
+$c_{ijk}^{(t_m - \epsilon)}$ is the sequence
 context distribution between the $(m-1)$th jump and the $m$-th jump.
 
 The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
 \begin{equation}\label{eqn:lik}
 \begin{aligned}
-L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\text{context}_m}}{\lambda_m} \\
-&=\prod\limits_{m=1}^{M}\lambda_{\text{context}_m}\exp(-\lambda_m\Delta_m)
+L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\text{context}_m}}{\lambda_m} \times \frac{1}{c_{\text{context}_m}^{(t_m-\epsilon)}}\\
+&=\prod\limits_{m=1}^{M}\frac{\lambda_{\text{context}_m}}{c_{\text{context}_m}^{(t_m-\epsilon)}}\exp(-\lambda_m\Delta_m)
 \end{aligned}
 \end{equation}
 
@@ -295,8 +295,8 @@ The log-likelihood function is
 \begin{equation}\label{eqn:loglik1}
 \begin{aligned}
 l & = \sum\limits_{ijk} \big( 
-\sum_{m=1}^M{\log\lambda_{ijk}\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m } \big) \\
-& = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
+\sum_{m=1}^M{(\log\lambda_{ijk} - \log c_{ijk}^{(t_m-\epsilon)})\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}^{(t_m-\epsilon)}\lambda_{ijk}\Delta_m } \big) \\
+& = \sum\limits_{ijk} \big(J_{ijk}(\log\lambda_{ijk} - \log c_{ijk}^{(t_m-\epsilon)}) - D_{ijk}\lambda_{ijk} \big)
 \end{aligned}
 \end{equation}
 where $J_{ijk} = \sum_{m=1}^M I_{\{\text{context}_m = ijk\}}$, and $D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_m-\epsilon)\Delta_m$.
