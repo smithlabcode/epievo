@@ -21,7 +21,8 @@ struct model_param {
 void read_param(const string param_file, model_param &p) {
   std::ifstream in(param_file.c_str());
   if (!in)
-    throw SMITHLABException("cannot read: " + param_file);
+    throw std::runtime_error("Could not open file" + param_file);
+
   string dummy_label;
   in >> dummy_label >> p.t;
   in >> dummy_label >> p.n_site;
