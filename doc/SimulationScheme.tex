@@ -8,136 +8,223 @@
 
 \newcommand{\myroot}{\ensuremath{\mathrm{root}}}
 
-\title{Simulate binary-state epigenome evolution}
+\title{A model of epigenome evolution}
 
 \begin{document}
 \maketitle
 
-Assume the epigenome is a sequence of auto-correlated sequence of
-binary-state random variables. The auto-correlation reflects the
-organization of the epigenome as alternating domains bearing a certain
-modification or not. Let the epigenomic sequence be $S=s_1s_2\ldots
-s_N$. As a graphical model, neighboring sites are connected with
-undirected edges. $S$ evolves over time. Assume the stationary
-distribution for the epigenome has a Gibbs distribution that factorize
-over pairs of neighboring sites:
+\begin{abstract}
+  Epigenetic marks along the mammalian genome are organized into
+  alternating genomic domains bearing and lacking the mark. The
+  location and size of domains enriched for an epigenetic mark are
+  indicative of the presence, function and activity of regulatory
+  elements and the chromatin states. Comparative epigenomic studies
+  aim to resolve the evolutionary history of regulatory elements by
+  comparing epigenomic profiles in multiple species.  However,
+  computational methods for comparing epigenetic marks at high
+  resolution, inferring evolution rates along different phylogenetic
+  lineages and reconstructing the evolutionary history are still
+  limited.  In this study, we aim to establish a simulation, sampling
+  and inference framework for studying the evolution of the genomic
+  distribution of an epigenetic from the profiles of multiple extant
+  species.  We model the profile of an epigenetic mark in a species
+  with a two-state Markov chain, and model the evolution of an
+  epigenomic sequence with a continuous-time Markov chain, where
+  instantaneous transition rates at a site is dependent on the
+  contemporary states of its neighboring sites. We use a MCMC sampling
+  method for estimating the context-dependent transition rates and
+  inferring the evolutionary history that lead to diverse profiles in
+  extant species from a common ancestral epigenome.  We show with
+  applications to DNA methylation and histone modification profiles
+  that our methods can reveal both genome-wide evolutionary features
+  through estimates of the model parameters and high-resolution
+  evolutionary patterns in local regions through posterior sampling of
+  the evolutionary history.
+%%   The epigenome of vertebrate cells encodes regulatory complexity
+%%   equivalent to that observed in temporal and spatial patterns of
+%%   cellular phenotypes. One highly useful simplification has been to
+%%   consider the epigenome as indicating active and inactive regulatory
+%%   regions, including promoters and enhancers. For a fixed cell type
+%%   shared across species, one may ask whether the epigenomic state of
+%%   orthologous sequences has changed as species evolve.
+%% %%%% Mention previous work like phyloHMM
+%%   Although we know little about the forces shaping regulatory
+%%   evolution, it seems as though regulatory functions turns over much
+%%   more rapidly than genes, and the number of states required to model
+%%   this as a hidden Markov model would be exponential in the number of
+%%   species.
+%% %%%% Say what we present
+%%   Here we present a model of epigenomic evolution that incorporates
+%%   interdependence of neighboring states so that the stationary
+%%   distribution is a Markov process within a species. Our model
+%%   includes parameters that determine the rate of birth and death of
+%%   active regions, along with their rate of expansion and contraction.
+\end{abstract}
+
+\section{Introduction}
+
+Assume the epigenome is a sequence of auto-correlated binary-state
+random variables. The auto-correlation reflects the organization of
+the epigenome as alternating domains bearing a certain modification or
+not. Let the epigenomic sequence be $S=s_1s_2\ldots s_N$. As a
+graphical model, neighboring sites are connected with undirected
+edges. $S$ evolves over time. Assume the stationary distribution for
+the epigenome has a Gibbs distribution that factorize over pairs of
+neighboring sites:
 \begin{equation}\label{eqn:stationary}
 \Pr(S) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}
 \end{equation}
 
 The evolution of an individual site is context-dependent. The
-instantaneous mutation rate from state $s$ to the alternative
-state $\bar{s}$ is $\gamma(l, s, r)$, where $l$, $s$ and $r$
-are the states of three consecutive sites.  For a time interval $[0,t)$,
-given that the states of $l$ and $r$ are not changed, then
-the states of site $s$ follows a continouse-time Markov chain, 
-and the holding time thus follows an exponential distribution.
-An observation of the path can be summarized with
+instantaneous mutation rate from state $s$ to the alternative state
+$\bar{s}$ is $\gamma(l, s, r)$, where $l$, $s$ and $r$ are the states
+of three consecutive sites.  For a time interval $[0,t)$, given that
+the states at positions $l$ and $r$ do not change, then the state
+at site $s$ follows a continouse-time Markov process, and the holding
+time thus follows an exponential distribution. An observation of
+this path can be summarized as
 \[
   L = \big\{s(0), k, \{t_i\}_{i=1}^{k}, t \big\},
 \]
 where $s(0)$ is the state at time 0, $k$ is the total number of jumps,
-$t_i$ is the time when the $i$-th jump occurred, and $t$ is the total
+$t_i$ is the time of occurrence for the $i$-th jump, and $t$ is the total
 length of the time interval.
 
-Suppose $L_l$ and $L_r$ are given paths of two neighboring sites, then
-the union of their jumping times
+Suppose $L_l$ and $L_r$ are paths for distinct sites. The union of their jump times
 \[
-  \{0, t\} \cup \{t_{li}\}_{i=1}^{k_l} \cup \{t_{ri}\}_{i=1}^{k_r} 
-\] defines time intervals, within each of which
-the states of $l$ and $r$ stayed constant.
+  \{0, t\} \cup \{t_{li}\}_{i=1}^{k_l} \cup \{t_{ri}\}_{i=1}^{k_r}
+\]
+gives a set of time points such that when ordered, any pair
+of consecutive times in this union defines an interval during
+which the joint state at sites $l$ and $r$ remains
+constant.
 
-\section{Stationary Gibbs measure as Markov chain}
-The stationary distribution in (\ref{eqn:stationary}) is euqivalent to
+\section{The model}
+
+\subsection{Stationary Gibbs measure as Markov chain}
+
+The stationary distribution in \eqref{eqn:stationary} is equivalent to
 the distribution of a Markov chain. We can derive the relationship
-between the factors in (\ref{eqn:stationary}) and the transition
-probabilities of the Markov chain. The pair-wise potentials are
+between the factors in \eqref{eqn:stationary} and the transition
+probabilities of a Markov chain. The pair-wise potentials are
 $Q(a,b)=\exp(\phi(a, b))$, where $a, b\in\{0,1\}$ are binary
-states. The largest eigen value of $Q$ is
+states. The largest eigenvalue of $Q$ is
 \[
-q=\frac{1}{2}\{Q_{00}+Q_{11} +\sqrt{\Delta}\}, ~\text{where } \Delta=(Q_{00}-Q_{11})^2
-+ 4Q_{01}Q_{10}.
+q=\frac{1}{2}\left(Q_{00}+Q_{11} +\sqrt{\Delta}\right), \text{ where }
+\Delta=(Q_{00} - Q_{11})^2 + 4Q_{01}Q_{10}.
 \]
-Let $r$ be a right eigenvector of $Q$ corresponding to $q$, then we have
-$\frac{r_0}{r_1}=\frac{Q_{01}}{q-Q_{00}} = \frac{q-Q_{11}}{Q10}$.
-Then the Markov chain transition matrix is
+Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
 \[
-  T(a,b) = \frac{Q(a,b)r(b)}{qr(a)}, \text{ where } a,b\in \{0,1\}.
+\frac{h_0}{h_1} = \frac{Q_{01}}{q-Q_{00}} = \frac{q-Q_{11}}{Q_{10}}
 \]
-To be more specific,
+Then for states $a, b\in \{0, 1\}$, the Markov chain transition matrix
+is
+\[
+  T(a, b) = \frac{Q_{ab}h_b}{qh_{a}}.
+\]
+More specifically,
 \begin{equation} \label{eqn:gibbs2markov}
-  \begin{aligned}
-    T(1,1) &= \frac{2Q_{11}}{Q_{00}+Q_{11}+\sqrt{\Delta}}, \\
-    T(0,0) &= \frac{2Q_{00}}{Q_{00}+Q_{11}+\sqrt{\Delta}}, \\
-    T(0,1) &= \frac{4Q_{01}Q_{10}}{(Q_{00}+\sqrt{\Delta})^2 -Q_{11}^2}, \\
-    T(1,0) &= \frac{4Q_{01}Q_{10}}{(Q_{11}+\sqrt{\Delta})^2 -Q_{00}^2}.
-  \end{aligned}
+  \begin{array}{ll}
+    T(1,1) = \displaystyle\frac{2Q_{11}}{Q_{00}+Q_{11}+\sqrt{\Delta}}, &
+    T(0,0) = \displaystyle\frac{2Q_{00}}{Q_{00}+Q_{11}+\sqrt{\Delta}}, \\[2em]
+    T(0,1) = \displaystyle\frac{4Q_{01}Q_{10}}{(Q_{00}+\sqrt{\Delta})^2 -Q_{11}^2}, &
+    T(1,0) = \displaystyle\frac{4Q_{01}Q_{10}}{(Q_{11}+\sqrt{\Delta})^2 -Q_{00}^2}.
+  \end{array}
 \end{equation}
-The expected methylation level is thus $1- \frac{2Q_{01}Q_{10}}{(Q_{00}-Q_{11})^2 + 4Q_{01}Q_{10} + (Q_{11}-Q_{00})\sqrt{\Delta}}.$
+The expected fraction of an epigenome residing within
+functional domains is thus:
+\[
+1- \frac{2Q_{01}Q_{10}}{(Q_{00}-Q_{11})^2 + 4Q_{01}Q_{10} +
+  (Q_{11}-Q_{00})\sqrt{\Delta}}.
+\]
 
-\section{Relationship between mutation rates and stationary distribution}
+\subsection{Relating the substitution model and the stationary distribution}
 
-What transition rate function $\gamma$ can lead to a stationary
-distribution determined by $\phi$?  The Proposition 1 of
-\citetext{jensen2000probabilistic} gives a sufficient condition:
+\citetext{jensen2000probabilistic} gave a sufficient condition for the
+continuous time evolutionary model $\gamma$ to have a stationary
+distribution determined by $\phi$. In particular,
+%%% Prop 1 of J-P 2000
 \begin{equation}\label{eqn:prop1}
-  \frac{\gamma(l, s, r)} {\gamma(l, \bar{s}, r)} = \frac{\exp(\phi(l, \bar{s})+ \phi(\bar{s}, r))}{\exp(\phi(l, s)+ \phi(s, r))},
+  \frac{\gamma(l, s, r)}{\gamma(l, \bar{s}, r)} =
+  \frac{\exp(\phi(l, \bar{s})+ \phi(\bar{s}, r))}{\exp(\phi(l, s)+ \phi(s, r))},
 \end{equation}
-which is derived from the reversibility property of the stationary
+%%% ADS: not sure this statement below is correct
+which can be derived from the reversibility property of the stationary
 distribution.
 
-The proposition 2 gives a way of specifying $\gamma$ from $\phi$: mutation 
-densities $\gamma$ satisfy the relation (\ref{eqn:prop1}) if and only if 
-we can write 
+Proposition 2 of \citetext{jensen2000probabilistic} provides a way of
+specifying $\gamma$ from $\phi$: substitution rates $\gamma$ satisfy
+the relation \eqref{eqn:prop1} if and only if they can be written in
+the form
 \begin{equation}\label{eqn:prop1}
- \log(\gamma(l, s, r)) = -\psi(l, s, r) + \ell(l, r),
+ \log(\gamma(l, s, r)) = -\psi(l, s, r) + \ell(l, r).
 \end{equation}
-The $\ell$ function in the original proposition is written as $\ell(s,
-t; l, r)$, which is symmetric in $(s, t)$. The states in our problem
-setting are binary, thus $\ell$ is only a function of the two
-neighboring states $(l,r)$. Moreover, we can directly verify that if
-we define mutation rates as follows,
+This criteria was introduced in the context of an arbitrary number of
+states, and the $\ell$ function can be understood as $\ell(s, t; l,
+r)$, for two states $s$ and $t$, which is symmetric in $(s, t)$. In
+our setting of modeling epigenomic features, the states are binary and
+$\ell$ is only a function of the two neighboring states $(l,r)$.
+Moreover, we can directly verify that if we define substitution rates as
 \begin{equation}
 \log (\gamma(l, s, r)) =  \ell(l, r) + (\phi(l, \bar{s}) +\phi(\bar{s}, r)),
 \end{equation}
-then the rates satisfy the condition (\ref{eqn:prop1}). 
+then they satisfy the condition of \eqref{eqn:prop1}.
 
-We can organzie the mutaion rates into a $8\times8$ matrix as follows:
+\subsection{Parameterization and interpretation}
+
+To help interpret this model we can organzie the substitution rates in
+an $8\times8$ matrix:
 \begin{equation}\label{eqn:Gamma}
 \renewcommand{\kbldelim}{(}% Left delimiter
 \renewcommand{\kbrdelim}{)}% Right delimiter
   \Gamma = \kbordermatrix{
         & 000 & 010 & 001 & 011 & 100 & 110 & 101 & 111 \\
-    000 & . & a & 0 & 0 & 0 & 0 & 0 & 0 \\
-    010 & b & . & 0 & 0 & 0 & 0 & 0 & 0 \\
-    001 & 0 & 0 & . & c & 0 & 0 & 0 & 0 \\
-    011 & 0 & 0 & d & . & 0 & 0 & 0 & 0 \\
-    100 & 0 & 0 & 0 & 0 & . & c & 0 & 0 \\
-    110 & 0 & 0 & 0 & 0 & d & . & 0 & 0 \\
-    101 & 0 & 0 & 0 & 0 & 0 & 0 & . & e \\
-    111 & 0 & 0 & 0 & 0 & 0 & 0 & f & .
+    000 & \cdot & a & 0 & 0 & 0 & 0 & 0 & 0 \\
+    010 & b & \cdot & 0 & 0 & 0 & 0 & 0 & 0 \\
+    001 & 0 & 0 & \cdot & c & 0 & 0 & 0 & 0 \\
+    011 & 0 & 0 & d & \cdot & 0 & 0 & 0 & 0 \\
+    100 & 0 & 0 & 0 & 0 & \cdot & c & 0 & 0 \\
+    110 & 0 & 0 & 0 & 0 & d & \cdot & 0 & 0 \\
+    101 & 0 & 0 & 0 & 0 & 0 & 0 & \cdot & e \\
+    111 & 0 & 0 & 0 & 0 & 0 & 0 & f & \cdot
   }
 \end{equation}
+We may interpret the values in $\Gamma$ in the following way. The
+values $a$ and $b$ correspond to the ``birth'' and ``death'' of an
+epigenomic feature during evolution of the epigenome, respectively.
+The value $e$ corresponds to the merging of two features into a single
+contiguous interval ($101\rightarrow 111$). Conversely, the value $f$
+corresponds to epigenomic features ``splitting'' and becoming two
+separate intervals ($111\rightarrow 101$). The remaining values, $c$
+and $d$, correspond to existing intervals either becoming wider or
+more narrow (expanding or contracting), and both of these parameters
+appear twice because we do not distinguish beetween
+expanding/contracting to the left from the right. This left-right
+symmetry is biologically reasonable, particularly for epigenomic
+features that have no directionality. When epigenomic features are near
+particular genome annotations, like transcription start sites, one
+might argue that directionality should be considered.
 
-If a methylome sequence with mutation rates $\Gamma$ has stationary
-distribution (\ref{eqn:stationary}), then the condition in
-(\ref{eqn:prop1}) holds, which leads to the following constraints on
-the mutation rates:
+If an epigenome evolves according to substitution rates $\Gamma$ with
+stationary distribution \eqref{eqn:stationary}, then the condition in
+\eqref{eqn:prop1} holds, and we have the following constraints for the
+rates in the above matrix:
 \begin{equation}\label{eqn:constraint}
   ad^2e=bc^2f.
 \end{equation}
-Given the mutation rates $a,b,c,d$, it is sufficient to derive the relationship
-between the potentials:
+So given substitution rates $a,b,c,d$, we have the following
+relationships between horizontal potentials:
 \begin{equation}\label{eqn:rel}
-  \phi(0,0) = \phi(0,1) +\frac{1}{2}\log(\frac{b}{a}), ~\text{and~}
-  \phi(1,1) = \phi(0,1) +\frac{1}{2}\log(\frac{bc^2}{ad^2}).
+  \phi(0,0) = \phi(0,1) +\frac{1}{2}\log\left(\frac{b}{a}\right), ~\text{ and }~
+  \phi(1,1) = \phi(0,1) +\frac{1}{2}\log\left(\frac{bc^2}{ad^2}\right).
 \end{equation}
 
-In summary, the mutation rate matrix can have 5 free parameters. If we
-add a constraint on the expected number of changes per unit time, then
-there will be only 4 free parameters. The two ratios $\frac{b}{a}$ and
-$\frac{bc^2}{ad^2}$ can uniquely determine the stationary distribution
-(\ref{eqn:stationary}) through equation (\ref{eqn:rel}).
+In summary, the substitution rate matrix can have 5 free
+parameters. If we add a constraint on the expected number of changes
+per unit time, then the model will have only 4 free parameters. The
+two ratios $b/a$ and $bc^2/(ad^2)$ then uniquely
+determine the stationary distribution \eqref{eqn:stationary} through
+equation \eqref{eqn:rel}.
 
 % \section{Simulation scheme 1}
 % We are going to simulate a full history of epigenome evolution for a
@@ -169,7 +256,7 @@ $\frac{bc^2}{ad^2}$ can uniquely determine the stationary distribution
 %         \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
 %         \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
 %         \item[(3)] Update $t \leftarrow  t+x$,
-%         \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda)$. 
+%         \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda)$.
 %         \end{enumerate}
 %       \end{itemize}
 %   \end{itemize}
@@ -235,7 +322,7 @@ that the initial methylome is $a(0)$:
         out of the $c_{ijk}$ positions all with the pattern $ijk$ in $a(t)$.
       \item Set $a(t+x) \leftarrow a(t)_{1\ldots n-1} \overline{a(t)_n}
         a(t)_{n+1 \ldots N}$.
-      \item Add jump time to the path of position $n$: 
+      \item Add jump time to the path of position $n$:
         $$k_n \leftarrow k_n +1, ~~ T_n \leftarrow T_n\cup \{t+x\}.$$
       \end{itemize}
     \item[Else] $a(T) \leftarrow a(t)$.
@@ -244,7 +331,7 @@ that the initial methylome is $a(0)$:
   \end{enumerate}
 \end{enumerate}
 
-\section{Parameter inference} 
+\section{Parameter inference}
 
 When we're given the complete epigenome evolution path from time $0$
 to time $t$, can we effectively recover the initial distribution and
@@ -258,8 +345,8 @@ are characterized by the Markov chain transition probabilities
 $T_{0}$. These transition probabilities are easy to infer given the
 complete observations at the time-0 epigenome.
 
-Let $c_{ij} = \sum_{n=1}^{N-1}I\{s_n(0) =i, s_{n+1}(0)=j\}$. Then 
-\[ \hat{T}(0, 0) = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~ 
+Let $c_{ij} = \sum_{n=1}^{N-1}I\{s_n(0) =i, s_{n+1}(0)=j\}$. Then
+\[ \hat{T}(0, 0) = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~
 \hat{T}(1,1) = \frac{c_{11}}{\sum_{n=1}^{N-1}I\{s_n(0) = 1\}}.
 \]
 
@@ -274,35 +361,35 @@ $m$-th jump in the entire evolutionary history of the epigenome,
 $\text{context}_m$ is the 3-tuple context of the mutation.
 
 Let $\Delta_m = t_m - t_{m-1}$ be the holding time before the $m$-th
-jump. Then $\Delta_m$ is an exponential variable 
+jump. Then $\Delta_m$ is an exponential variable
 \[
-\Delta_m \sim \text{Exp}(\lambda_m), \text{where } \lambda_m = \sum\limits_{i,j,k}c_{ijk}^{(t_m - \epsilon)}\lambda_{ijk},
+\Delta_m \sim \text{Exp}(\lambda_m), \text{where } \lambda_m = \sum\limits_{i,j,k}c_{ijk}(t_m - \epsilon)\lambda_{ijk},
 \]
-where constant 
-$\epsilon \in (0, \min\limits_{1\le m \le M}\{\Delta_{m}\})$ so that 
-$c_{ijk}^{(t_m - \epsilon)}$ is the sequence
+where constant
+$\epsilon \in (0, \min\limits_{1\le m \le M}\{\Delta_{m}\})$ so that
+$c_{ijk}(t_m - \epsilon)$ is the sequence
 context distribution between the $(m-1)$th jump and the $m$-th jump.
 
 The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
 \begin{equation}\label{eqn:lik}
 \begin{aligned}
-L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\text{context}_m}}{\lambda_m} \times \frac{1}{c_{\text{context}_m}^{(t_m-\epsilon)}}\\
-&=\prod\limits_{m=1}^{M}\frac{\lambda_{\text{context}_m}}{c_{\text{context}_m}^{(t_m-\epsilon)}}\exp(-\lambda_m\Delta_m)
+L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\text{context}_m}}{\lambda_m} \\
+&=\prod\limits_{m=1}^{M}\lambda_{\text{context}_m}\exp(-\lambda_m\Delta_m)
 \end{aligned}
 \end{equation}
 
-The log-likelihood function is 
+The log-likelihood function is
 \begin{equation}\label{eqn:loglik1}
 \begin{aligned}
-l & = \sum\limits_{ijk} \big( 
-\sum_{m=1}^M{(\log\lambda_{ijk} - \log c_{ijk}^{(t_m-\epsilon)})\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}^{(t_m-\epsilon)}\lambda_{ijk}\Delta_m } \big) \\
-& = \sum\limits_{ijk} \big(J_{ijk}(\log\lambda_{ijk} - \log c_{ijk}^{(t_m-\epsilon)}) - D_{ijk}\lambda_{ijk} \big)
+l & = \sum\limits_{ijk} \big(
+\sum_{m=1}^M{\log\lambda_{ijk}\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m } \big) \\
+& = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
 \end{aligned}
 \end{equation}
 where $J_{ijk} = \sum_{m=1}^M I_{\{\text{context}_m = ijk\}}$, and $D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_m-\epsilon)\Delta_m$.
 
 Constraints on the mutation rates $\{\lambda_{ijk}\}$ as indicated in
-equations (\ref{eqn:Gamma},\ref{eqn:constraint}) are 
+equations (\ref{eqn:Gamma},\ref{eqn:constraint}) are
 \begin{equation}\label{eqn:constraints}
 \left\{
   \begin{array}{ll}
@@ -316,11 +403,11 @@ equations (\ref{eqn:Gamma},\ref{eqn:constraint}) are
 Then the log-likelihood function (\ref{eqn:loglik1}) becomes
 \begin{equation}\label{eqn:loglik2}
 \begin{aligned}
-l = & J_{000}\log\lambda_{000} - D_{000}\lambda_{000} + \\ 
-& J_{010}\log\lambda_{010} - D_{010}\lambda_{010} + \\ 
-& J_{101}\log\lambda_{101} - D_{101}\lambda_{101} + \\ 
+l = & J_{000}\log\lambda_{000} - D_{000}\lambda_{000} + \\
+& J_{010}\log\lambda_{010} - D_{010}\lambda_{010} + \\
+& J_{101}\log\lambda_{101} - D_{101}\lambda_{101} + \\
 & (J_{100} + J_{001})\log\lambda_{001} - (D_{100}+D_{001})\lambda_{001} +  \\
-& (J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011} +  \\ 
+& (J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011} +  \\
 & J_{111}\log(\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}) - D_{111}\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}.
 \end{aligned}
 \end{equation}
@@ -346,10 +433,10 @@ easily compute the expected abundance of triplet patterns $p_{ijk} =
 triplet pattern in an epigenomic sequence of length $N$ sampled from
 the Gibbs distribution. Then, we can compute the expected number of
 changes per position per unit time as
-$\sum_{ijk}p_{ijk}\lambda_{ijk}$. When the evolutionary time is also 
+$\sum_{ijk}p_{ijk}\lambda_{ijk}$. When the evolutionary time is also
 unknown, we add the following constraint:
 \begin{equation}\label{eqn:tidentifiable}
-\sum_{ijk}p_{ijk}\lambda_{ijk} = 1, 
+\sum_{ijk}p_{ijk}\lambda_{ijk} = 1,
 \end{equation}
 where $\{p_{ijk}\}$ as explained above are functions of
 $\{\lambda_{ijk}\}$.  We maximize the log-likelihood
@@ -370,7 +457,7 @@ distribution of path $L_{n}$ (a sequence of jumping times)?
 \Pr(L_n|L_{-n}, \{\lambda_{ijk}\}) \propto \Pr(L_n\cup L_{-n})
 \]
 We propose to use MCMC to sample from the posterior
-distribution of $L_n$. 
+distribution of $L_n$.
 
 \textbf{Method 1.} First, sample a starting state $s_0$ from a
 Bernoulli distribution with probabilities $(\pi_0, \pi_1)$.  Then,
@@ -388,9 +475,9 @@ This is an \textit{independence sampler}. Suppose the current guess of
 path at position $n$ is $L_n$, we accept the move to the proposed path
 $L'$ with probability
 \begin{equation}\label{eqn:rejection}
-\alpha(L') = \min\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\}, 
+\alpha(L') = \min\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\},
 \end{equation}
-where $\pi()$ is the complete data likelihood function (\ref{eqn:lik}). 
+where $\pi()$ is the complete data likelihood function (\ref{eqn:lik}).
 
 \textbf{Method 2.} The previous method proposes paths from an
 approximately uniform distribution. This may be a very inefficient
@@ -422,7 +509,7 @@ states at positions $n-1$ and $n+1$ stay unchanged.
     \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
     \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
     \item[(3)] Update $t \leftarrow  t+x$,
-    \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda_{ijk})$. 
+    \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda_{ijk})$.
     \end{enumerate}
   \end{itemize}
 \end{itemize}
@@ -441,11 +528,11 @@ regardless of their genomic position, because it affects
 $\{c_{ijk}(t)\}$ for any $t > \tau$. Therefore, we can't cancel out
 factors in the likelihood function. However, we may try to make things
 easy by only considering the evolutionary paths at positions $n-2$,
-$n-1$, $n+1$, and $n+2$. 
+$n-1$, $n+1$, and $n+2$.
 
 
 \section{Posterior distribution of a path given two neighboring
-paths in a tree structure with fixed leaf data} 
+paths in a tree structure with fixed leaf data}
 
 Suppose we are given a
 tree structure representing the evolutionary relationship between
@@ -470,7 +557,7 @@ states of the neighboring sites. We proposed to use an averaged rate
 to for the Poisson distribution, and let the acceptance probability to
 do most of the work of correcting the proposal distribution towards the
 posterior distribution. Method 2 is forward sampling, which is the
-basis of rejection sampling. 
+basis of rejection sampling.
 
 \textbf{Rejection sampling} Do forward sampling as described in Method
 2 for position $n$ along the branch $(u,v)$ and $(v, a)$. Reject the
@@ -484,7 +571,7 @@ consideration, we are not directly sampling from the posterior
 distribution of the paths, therefore the rejection sampling procedure
 is a way to propose viable paths, then we use the MCMC acceptance rule
 (\ref{eqn:rejection}) to reshape the proposal distribution to
-the posterior distribution. 
+the posterior distribution.
 
 A couple of performance statistics should be measured for this
 proposed sampling method. These include (1) the success rate for
