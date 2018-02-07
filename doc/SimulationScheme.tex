@@ -1,6 +1,7 @@
 \documentclass[11pt]{article}
 
 \usepackage{fullpage,times,namedplus,pgf}
+\usepackage{enumitem}
 \usepackage{amsmath,amssymb}
 \usepackage{kbordermatrix}% http://www.hss.caltech.edu/~kcb/TeX/kbordermatrix.sty
 \DeclareMathOperator*{\argmax}{arg\,max}
@@ -8,9 +9,23 @@
 
 \newcommand{\myroot}{\ensuremath{\mathrm{root}}}
 
+\newcommand{\context}{\ensuremath{\mathrm{con}}}
+\newcommand{\psn}{\ensuremath{\mathrm{pos}}}
+
+
 \title{A model of epigenome evolution}
+\author{Jianghan Qu \and Andrew D. Smith}
+
+%%% ADS Notes:
+%%
+%%% (1) We need to define operationally an epigenome as a binary
+%%% sequence, and in the introduction we need to explain this.
+%%
+%%% (2) We need to make sure that we use the terms ``position'' and
+%%% ``site'' consistently.
 
 \begin{document}
+
 \maketitle
 
 \begin{abstract}
@@ -63,11 +78,38 @@
 
 \section{Introduction}
 
+The epigenome of a mammalian cell reflects much of the complexity we
+associate with cell phenotype and behaviors \cite{}. Individual
+epigenomic marks, for example a histone modification, may be viewed
+from a simpler perspective as contiguous genomic intervals where the
+presence or absense of that mark is associated with genomic
+function. Intervals of the genome that have a high density of H3K9me3
+are often associated with condensed chromatin state and silencing of
+genes within those intervals\cite{}. Genomic intervals with high
+density of H3K4me3, on the other hand, are associated with
+accessibility by transcription factors and are associated with gene
+promoters\cite{}. So despite the complexity often ascribed to the
+mammalian epigenome\cite{}, studies focusing on individual epigenomic
+modifications have been highly successful in elucidating
+transcriptional regulation in a variety of systems\cite{}.
+
+%%% Need to cite work that has boiled down the complexity of
+%%% epigenomes to simpler ``functional'' states, like ``open''
+%%% ``poised, silenced, ``actively transcribed'', etc.
+
+\section{The model}
+
+\subsection{The epigenome as a contiguous sequence of states}
+
+%%% Need to cover the issues here of what it means for a methylome,
+%%% what it means for ATAC, what it means for histone mods.
+
 Assume the epigenome is a sequence of auto-correlated binary-state
 random variables. The auto-correlation reflects the organization of
 the epigenome as alternating domains bearing a certain modification or
-not. Let the epigenomic sequence be $S=s_1s_2\ldots s_N$. As a
-graphical model, neighboring sites are connected with undirected
+not. Let the epigenomic sequence be $S=s_1s_2\ldots s_N$.
+%%%
+As a graphical model, neighboring sites are connected with undirected
 edges. $S$ evolves over time. Assume the stationary distribution for
 the epigenome has a Gibbs distribution that factorize over pairs of
 neighboring sites:
@@ -98,8 +140,6 @@ gives a set of time points such that when ordered, any pair
 of consecutive times in this union defines an interval during
 which the joint state at sites $l$ and $r$ remains
 constant.
-
-\section{The model}
 
 \subsection{Stationary Gibbs measure as Markov chain}
 
@@ -264,230 +304,252 @@ equation \eqref{eqn:rel}.
 %   a stable distribution.
 % \end{enumerate}
 
-
 \section{Simulation scheme}
 
-We model the evolution of the entire sequence that with a continuous
-time Makov chain that allows instantaneous jump from one sequence to
-another only if they differ at one position. The jumping rate at each
-position is dependent on its state and the states of its neighboring
-sites. We assume that the states of the first and last sites are
-fixed throughout evolution.
+%%% ADS: do we need something in here to mention that we verified that
+%%% simulation does work?
 
-Consider the $2^N \times 2^N$ transition rate matrix $M$, for any
-methylome $a$ and methylome $b$ that have a single difference at a
-position where $a$ has state $j$ and $b$ has state $\bar{j}$, and the
-neighboring positions have states $i$ and $k$ in both methylomes, the
-rate of such a jump is $\lambda_{ijk} = \gamma(i, j, k) = \Gamma_{ijk,
-i\bar{j}k}$.
+We model the evolution of the entire epigenome (as a sequence of
+states) using a continuous time Markov process that only allows
+instantaneous transitions from one sequence to another if the two
+differ at a single position. The jumping rate at each position in the
+epigenome is dependent on the state at that position and on the states
+of the left and right neighboring positions. We assume for convenience
+that the states of the first and last sites are fixed throughout
+evolution.
 
-Given the current methylome $a$, the holding time
+Consider the $2^N \times 2^N$ transition rate matrix $M$ for any pair
+of epigenomes $x$ and $y$ that differ at exactly one position. The
+state at that position is $j$ in epigenome $x$ and $\bar{j}$ in
+epigenome $y$. Neighboring positions in both $x$ and $y$ have states
+$i$ and $k$. The instantaneous rate of a jump between $x$ and $y$
+is
 \[
-  X_a\sim Exp(-M_{aa})
+\lambda_{ijk} = \gamma(i, j, k) = \Gamma(ijk, i\bar{j}k).
 \]
-is an exponential variable. Its rate parameter $-M_{aa}$ is the
-sum of all instantaneous rates for jumps from $a$ to a methylome that
-only differs with $a$ at one position:
+If the current epigenome is denoted $x$ then the holding time
+is an exponential variable:
 \[
-  -M_{aa} =  \sum\limits_{i,j,k}c_{ijk}(a)\lambda_{ijk},
+  X_x\sim \mathit{Exp}(-M_{xx}).
 \]
-where $c_{ijk}(a) = \sum_{n=1}^{N-2}I(a_{n}=i, a_{n+1}=j, a_{n+2}=k)$
-is the total number of the tripplet pattern $ijk$ in methylome $a$.
+The rate parameter $-M_{xx}$ is the sum of instantaneous rates for
+jumps from $x$ to any other epigenome that only differs from $x$ at
+one position:
+\[
+  -M_{xx} =  \sum\limits_{i,j,k}c_{ijk}(x)\lambda_{ijk},
+\]
+where $c_{ijk}(x) = \sum_{n=1}^{N-2}I(x_{n}=i, x_{n+1}=j, x_{n+2}=k)$
+is the total number of times the pattern $ijk$ appears as consecutive
+triplets of positions in $x$.
 
-Given that the first jump happened, the probability that the jump
-occurred in the context of $ijk$ is proportional to
-$c_{ijk}(a)\lambda_{ijk}$. Given that a jump happend in context $ijk$,
-the jump is equally likely among positions with this context.
+Given that a jump has occurred, the probability that the jump changed
+$x$ at the middle position of a triple $ijk$ is proportional to
+$c_{ijk}(x)\lambda_{ijk}$. Further, given that a jump happend with
+context $ijk$, we assume the jump is equally likely to have changed
+any position in $x$ having state $j$ with left and right neighbors
+having states $i$ and $k$.
 %%
-The expected number of changes per site per unit time is
-$\sum\limits_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
-stationary probability of pattern $ijk$ in the methylome.
+The expected number of changes per site, per unit time, is
+$\sum_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
+stationary distribution for the pattern $ijk$ in the epigenome.
 
-In summary, we have the following simulation procedure for the evolution
-process for a methylome with $N$ sites over time interval $[0, T]$, given
-that the initial methylome is $a(0)$:
+These assumptions give us the following simulation procedure for the
+evolutionary process for an epigenomic sequence $N$ sites over a time
+interval $[0, T]$, starting from an initial sequence $x(0)$:
 \begin{enumerate}
-\item Let $t \leftarrow 0$, and initialize all paths $L_n = \{a_n(0),
+\item Let $t \leftarrow 0$, and initialize all paths $L_n = \{x_n(0),
   k_n=0, T_n=\emptyset, t\}$, for $n=1,\ldots, N.$
 \item While $t < T$:
   \begin{enumerate}
-  \item Generate $x\sim \text{Exp}(-M_{a(t)a(t)})$, where
-    $-M_{a(t)a(t)} = \sum\limits_{i,j,k}c_{ijk}(a(t))\lambda_{ijk}$.
+  \item Generate $y\sim \text{Exp}(-M_{x(t)x(t)})$, where
+    $-M_{x(t)x(t)} = \sum_{i,j,k}c_{ijk}(x(t))\lambda_{ijk}$.
     \begin{itemize}
-    \item[If] $t+x < T$:
+    \item[If] $t+x < T$ then:
       \begin{itemize}
-      \item Choose pattern $ijk$ from $\{ijk: i,j,k\in\{0,1\}\}$ with
-        probability proportional to $c_{ijk}(a(t))\lambda_{ijk}$.
-      \item Scan methylome $a(t)$, uniformaly choose one position $n$
-        out of the $c_{ijk}$ positions all with the pattern $ijk$ in $a(t)$.
-      \item Set $a(t+x) \leftarrow a(t)_{1\ldots n-1} \overline{a(t)_n}
-        a(t)_{n+1 \ldots N}$.
+      \item Choose triple $ijk \in \{0,1\}^3$ with
+        probability proportional to $c_{ijk}(x(t))\lambda_{ijk}$.
+      \item Uniformly sample a position $n$ among the $c_{ijk}(x(t))$ positions having pattern $ijk$.
+      \item $x(t+y) \leftarrow x(t)[1..n-1]\overline{x(t)_n}x(t)[n+1..N]$.
       \item Add jump time to the path of position $n$:
-        $$k_n \leftarrow k_n +1, ~~ T_n \leftarrow T_n\cup \{t+x\}.$$
+        \[
+        k_n \leftarrow k_n + 1; ~ T_n \leftarrow T_n\cup \{t+x\}.
+        \]
       \end{itemize}
-    \item[Else] $a(T) \leftarrow a(t)$.
+    \item[Else:] $x(T) \leftarrow x(t)$.
     \end{itemize}
-  \item $t \leftarrow t+x$
+  \item $t \leftarrow t+y$
   \end{enumerate}
 \end{enumerate}
 
 \section{Parameter inference}
 
-When we're given the complete epigenome evolution path from time $0$
-to time $t$, can we effectively recover the initial distribution and
+If we are given the complete epigenome evolution path from time $0$ to
+time $t$, can we effectively recover the initial distribution and
 mutation parameters and evolutionary time? We are interested in the
-parameters describing the evolutionary process, which are the mutation
-rates $\{\lambda_{ijk}\}$. These parameters will be inferred from the
-state changes in the evolutionary path of the entire
-epigenome. Meanwhile, we do not require the process to be stationary,
-so we are also interested in the epigenome properties at time 0, which
-are characterized by the Markov chain transition probabilities
-$T_{0}$. These transition probabilities are easy to infer given the
-complete observations at the time-0 epigenome.
+parameters describing the evolutionary process, which are the
+transition rates $\{\lambda_{ijk}\}$. These parameters will be
+inferred from the state changes in the evolutionary path for the
+entire epigenome. Meanwhile, we do not require the process to be
+stationary, so we may also interested in the properties of the
+epigenome at time 0, which are characterized by the Markov chain
+transition probabilities $T_{0}$. These transition probabilities are
+easy to infer given the complete observations at the time-0 epigenome.
 
 Let $c_{ij} = \sum_{n=1}^{N-1}I\{s_n(0) =i, s_{n+1}(0)=j\}$. Then
-\[ \hat{T}(0, 0) = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~
+\[
+\hat{T}(0, 0) = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~
 \hat{T}(1,1) = \frac{c_{11}}{\sum_{n=1}^{N-1}I\{s_n(0) = 1\}}.
 \]
 
-Let's first assume that the time span of this complete evolutionary
-history is known, \textit{i.e.} the value of $t$ is give.
+We first assume that the time span of this complete evolutionary
+history is known, \textit{i.e.} the value of $t$ is given.
 
 Recall that $L_n = \{s_n(0), K, \{t_k\}_{k=1}^K, t\}$ is a full path
 at position $n$ in the epigenome. We can pool all the jumping times at
-all positions in to a sorted sequence $J = \{(t_m, \text{pos}_m,
-\text{context}_m) \}_{m=1}^{M}$, where $\text{pos}_m$ is the position of the
+all positions as an ordered sequence of timepoints $J = \{(t_m, \psn{}_m,
+\context{}_m\}_{m=1}^{M}$, where $\psn{}_m$ is the position of the
 $m$-th jump in the entire evolutionary history of the epigenome,
-$\text{context}_m$ is the 3-tuple context of the mutation.
+$\context{}_m$ is the 3-tuple context of the change that
+occurred at the $m$-th jump.
 
-Let $\Delta_m = t_m - t_{m-1}$ be the holding time before the $m$-th
-jump. Then $\Delta_m$ is an exponential variable
+Let $\Delta_m = t_m - t_{m-1}$ be the holding time just prior to the
+$m$-th jump. Then $\Delta_m$ is an exponential variable
 \[
-\Delta_m \sim \text{Exp}(\lambda_m), \text{where } \lambda_m = \sum\limits_{i,j,k}c_{ijk}(t_m - \epsilon)\lambda_{ijk},
+\Delta_m \sim \mathit{Exp}(\lambda_m), ~\text{ with }~
+\lambda_m = \sum_{i,j,k}c_{ijk}(t_m - \epsilon)\lambda_{ijk}.
 \]
-where constant
-$\epsilon \in (0, \min\limits_{1\le m \le M}\{\Delta_{m}\})$ so that
-$c_{ijk}(t_m - \epsilon)$ is the sequence
-context distribution between the $(m-1)$th jump and the $m$-th jump.
+The constant $\epsilon \in (0, \textstyle\min_m \Delta_{m})$ is
+defined so that $c_{ijk}(t_m - \epsilon)$ is the sequence context
+distribution between the $(m-1)$th jump and the $m$-th jump.
+
+\subsection{Likelihood expressions}
 
 The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
 \begin{equation}\label{eqn:lik}
-\begin{aligned}
-L &= \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\text{context}_m}}{\lambda_m} \\
-&=\prod\limits_{m=1}^{M}\lambda_{\text{context}_m}\exp(-\lambda_m\Delta_m)
-\end{aligned}
+L = \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\context{}_m}}{\lambda_m}
+=\prod\limits_{m=1}^{M}\lambda_{\context{}_m}\exp(-\lambda_m\Delta_m).
 \end{equation}
-
-The log-likelihood function is
+%%
+And the log-likelihood function is
 \begin{equation}\label{eqn:loglik1}
 \begin{aligned}
-l & = \sum\limits_{ijk} \big(
-\sum_{m=1}^M{\log\lambda_{ijk}\times I_{\{ \text{context}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m } \big) \\
+l & = \sum_{i,j,k} \left(~
+\sum_{m=1}^M\log\lambda_{ijk}\times I_{\{\context{}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m\right) \\
 & = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
 \end{aligned}
 \end{equation}
-where $J_{ijk} = \sum_{m=1}^M I_{\{\text{context}_m = ijk\}}$, and $D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_m-\epsilon)\Delta_m$.
+where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and $D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_m-\epsilon)\Delta_m$.
 
-Constraints on the mutation rates $\{\lambda_{ijk}\}$ as indicated in
-equations (\ref{eqn:Gamma},\ref{eqn:constraint}) are
+The constraints on the transition rates $\lambda_{ijk}$ as indicated in
+the matrix \eqref{eqn:Gamma} and equation \eqref{eqn:constraint} are:
 \begin{equation}\label{eqn:constraints}
-\left\{
-  \begin{array}{ll}
+  %% \left\{
+  \begin{array}{c}
     \lambda_{001} = \lambda_{100}\\
     \lambda_{011} = \lambda_{110}\\
     \lambda_{000}\lambda_{110}^2\lambda_{101} = \lambda_{010}\lambda_{100}^2\lambda_{111}
   \end{array}
-\right.
+%% \right.
 \end{equation}
-
-Then the log-likelihood function (\ref{eqn:loglik1}) becomes
+So the log-likelihood function \eqref{eqn:loglik1} becomes
 \begin{equation}\label{eqn:loglik2}
 \begin{aligned}
-l = & J_{000}\log\lambda_{000} - D_{000}\lambda_{000} + \\
-& J_{010}\log\lambda_{010} - D_{010}\lambda_{010} + \\
-& J_{101}\log\lambda_{101} - D_{101}\lambda_{101} + \\
-& (J_{100} + J_{001})\log\lambda_{001} - (D_{100}+D_{001})\lambda_{001} +  \\
-& (J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011} +  \\
-& J_{111}\log(\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}) - D_{111}\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}.
+l = ~ & J_{000}\log\lambda_{000} - D_{000}\lambda_{000} ~ + \\
+    & J_{010}\log\lambda_{010} - D_{010}\lambda_{010} ~ + \\
+    & J_{101}\log\lambda_{101} - D_{101}\lambda_{101} ~ + \\
+    & (J_{100} + J_{001})\log\lambda_{001} - (D_{100}+D_{001})\lambda_{001} +  \\
+    & (J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011} +  \\
+    & J_{111}\log\left(\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}\right) - D_{111}\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}.
 \end{aligned}
 \end{equation}
 
-When the time span of this complete evolutionary history is unknown,
-the value of $t$ is also a model parameter to be estimated. We assume
-that all the jumping times are expressed as a fraction of $t$. Then
-the problem of estimating the mutation rates and evolutionary time
-becomes identifiable. We need an extra constraint -- the unit branch
-length corresponds to 1 expected mutation per site. This is a common
-constraint in phylogenetic studies.
+\subsection{Estimates when evolutionary time is a parameter}
+
+%%% ADS: I feel this is stated backwards. The paramters are not
+%%% identifiable until we make the assumption about unit branch
+%%% lengths.
+When the total time span of this complete evolutionary history is
+unknown, the value of $t$ is also a model parameter to be
+estimated. If we assume that all the jump times are expressed as a
+fraction of $t$, then the transition rates and the evolutionary time
+are jointly identifiable and can be estimated. We require an
+additional constraint: the unit branch length corresponds to 1
+expected mutation per site. This is a common constraint in
+phylogenetic studies.
 
 Here we explain how to formulate this constraint on the
-$\{\lambda_{ijk}\}$ parameters. Given $\{\lambda_{ijk}\}$, according
-to (\ref{eqn:rel}) $\frac{\lambda_{010}}{\lambda_{000}}$ and
-$\frac{\lambda_{001}}{\lambda_{011}}$ can uniquely determine the
-stationary distribution of the epigenome that is described with a
-Gibbs measure of form (\ref{eqn:stationary}).  The Gibbs measure for
-the epigenomic sequence, in turn, is equivalent to a Markov chain
-(\ref{eqn:gibbs2markov}). Given the Markov chain formulation, we can
-easily compute the expected abundance of triplet patterns $p_{ijk} =
-\frac{1}{N}\E(c_{ijk})$, where $c_{ijk}$ is the frequency of the
-triplet pattern in an epigenomic sequence of length $N$ sampled from
-the Gibbs distribution. Then, we can compute the expected number of
-changes per position per unit time as
-$\sum_{ijk}p_{ijk}\lambda_{ijk}$. When the evolutionary time is also
-unknown, we add the following constraint:
+$\lambda_{ijk}$ transition parameters. Given $\lambda_{ijk}$ according
+to \eqref{eqn:rel}, the ratios $\frac{\lambda_{010}}{\lambda_{000}}$
+and $\frac{\lambda_{001}}{\lambda_{011}}$ uniquely determine the
+stationary distribution for the epigenome described by a Gibbs measure
+of the form \eqref{eqn:stationary}. The Gibbs measure for the
+epigenome sequence, in turn, is equivalent to the Markov chain
+\eqref{eqn:gibbs2markov}. Given the Markov chain formulation, we can
+compute the expected frequency of triplet patterns
+\[
+p_{ijk} = \frac{1}{N}\E(c_{ijk}),
+\]
+where $c_{ijk}$ is the frequency of the triplet pattern in an
+epigenomic sequence of length $N$ sampled from the Gibbs
+distribution. Then the expected number of changes per position per
+unit time is $\sum_{ijk}p_{ijk}\lambda_{ijk}$. When the evolutionary
+time is also unknown, we add the constraint:
+%%
 \begin{equation}\label{eqn:tidentifiable}
 \sum_{ijk}p_{ijk}\lambda_{ijk} = 1,
 \end{equation}
+%%
 where $\{p_{ijk}\}$ as explained above are functions of
-$\{\lambda_{ijk}\}$.  We maximize the log-likelihood
-(\ref{eqn:loglik1}) over $\{\lambda_{ijk}\}\cup\{t\}$ under the
-constraints (\ref{eqn:constraints}) and (\ref{eqn:tidentifiable}),
-where the unknown parameter $t$ is buried within $\{D_{ijk}\}$ in
-(\ref{eqn:loglik1}).
+$\{\lambda_{ijk}\}$. Estimation maximizes the log-likelihood
+\eqref{eqn:loglik1} over $\{\lambda_{ijk}\}\cup\{t\}$ under the
+constraints \eqref{eqn:constraints} and \eqref{eqn:tidentifiable},
+where the unknown parameter $t$ is included within $\{D_{ijk}\}$ in
+\eqref{eqn:loglik1}.
 
+\subsection{Posterior distribution of a path given two neighboring paths}
 
-\paragraph{Posterior distribution of a path given two neighboring paths} We
-assume that the model parameters $\{\lambda_{ijk}\}$ and total
+We assume that the model parameters $\{\lambda_{ijk}\}$ and total
 evolutionary time $t$ are known, the starting state of the epigenome
-are known except for position $n$, and that the jumping times $J =
-\{(t_m, \text{pos}_m, \text{context}_m) \}_{m=1}^{M}$ are known for
-all positions except position $n$. How can we estimate the posterior
-distribution of path $L_{n}$ (a sequence of jumping times)?
+is known except for position $n$, and the jumping times $J = \{(t_m,
+\psn{}_m, \context{}_m) \}_{m=1}^{M}$ are known for all positions
+except position $n$. We seek to estimate the posterior distribution of
+the path $L_n$, which is a sequence of jump times:
 \[
-\Pr(L_n|L_{-n}, \{\lambda_{ijk}\}) \propto \Pr(L_n\cup L_{-n})
+\Pr(L_n|L_{-n}, \{\lambda_{ijk}\}) \propto \Pr(L_n\cup L_{-n}),
 \]
-We propose to use MCMC to sample from the posterior
+where $L_{-n}$ denotes all paths for sites other than $n$.  The
+approach we adopt is using MCMC to sample from the posterior
 distribution of $L_n$.
 
-\textbf{Method 1.} First, sample a starting state $s_0$ from a
-Bernoulli distribution with probabilities $(\pi_0, \pi_1)$.  Then,
+\paragraph{Method 1:} First, sample a starting state $s_0$ from a
+Bernoulli distribution with probabilities $(\pi_0, \pi_1)$. Then,
 propose a number $K$ of jumps from a Poisson distribution with rate
-parameter $\lambda = \frac{1}{8}\sum\lambda_{ijk}$, which is chosen to
+parameter $\lambda = \sum\lambda_{ijk}/8$, which is chosen to
 approximate average mutation rate among different contexts. Given $K$,
-sample jumping times uniformly on the time interval $(0, t)$,
-\textit{i.e.}  from the Dirichlet distribution with concentration
-parameters all equal to 1. Therefore, the probability (density) of
-proposing a specific path $L' = \{s_0, K, \{t_k\}_{k=1}^K, t\}$ is
+sample jump times uniformly on the time interval $(0, t)$; In other
+words, from the Dirichlet distribution with concentration parameters
+all equal to 1. Therefore, the probability (density) of proposing a
+specific path $L' = \{s_0, K, \{t_k\}_{k=1}^K, t\}$ is
 \[
 q(L') = \pi_{s_0} \frac{\lambda^K \exp(-\lambda)}{K!} \frac{1}{(K-1)!}.
 \]
-This is an \textit{independence sampler}. Suppose the current guess of
-path at position $n$ is $L_n$, we accept the move to the proposed path
-$L'$ with probability
+This is known as an \textit{independence sampler}\cite{}. If the
+current path at position $n$ is $L_n$, then we accept the proposed
+path $L'$ with probability
 \begin{equation}\label{eqn:rejection}
-\alpha(L') = \min\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\},
+\alpha(L') = \min\left\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\right\},
 \end{equation}
-where $\pi()$ is the complete data likelihood function (\ref{eqn:lik}).
+where $\pi$ is the complete data likelihood function \eqref{eqn:lik}.
 
-\textbf{Method 2.} The previous method proposes paths from an
-approximately uniform distribution. This may be a very inefficient
-(high rejection rate) sampling process, although
+\paragraph{Method 2:} The method outlined above uses a proposal
+distribution that is approximately uniform. This can be highly
+inefficient, {\it i.e.} lead to a low rate of acceptance, although
 \citetext{jensen2000probabilistic} used a sampling procedure in the
 same spirit. If we use more information from the paths at neighboring
-sites, we may be able to improve the efficiency of sampling. The
-neighboring paths $L_{n-1}$ and $L_{n+1}$ fragments the evolutionary
-time interval $(0,t)$ into smaller segments, within each of which the
-states at positions $n-1$ and $n+1$ stay unchanged.
+sites, we may be able to improve sampling efficiency. The neighboring
+paths $L_{n-1}$ and $L_{n+1}$ partition the evolutionary time interval
+$(0,t)$ into time segments during which the states at positions $n-1$
+and $n+1$ do not change.
 
 \begin{itemize}
 \item Collect the time intervals from site $n-1$ and site $n+1$, so
@@ -505,11 +567,11 @@ states at positions $n-1$ and $n+1$ stay unchanged.
     interval, and $j$ is the starting state of position $n$.
   \item Let $t = t_{m-1}$, and a sample value of $X=x$.
   \item While $t +x < t_m$:
-    \begin{enumerate}
-    \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
-    \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
-    \item[(3)] Update $t \leftarrow  t+x$,
-    \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda_{ijk})$.
+    \begin{enumerate}[label={(\arabic*)}]
+    \item Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
+    \item Update $T_n \leftarrow T_n\cup\{t+x\}$.
+    \item Update $t \leftarrow  t+x$,
+    \item Sample another value of $X=x$ from $\text{Exp}(\lambda_{ijk})$.
     \end{enumerate}
   \end{itemize}
 \end{itemize}
@@ -522,30 +584,27 @@ an \textit{independence sampler}. The rejection rule stays the same,
 as in (\ref{eqn:rejection}).
 
 
-\textbf{Additional note:} A jump at time $\tau$ in the path $L_{n}$
-will affect the probability of all jumps that occur after time $\tau$
-regardless of their genomic position, because it affects
-$\{c_{ijk}(t)\}$ for any $t > \tau$. Therefore, we can't cancel out
-factors in the likelihood function. However, we may try to make things
-easy by only considering the evolutionary paths at positions $n-2$,
-$n-1$, $n+1$, and $n+2$.
+\paragraph{Note:} A jump at time $\tau$ within the path $L_{n}$
+will affect the probability of all jumps that occur after time $\tau$,
+regardless of their position within the epigenome. The is because such
+a jump affects $\{c_{ijk}(t)\}$ for any $t > \tau$. Therefore, we
+cannot cancel out factors in the likelihood function. However, we may
+try to make things easy by only considering the evolutionary paths at
+positions $n-2$, $n-1$, $n+1$, and $n+2$.
 
+\section{Inferences in the context of a tree structure with fixed leaf data}
 
-\section{Posterior distribution of a path given two neighboring
-paths in a tree structure with fixed leaf data}
-
-Suppose we are given a
-tree structure representing the evolutionary relationship between
-ancestral and extant species. Let $(u,v)$, $(v,a)$ $(v, b)$ be three
-branches in the phylogenetic tree.  Suppose we are given the
-evolutionary paths on the entire tree for all positions, except for
-the paths along these 3 branches at position $n$. In other words, the
-states at position $n$ of species $u$, $a$, $b$ are known, but how the
-state at position $n$ evolved from $u$ and diverge into states at $a$
-and $b$ through their last common ancestor $v$ is unknown. How do we
-sample from the posterior distribution of $L_n|v$, which is the path
-at position $n$ restricted to branches with one end as node $v$ and
-the other end with known states.
+Suppose we are given a tree structure representing the evolutionary
+relationship between ancestral and extant species. Let $(u,v)$,
+$(v,a)$ $(v, b)$ be three branches in the phylogenetic tree.  Suppose
+we are given the evolutionary paths on the entire tree for all
+positions, except for the paths along these 3 branches at position
+$n$. In other words, the states at position $n$ of species $u$, $a$,
+$b$ are known, but how the state at position $n$ evolved from $u$ and
+diverge into states at $a$ and $b$ through their last common ancestor
+$v$ is unknown. How do we sample from the posterior distribution of
+$L_n|v$, which is the path at position $n$ restricted to branches with
+one end as node $v$ and the other end with known states.
 
 \citetext{hobolth2009simulation} reviewed and compared three
 approaches to sample paths of discrete-state continuous-time Markov
@@ -577,6 +636,8 @@ A couple of performance statistics should be measured for this
 proposed sampling method. These include (1) the success rate for
 generating valid paths that satisfy the end conditions; (2) the
 acceptance rate of proposed valid paths in MCMC sampling.
+
+\section{Discussion}
 
 
 
