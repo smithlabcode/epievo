@@ -13,6 +13,8 @@
 #include "PhyloTreePreorder.hpp"
 #include "path.hpp"  /* related to Path */
 #include "param.hpp" /* model_param */
+#include "TripletPattern.hpp" 
+
 
 using std::vector;
 using std::endl;
@@ -228,6 +230,44 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
 }
 
 
+// use new data structure PatSeq
+void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
+                PatSeq &patseq, vector<Path> &paths, double &time) {
+  const size_t p_size = 8;
+  vector<size_t> triplet_stat(p_size,0);
+  for (size_t i = 0; i < p_size; ++i)
+    triplet_stat[i] = patseq.get_context_freq(i);
+
+  /* sample time of first jump */
+  const double rate = std::inner_product(triplet_stat.begin(), triplet_stat.end(),
+                                         triplet_rate.begin(), 0);
+  std::exponential_distribution<double> exp_distr(rate);
+  const double holding_time = exp_distr(gen);
+
+  if (time + holding_time < paths[0].tot_time) {
+    /* sample which state context to jump from */
+    vector<double> context_prob(triplet_stat.size(), 0.0);
+    for (size_t i = 0; i < p_size; ++i) {
+      context_prob[i] = triplet_stat[i]*triplet_rate[i]/rate;
+    }
+    std::uniform_real_distribution<double> unif(0.0,1.0);
+    const double sample = unif(gen);
+    double cdf = context_prob[0];
+    size_t context = 0;
+    while (sample > cdf && context < p_size) {
+      ++context;
+      cdf += context_prob[context];
+    }
+    assert (context < p_size);
+
+    size_t position = patseq.random_mutate(context);  /*make the jump*/
+    paths[position].jumps.push_back(time + holding_time);  /* update paths */
+  }
+
+  time += holding_time; /* update time */
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // stationary and Markov chain
 ////////////////////////////////////////////////////////////////////////////////
@@ -394,6 +434,8 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "[tree:]\n" << p.t.tostring() << endl;
 
+    PatSeq patseq(root_seq);
+    
     vector<vector<bool> > evolution(subtree_sizes.size(), root_seq);
 
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
@@ -401,13 +443,13 @@ int main(int argc, const char **argv) {
         cerr << "node " << node_names[node_id]
              << "\t" << branches[node_id] << endl;
 
-      evolution[node_id] = evolution[parent_ids[node_id]];
-      sum_triplet(evolution[node_id], triplet_stat);
+      // evolution[node_id] = evolution[parent_ids[node_id]];
+      // sum_triplet(evolution[node_id], triplet_stat);
 
       double time = 0;
       size_t n_jumps = 0;
 
-      // initialize paths
+      /* initialize paths */
       vector<Path> paths;
       initialize_paths(evolution[node_id], branches[node_id], paths);
 
@@ -420,7 +462,8 @@ int main(int argc, const char **argv) {
       }
 
       while (time < branches[node_id]) {
-        first_jump(triplet_rate, gen, evolution[node_id], triplet_stat, paths, time);
+        //  first_jump(triplet_rate, gen, evolution[node_id], triplet_stat, paths, time);
+        first_jump(triplet_rate, gen, patseq, paths, time);
         ++n_jumps;
 
         if (VERBOSE && n_jumps % 1000 == 0) {
@@ -431,7 +474,8 @@ int main(int argc, const char **argv) {
                << stat[1][0] << "\t" << stat[1][1] << endl;
         }
       }
-
+      patseq.to_seq(evolution[node_id]);
+      
       if (VERBOSE) {
         vector<vector<double> > stat;
         summary(evolution[node_id], stat);
