@@ -78,13 +78,15 @@ from a simpler perspective as contiguous genomic intervals where the
 presence or absense of that mark is associated with genomic
 function. Intervals of the genome that have a high density of H3K9me3
 are often associated with condensed chromatin state and silencing of
-genes within those intervals\cite{}. Genomic intervals with high
+genes within those intervals
+\cite{nakayama2001role}. Genomic intervals with high
 density of H3K4me3, on the other hand, are associated with
 accessibility by transcription factors and are associated with gene
-promoters\cite{}. So despite the complexity often ascribed to the
-mammalian epigenome\cite{}, studies focusing on individual epigenomic
-modifications have been highly successful in elucidating
-transcriptional regulation in a variety of systems\cite{}.
+promoters \cite{santos2002active}. So despite the complexity often
+ascribed to the mammalian epigenome \cite{bernstein2007mammalian},
+studies focusing on individual epigenomic modifications have been
+highly successful in elucidating transcriptional regulation in a
+variety of systems \cite{martin2005diverse}.
 
 %%% Need to cite work that has boiled down the complexity of
 %%% epigenomes to simpler ``functional'' states, like ``open''
@@ -118,8 +120,8 @@ induces a Markov process on the stationary distribution.
 %%% our ``states'' are defined analogously to the generalization from
 %%% the Koller-Friedman book.
 Our goal of modeling the evolution of an epigenome can be viewed in
-analogy with phylogenetic hidden Markov models\cite{}. The phastCons
-algorithm\cite{} is the best known variant of phylogenetic HMM, and
+analogy with phylogenetic hidden Markov models \cite{}. The phastCons
+algorithm \cite{} is the best known variant of phylogenetic HMM, and
 has dramatically impacting the field of comparative genomics by
 providing a general approach to model ``conserved'' genomic intervals
 for a set of species. The states of a simple phylogenetic HMM
@@ -198,47 +200,69 @@ main types of changes we are interested in are the following:
   may separate into two intervals.
 \end{itemize}
 We will describe a model that treats the expansion and contraction of
-features symmetrically. We believe this choice in modeling is often
-reasonable, but not always. For example, certain epigenomic
-modifications are frequently associated with parts of genes, which
-have directionality.
+features symmetrically in both directions along the genome.  This
+choice in modeling is often reasonable, but not always. For example,
+certain epigenomic modifications are frequently associated with parts
+of genes, which have directionality.
 %%% Need to give examples where we believe this is reasonable, like
 %%% enhancers that operate at a distance. But then cite CTCF
 %%% directionality.
 
-The evolution of an individual site is context-dependent. The
-instantaneous mutation rate from state $s$ to the alternative state
-$\bar{s}$ is $\gamma(l, s, r)$, where $l$, $s$ and $r$ are the states
-of three consecutive sites.  For a time interval $[0,t)$, given that
-  the states at positions $l$ and $r$ do not change, then the state at
-  site $s$ follows a continouse-time Markov process, and the holding
-  time thus follows an exponential distribution. An observation of
-  this path can be summarized as
+%%% Describe complete evolutionary path at one site
+For a site $n$ and an evolutionary time interval $[0,\tau)$, the initial
+state and all the time points of state transitions within this time
+interval constitute a complete evolutionary history for this
+site. This is because we have assumed binary states, and an
+evolutionary path is consecutive time intervals with alternating
+states. In other words, an observation of the evolutionary path at site $n$
+can be summarized as
 \[
-  L = \big\{s(0), k, \{t_i\}_{i=1}^{k}, t \big\},
+  L_n = \big\{s_n(0), J_n=\{t_1,\ldots,t_{m_n}\}, \tau \big\},
 \]
-where $s(0)$ is the state at time 0, $k$ is the total number of jumps,
-$t_i$ is the time of occurrence for the $i$-th jump, and $t$ is the total
-length of the time interval.
+where $s_n(t)\in\{0,1\}$ is the state of site $n$ at time $t$, $\tau$
+is the total length of the time interval, and $J_n$ is an ordered
+sequence of $m_n$ jummping times at site $n$ within this time
+interval, \textit{i.e.} $0 < t_1 < \cdots < t_{m_n} < \tau$.
 
-Suppose $L_l$ and $L_r$ are paths for distinct sites. The union of
-their jump times
-\[
-  \{0, t\} \cup \{t_{li}\}_{i=1}^{k_l} \cup \{t_{ri}\}_{i=1}^{k_r}
-\]
-gives a set of time points such that when ordered, any pair
-of consecutive times in this union defines an interval during
-which the joint state at sites $l$ and $r$ remains
-constant.
+%%% Introduce transition rates
+The evolution of states at a given site depends on the states of its
+neighboring sites during evolution. Consider site $n$ and its two
+immediate neighbors $n-1$ and $n+1$, and let the contermporaneous
+states at these sites be $s_{n-1}(t) = i$, $s_n(t)=j$ and
+$s_{n+1}=j$. The instantaneous rate for a transition from state $j$ to
+its alternative state $\bar{j}$ at site $n$ is $\gamma(i, j, k)$. In
+other words, the instantaneous rates $\gamma(i, j, k)$ is a function
+of the states at the site of interest and its two immediate neighbors.
+%%%
+In addition, since we assume the evolutionary process is symmetric
+with respect to the two directions along the genome, we require
+$\gamma(i, j, k) = \gamma(k, j, i)$.
+%%%
+When the states at all positions except for site $n$ stay constant for
+a time interval $[0,\tau)$, the state at site $n$, $s_n$, follows a
+two-state continuous-time Markov process within this time interval.
+
+% Suppose $L_l$ and $L_r$ are paths for distinct sites. The union of
+% their jump times
+% \[
+%   \{0, t\} \cup \{t_{li}\}_{i=1}^{k_l} \cup \{t_{ri}\}_{i=1}^{k_r}
+% \]
+% gives a set of time points such that when ordered, any pair
+% of consecutive times in this union defines an interval during
+% which the joint state at sites $l$ and $r$ remains
+% constant.
 
 \subsection{Stationary Gibbs measure as Markov chain}
 
 The stationary distribution in \eqref{eqn:stationary} is equivalent to
-the distribution of a Markov chain. We can derive the relationship
-between the factors in \eqref{eqn:stationary} and the transition
-probabilities of a Markov chain. The pair-wise potentials are
-$Q(a,b)=\exp(\phi(a, b))$, where $a, b\in\{0,1\}$ are binary
-states. The largest eigenvalue of $Q$ is
+the distribution of a Markov chain. Therefore, when the epigenome is
+modeled with a Gibbs measure, we can sample an instance of the
+sequence epigenomic states or evaluate its probability with the
+equivalent Markov chain. We can derive the relationship between the
+factors in \eqref{eqn:stationary} and the transition probabilities of
+a Markov chain. The pair-wise potentials are $Q_{ij}=\exp(\phi(i,
+j))$, where $i, j\in\{0,1\}$ are binary states. The largest eigenvalue
+of $Q$ is
 \[
 q=\frac{1}{2}\left(Q_{00}+Q_{11} +\sqrt{\Delta}\right), \text{ where }
 \Delta=(Q_{00} - Q_{11})^2 + 4Q_{01}Q_{10}.
@@ -247,10 +271,9 @@ Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
 \[
 \frac{h_0}{h_1} = \frac{Q_{01}}{q-Q_{00}} = \frac{q-Q_{11}}{Q_{10}}
 \]
-Then for states $a, b\in \{0, 1\}$, the Markov chain transition matrix
-is
+Then we have the Markov chain transition matrix:
 \[
-  T(a, b) = \frac{Q_{ab}h_b}{qh_{a}}.
+  T(i, j) = \frac{Q_{ij}h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
 \]
 More specifically,
 \begin{equation} \label{eqn:gibbs2markov}
@@ -272,31 +295,31 @@ functional domains is thus:
 
 \citetext{jensen2000probabilistic} gave a sufficient condition for the
 continuous time evolutionary model $\gamma$ to have a stationary
-distribution determined by $\phi$. In particular,
+distribution determined by $\phi$. In particular, if
 %%% Prop 1 of J-P 2000
 \begin{equation}\label{eqn:prop1}
-  \frac{\gamma(l, s, r)}{\gamma(l, \bar{s}, r)} =
-  \frac{\exp(\phi(l, \bar{s})+ \phi(\bar{s}, r))}{\exp(\phi(l, s)+ \phi(s, r))},
+  \frac{\gamma(i, j, k)}{\gamma(i, \bar{j}, k)} =
+  \frac{\exp(\phi(i, \bar{j})+ \phi(\bar{j}, k))}{\exp(\phi(i, j)+ \phi(j, k))},
 \end{equation}
-%%% ADS: not sure this statement below is correct
-which can be derived from the reversibility property of the stationary
-distribution.
+then \eqref{eqn:stationary} is the stationary distribution for the
+Markov process with intensities $\gamma(i,j,k)$.
 
 Proposition 2 of \citetext{jensen2000probabilistic} provides a way of
 specifying $\gamma$ from $\phi$: substitution rates $\gamma$ satisfy
 the relation \eqref{eqn:prop1} if and only if they can be written in
 the form
 \begin{equation}\label{eqn:prop1}
- \log(\gamma(l, s, r)) = -\psi(l, s, r) + \ell(l, r).
+ \log(\gamma(i, j, k)) = -\psi(i, j, k) + \ell(i, k).
 \end{equation}
 This criteria was introduced in the context of an arbitrary number of
-states, and the $\ell$ function can be understood as $\ell(s, t; l,
-r)$, for two states $s$ and $t$, which is symmetric in $(s, t)$. In
-our setting of modeling epigenomic features, the states are binary and
-$\ell$ is only a function of the two neighboring states $(l,r)$.
-Moreover, we can directly verify that if we define substitution rates as
+states, and the $\ell$ function can be understood as $\ell(j, j'; i,
+k)$, for any two different states $j$ and $j'$, which is symmetric in
+$(j, j')$. In our setting of modeling epigenomic features, the states
+are binary and $\ell$ is only a function of the two neighboring states
+$(i,k)$.  Moreover, we can directly verify that if we define
+substitution rates as
 \begin{equation}
-\log (\gamma(l, s, r)) =  \ell(l, r) + (\phi(l, \bar{s}) +\phi(\bar{s}, r)),
+\log (\gamma(i, j, k)) =  \ell(i, k) + (\phi(i, \bar{j}) +\phi(\bar{j}, k)),
 \end{equation}
 then they satisfy the condition of \eqref{eqn:prop1}.
 
@@ -357,7 +380,7 @@ $\death{}\expansion{}^2/(\birth{}\contraction{}^2)$ then uniquely
 determine the stationary distribution \eqref{eqn:stationary} through
 equation \eqref{eqn:rel}.
 
-\section{Simulation epigenomic change during evolution}
+\section{Simulate epigenomic changes during evolution}
 
 %%% ADS: do we need something in here to mention that we verified that
 %%% simulation does work?
@@ -434,6 +457,12 @@ $[0, T]$, starting from an initial sequence $x(0)$.
 
 To implement this simulation scheme requires maintaining the variables
 $c_{ijk}$ at each time point, and updating them by removing
+
+%%% plans for figures:
+%%% multiple parameter settings (stationary, non-stationary, different rates)
+%%% (1) distribution of patterns (stays stable, or moves towards target stationary state)
+%%% (2) simulated paths with different parameter, show examples and summary statistics for events
+
 
 \section{Parameter inference}
 
