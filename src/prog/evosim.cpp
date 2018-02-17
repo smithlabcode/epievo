@@ -13,14 +13,15 @@
 #include "PhyloTreePreorder.hpp"
 #include "path.hpp"  /* related to Path */
 #include "param.hpp" /* model_param */
-#include "TripletPattern.hpp" 
-
+#include "TripletPattern.hpp"
 
 using std::vector;
 using std::endl;
 using std::cerr;
 using std::cout;
 using std::string;
+
+
 
 bool file_exist(string param_file) {
   std::ifstream in(param_file.c_str());
@@ -234,9 +235,10 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
 void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
                 PatSeq &patseq, vector<Path> &paths, double &time) {
   const size_t p_size = 8;
-  vector<size_t> triplet_stat(p_size,0);
-  for (size_t i = 0; i < p_size; ++i)
+  vector<size_t> triplet_stat(p_size, 0);
+  for (size_t i = 0; i < p_size; ++i) {
     triplet_stat[i] = patseq.get_context_freq(i);
+  }
 
   /* sample time of first jump */
   const double rate = std::inner_product(triplet_stat.begin(), triplet_stat.end(),
@@ -298,6 +300,7 @@ int main(int argc, const char **argv) {
     string outfile;
     string pathfile;
     bool VERBOSE = false;
+    size_t OPTION = 2;
 
     OptionParser opt_parse(strip_path(argv[0]), "simulate methylome evolution",
                            "<params-file>");
@@ -435,7 +438,6 @@ int main(int argc, const char **argv) {
       cerr << "[tree:]\n" << p.t.tostring() << endl;
 
     PatSeq patseq(root_seq);
-    
     vector<vector<bool> > evolution(subtree_sizes.size(), root_seq);
 
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
@@ -443,8 +445,8 @@ int main(int argc, const char **argv) {
         cerr << "node " << node_names[node_id]
              << "\t" << branches[node_id] << endl;
 
-      // evolution[node_id] = evolution[parent_ids[node_id]];
-      // sum_triplet(evolution[node_id], triplet_stat);
+      evolution[node_id] = evolution[parent_ids[node_id]];
+      sum_triplet(evolution[node_id], triplet_stat);
 
       double time = 0;
       size_t n_jumps = 0;
@@ -456,30 +458,39 @@ int main(int argc, const char **argv) {
       if (VERBOSE) {
         vector<vector<double> > stat;
         summary(evolution[node_id], stat);
-        cout << n_jumps << "\t" << time << "\t"
+        cerr << n_jumps << "\t" << time << "\t"
              << stat[0][0] << "\t" << stat[0][1] << "\t"
              << stat[1][0] << "\t" << stat[1][1] << endl;
       }
 
       while (time < branches[node_id]) {
-        //  first_jump(triplet_rate, gen, evolution[node_id], triplet_stat, paths, time);
-        first_jump(triplet_rate, gen, patseq, paths, time);
-        ++n_jumps;
-
-        if (VERBOSE && n_jumps % 1000 == 0) {
-          vector<vector<double> > stat;
-          summary(evolution[node_id], stat);
-          cout << n_jumps << "\t" << time << "\t"
-               << stat[0][0] << "\t" << stat[0][1] << "\t"
-               << stat[1][0] << "\t" << stat[1][1] << endl;
+        if (OPTION == 1) { /* boolean vector */
+          first_jump(triplet_rate, gen, evolution[node_id],
+                     triplet_stat, paths, time);
+          if (VERBOSE && n_jumps % 1000 == 0) {
+            vector<vector<double> > stat;
+            summary(evolution[node_id], stat);
+            cerr << n_jumps << "\t" << time << "\t"
+                 << stat[0][0] << "\t" << stat[0][1] << "\t"
+                 << stat[1][0] << "\t" << stat[1][1] << endl;
+          }
+        } else { /* pattern pos array*/
+          first_jump(triplet_rate, gen, patseq, paths, time);
+          if (VERBOSE && n_jumps%1000 == 0) {
+            cerr << n_jumps << "\t" << time << "\t";
+            for (size_t ct = 0; ct < 8; ++ct)
+              cerr << patseq.get_context_freq(ct) << "\t";
+            cerr << endl;
+          }
         }
+        ++n_jumps;
       }
       patseq.to_seq(evolution[node_id]);
-      
+
       if (VERBOSE) {
         vector<vector<double> > stat;
         summary(evolution[node_id], stat);
-        cout << n_jumps << "\t" << branches[node_id] << "\t"
+        cerr << n_jumps << "\t" << branches[node_id] << "\t"
              << stat[0][0] << "\t" << stat[0][1] << "\t"
              << stat[1][0] << "\t" << stat[1][1] << endl;
       }
