@@ -15,7 +15,7 @@
 #include "path.hpp"  /* related to Path */
 #include "TwoStateSeq.hpp"
 #include "param.hpp" /* model_param */
-
+#include "TripletPattern.hpp"
 
 using std::vector;
 using std::endl;
@@ -48,36 +48,63 @@ void get_jumps(const vector<Path> &paths, vector<Jump> &jumps) {
     }
   }
   std::sort(jumps.begin(), jumps.end(), jump_compare);
+
+
   // mutate from start and compute context and freqs at jumps
   vector<bool> seq;
   get_inital_seq(paths, seq);
-  TwoStateSeq tss(seq);
-  
-  if (DEBUG) {
-    vector<size_t> tf(8,0);
-    for (size_t i = 2; i <seq.size(); ++i)
-      ++tf[(size_t)(seq[i-2])*4 + (size_t)(seq[i-1])*2 + (size_t)(seq[i])];
 
-    cerr << "Seq-freq:";
-    for (size_t i = 0; i <tf.size(); ++i)
-      cerr << tf[i] << "\t";
-    cerr << endl;
-  }    
-  
-  for (size_t i = 0; i < jumps.size(); ++i) {    
-    tss.count_s3(jumps[i].freq); // get context frequencies before the jump
-    tss.mutate(jumps[i].pos, jumps[i].context); //get mutation context
-
-    if (i==0 && DEBUG) {
-      cerr << "Cnt-freq:";
-      for (size_t j = 0; j <8; ++j)
-        cerr << jumps[i].freq[j] << "\t";
-      cerr << endl;
-    }
-      
+  PatSeq patseq(seq);
+  for (size_t i = 0; i < jumps.size(); ++i) {
+    jumps[i].context = patseq.get_context(jumps[i].pos);
+    patseq.get_all_context_freq(jumps[i].freq);
+    patseq.mutate(jumps[i].pos);
   }
-  
+
+  // if (DEBUG) {
+  //   vector<size_t> tf(8,0);
+  //   for (size_t i = 2; i <seq.size(); ++i)
+  //     ++tf[(size_t)(seq[i-2])*4 + (size_t)(seq[i-1])*2 + (size_t)(seq[i])];
+
+  //   cerr << "Seq-freq:";
+  //   for (size_t i = 0; i <tf.size(); ++i)
+  //     cerr << tf[i] << "\t";
+  //   cerr << endl;
+  // }
+
+  // TwoStateSeq tss(seq);
+  // for (size_t i = 0; i < jumps.size(); ++i) {
+  //   tss.count_s3(jumps[i].freq); // get context frequencies before the jump
+  //   tss.mutate(jumps[i].pos, jumps[i].context); //get mutation context
+
+  //   if (i==0 && DEBUG) {
+  //     cerr << "Cnt-freq:";
+  //     for (size_t j = 0; j <8; ++j)
+  //       cerr << jumps[i].freq[j] << "\t";
+  //     cerr << endl;
+  //   }
+  //
+  // }
+
 }
+
+void get_suff_stat(const vector<vector<Jump> > &jumps,
+                   vector<double> &tot_freq,
+                   vector<double> &weights) {
+  tot_freq.resize(8, 0);
+  weights.resize(8, 0);
+  double prev_jump_time = 0;
+  for (size_t branch = 0; branch < jumps.size(); ++branch) {
+    for (size_t i = 0; i < jumps[branch].size(); ++i) {
+      ++tot_freq[jumps[branch][i].context];
+      weights[jumps[branch][i].context] +=
+        jumps[branch][i].freq[jumps[branch][i].context] *
+        (jumps[branch][i].t - prev_jump_time);
+      prev_jump_time = jumps[branch][i].t;
+    }
+  }
+}
+
 
 void get_suff_stat(const vector<Jump> &jumps,
                    vector<double> &tot_freq,
@@ -94,26 +121,43 @@ void get_suff_stat(const vector<Jump> &jumps,
 }
 
 
-double llk(const vector<Jump> &jumps,
+double llk(const vector<vector<Jump> > &jumps,
            const vector<double> &tot_freq,
            const vector<double> &weights,
            const vector<double> &rates) {
   double l = 0;
-  for (size_t i = 0; i < 8; ++i) {
-    l += tot_freq[i]*(log(rates[i]) - log(jumps[i].freq[jumps[i].context])) - weights[i]*rates[i];
+  for (size_t branch = 0; branch < jumps.size(); ++branch) {
+    for (size_t i = 0; i < 8; ++i) {
+      l += tot_freq[i]*(log(rates[i]) -
+                        log(jumps[branch][i].freq[jumps[branch][i].context])) -
+        weights[i]*rates[i];
+    }
   }
 
   return l;
 }
 
 
-void get_gradient(const vector<Jump> &jumps,
-                  const vector<double> &tot_freq,
+double llk(const vector<Jump> &jumps,
+           const vector<double> &tot_freq,
+           const vector<double> &weights,
+           const vector<double> &rates) {
+  double l = 0;
+  for (size_t i = 0; i < 8; ++i) {
+    l += tot_freq[i]*(log(rates[i]) - log(jumps[i].freq[jumps[i].context])) -
+      weights[i]*rates[i];
+  }
+
+  return l;
+}
+
+
+void get_gradient(const vector<double> &tot_freq,
                   const vector<double> &weights,
                   const vector<double> &rates,
                   vector<double> &gradient) {
   gradient.resize(8, 0);
-  
+
   gradient[0] = (tot_freq[0] + tot_freq[7])/rates[0] - weights[0] -
     weights[7]*rates[7]/rates[0];
 
@@ -125,7 +169,7 @@ void get_gradient(const vector<Jump> &jumps,
 
   gradient[1] = (tot_freq[1] + tot_freq[4] - 2*tot_freq[7])/rates[1] -
     (weights[1] + weights[4]) + 2*weights[7]*rates[7]/rates[1];
-  
+
   gradient[3] = (tot_freq[3] + tot_freq[6] + 2*tot_freq[7])/rates[3] -
     (weights[3] + weights[6]) - 2*weights[7]*rates[7]/rates[3];
 
@@ -165,7 +209,7 @@ void candidate_rates(const double param_tol,
 
 
 double gradient_ascent(const double param_tol,
-                       const vector<Jump> &jumps,
+                       const vector<vector<Jump> > &jumps,
                        const vector<double> &tot_freq,
                        const vector<double> &weights,
                        const vector<double> &rates,
@@ -173,7 +217,7 @@ double gradient_ascent(const double param_tol,
   // compute llk and gradient
   vector<double> g;
   double l = llk(jumps, tot_freq, weights, rates);
-  get_gradient(jumps, tot_freq, weights, rates, g);
+  get_gradient(tot_freq, weights, rates, g);
   double step = 0.2;
   double diff = 1;
   double new_l = 0;
@@ -185,11 +229,62 @@ double gradient_ascent(const double param_tol,
   return diff;
 }
 
+
+double gradient_ascent(const double param_tol,
+                       const vector<Jump> &jumps,
+                       const vector<double> &tot_freq,
+                       const vector<double> &weights,
+                       const vector<double> &rates,
+                       vector<double> &new_rates) {
+  // compute llk and gradient
+  vector<double> g;
+  double l = llk(jumps, tot_freq, weights, rates);
+  get_gradient(tot_freq, weights, rates, g);
+  double step = 0.2;
+  double diff = 1;
+  double new_l = 0;
+  do {
+    step *= 0.5;
+    candidate_rates(param_tol, step, rates, g, new_rates, diff);
+    new_l = llk(jumps, tot_freq, weights, new_rates);
+  } while (new_l <= l && diff > param_tol);
+  return diff;
+}
+
+
+void est_param(const double param_tol,
+               const vector<vector<Jump> > &jumps,
+               const vector<double> &rates,
+               vector<double> &new_rates) {
+  vector<double> tot_freq;
+  vector<double> weights;
+  get_suff_stat(jumps, tot_freq, weights);
+
+  vector<double> current_rates = rates;
+  double current_llk = llk(jumps, tot_freq, weights, current_rates);
+  double diff = gradient_ascent(param_tol, jumps, tot_freq,
+                                weights, current_rates, new_rates);
+  double new_llk = llk(jumps, tot_freq, weights, new_rates);
+
+
+
+  while (new_llk - current_llk > param_tol && diff > param_tol) {
+    current_llk = new_llk;
+    current_rates = new_rates;
+    diff = gradient_ascent(param_tol, jumps, tot_freq,
+                           weights, current_rates, new_rates);
+    new_llk = llk(jumps, tot_freq, weights, new_rates);
+    cerr << "***rates:\t";
+    for (size_t i = 0; i < new_rates.size(); ++i)
+      cerr << new_rates[i] << "\t";
+    cerr << new_llk << endl;
+  }
+}
+
 void est_param(const double param_tol,
                const vector<Jump> &jumps,
                const vector<double> &rates,
                vector<double> &new_rates) {
-
   vector<double> tot_freq;
   vector<double> weights;
   get_suff_stat(jumps, tot_freq, weights);
@@ -260,7 +355,7 @@ int main(int argc, const char **argv) {
     if (leftover_args.size() < 1) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
-    }    
+    }
     const string path_file(leftover_args.back());
 
     if (VERBOSE)
@@ -289,20 +384,25 @@ int main(int argc, const char **argv) {
       }
     }
 
-    vector<Jump> jumps;
-    get_jumps(paths[0], jumps);
-    
-    if (VERBOSE) {
-      cerr << "Total sites: " << paths[0].size() << endl;
-      cerr << "Total jumps: " << jumps.size() << endl;
-    }
-    if (DEBUG) {
-      cerr << "==========" << endl
-           << "First 10 jumps:" << endl;
-      for (size_t i = 0; i < 10; ++i)
-        cerr << "position-" << jumps[i].pos << "\ttime-" << jumps[i].t
-             << "\tcontext-" << jumps[i].context << endl;
-      cerr << "==========" << endl;
+    vector<vector<Jump> > jumps;
+    for (size_t branch = 0; branch < paths.size(); ++branch) {
+      vector<Jump> j;
+      get_jumps(paths[branch], j);
+      jumps.push_back(j);
+
+      if (VERBOSE) {
+      cerr << "Total sites: " << paths[branch].size() << endl;
+      cerr << "Total jumps: " << jumps[branch].size() << endl;
+      }
+      if (DEBUG) {
+        cerr << "==========" << endl
+             << "First 10 jumps:" << endl;
+        for (size_t i = 0; i < 10; ++i)
+          cerr << "position-" << jumps[branch][i].pos
+               << "\ttime-" << jumps[branch][i].t
+               << "\tcontext-" << jumps[branch][i].context << endl;
+        cerr << "==========" << endl;
+      }
     }
 
     if (!param_file.empty()) {
@@ -314,42 +414,41 @@ int main(int argc, const char **argv) {
 
       if (DEBUG) {
         for (size_t i = 0; i < 10; ++i) {
-          cerr << "J" << i << "\tT(" << jumps[i].t << ")\t";
+          cerr << "J" << i << "\tT(" << jumps[0][i].t << ")\t";
           for (size_t j = 0; j < 8; ++j)
-            cerr << jumps[i].freq[j] << "\t";
+            cerr << jumps[0][i].freq[j] << "\t";
           cerr << endl;
         }
         for (size_t i = 0; i < 10; ++i) {
-          cerr << "J" << jumps.size()-11+i << "\tT(" << jumps[i].t << ")\t";               
+          cerr << "J" << jumps[0].size()-11+i << "\tT(" << jumps[0][i].t << ")\t";
           for (size_t j = 0; j < 8; ++j)
-            cerr << jumps[jumps.size()-11+i].freq[j] << "\t";
+            cerr << jumps[0][jumps[0].size()-11+i].freq[j] << "\t";
           cerr << endl;
         }
       }
 
       vector<double> rates;
       get_rates(p, rates);
-      
+
       if (DEBUG) {
         cerr << "rates:\t";
-        for (size_t i = 0; i < rates.size(); ++i) cerr << rates[i] << "\t";        
+        for (size_t i = 0; i < rates.size(); ++i) cerr << rates[i] << "\t";
         cerr << endl;
         cerr << "log-likelihood= " << llk(jumps, tot_freq, weights, rates) << endl;
 
         cerr << "tot_freq:" << endl;
         for (size_t i =0; i < 8; ++i)
           cerr << "[" << i << "]\t" << tot_freq[i] << endl;
-        
+
         cerr << "weights:" << endl;
         for (size_t i =0; i < 8; ++i)
           cerr << "[" << i << "]\t" << weights[i] << endl;
-        
+
         vector<double> gradient;
-        get_gradient(jumps, tot_freq, weights, rates, gradient);
+        get_gradient(tot_freq, weights, rates, gradient);
         cerr << "gradient :" << endl;
         for (size_t i =0; i < gradient.size(); ++i)
           cerr << "[" << i << "]\t" << gradient[i] << endl;
-
 
         double param_tol = 1e-5;
         vector<double> new_rates;
@@ -361,7 +460,7 @@ int main(int argc, const char **argv) {
              <<"new log-likelihood= "
              << llk(jumps, tot_freq, weights, new_rates) << endl;
       }
-      
+
     }
   }
   catch (std::bad_alloc &ba) {
