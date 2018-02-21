@@ -467,6 +467,14 @@ int main(int argc, const char **argv) {
 
     vector<vector<bool> > evolution(subtree_sizes.size(), root_seq);
 
+    vector<double> watch_node;
+    vector<double> watch_time;
+    vector<double> watch_nds; /*number of domains*/
+    vector<double> watch_mds;
+    vector<double> watch_ds_stdev;
+    vector<double> watch_fraction;
+    vector<vector<size_t> > watch_patfreq;
+
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
       if (VERBOSE)
         cerr << "node " << node_names[node_id]
@@ -475,7 +483,6 @@ int main(int argc, const char **argv) {
       evolution[node_id] = evolution[parent_ids[node_id]];
       sum_triplet(evolution[node_id], triplet_stat);
       PatSeq patseq(evolution[node_id]);
-
       double time = 0;
       size_t n_jumps = 0;
 
@@ -520,12 +527,16 @@ int main(int argc, const char **argv) {
             double mds = sum/ds.size();
             double sq_sum = std::inner_product(ds.begin(), ds.end(), ds.begin(), 0.0);
             double stdev = std::sqrt(sq_sum/ds.size() - mds*mds);
-            outstat << node_id << "\t" << floor(time/watch)*watch << "\t"
-                    << ds.size() << "\t" << mds << "\t" << stdev << "\t"
-                    << sum/p.n_site << "\t";
-            for (size_t ct = 0; ct < 8; ++ct)
-              outstat << patseq.get_context_freq(ct) << "\t";
-            outstat << endl;
+
+            watch_node.push_back(node_id);
+            watch_time.push_back(floor(time/watch)*watch);
+            watch_nds.push_back(ds.size());
+            watch_mds.push_back(mds);
+            watch_ds_stdev.push_back(stdev);
+            watch_fraction.push_back(sum/p.n_site );
+            vector<size_t> f;
+            patseq.get_all_context_freq(f);
+            watch_patfreq.push_back(f);
             prev_time = floor(time/watch)*watch;
           }
         }
@@ -572,6 +583,18 @@ int main(int argc, const char **argv) {
         out << endl;
       }
     }
+
+    if (!pathfile.empty() && watch > 0) {
+      for (size_t i = 0; i < watch_node.size(); ++i) {
+        outstat << watch_node[i] << "\t" << watch_time[i] << "\t"
+                << watch_nds[i] << "\t" << watch_mds[i] << "\t"
+                << watch_ds_stdev[i] << "\t" << watch_fraction[i] << "\t";
+        for (size_t ct = 0; ct < 8; ++ct)
+          outstat << watch_patfreq[i][ct] << "\t";
+        outstat << endl;
+      }
+    }
+
 
   }
   catch (std::bad_alloc &ba) {
