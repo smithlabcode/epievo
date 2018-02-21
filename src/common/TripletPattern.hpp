@@ -8,10 +8,13 @@
 class PatSeq {
 public:
   PatSeq(const std::vector<bool> &seq);
+  void get_all_context_freq(vector<size_t> &freq) const;
   size_t get_context(const size_t pos) const;
   size_t get_context_freq(const size_t context) const;
   size_t random_mutate(const size_t context);
+  void mutate(const size_t pos);
   void to_seq(std::vector<bool> &seq) const;
+  void to_domain_sizes(std::vector<size_t> &domain_sizes) const;
 
 private:
   /* positions in binary-state sequence
@@ -23,7 +26,8 @@ private:
   std::vector<size_t> cum_pat_freq;
   bool start_state;
   bool end_state;
-  void single_update(const size_t pos, const size_t context, const size_t to_context);
+  void single_update(const size_t pos, const size_t context,
+                     const size_t to_context);
 };
 
 
@@ -54,10 +58,17 @@ PatSeq::PatSeq(const std::vector<bool> &seq) {
     }
   }
 
-
   start_state = seq[0];
   end_state = seq.back();
 }
+
+void PatSeq::get_all_context_freq(vector<size_t> &freq) const {
+  freq.resize(8, 0);
+  freq[0] = cum_pat_freq[0];
+  for (size_t i = 1; i < 8; ++i)
+    freq[i] = cum_pat_freq[i] - cum_pat_freq[i-1];
+}
+
 
 size_t PatSeq::get_context_freq(const size_t context) const {
   assert(context < 8);
@@ -167,6 +178,22 @@ size_t PatSeq::random_mutate(const size_t context) {
   return pos;
 }
 
+
+void PatSeq::mutate(const size_t pos) {
+  const size_t context = get_context(pos);
+  const size_t pos_l = pos - 1;
+  const size_t context_l = get_context(pos_l);
+  const size_t pos_r = pos + 1;
+  const size_t context_r = get_context(pos_r);
+
+  single_update(pos, context, context^2);  // flip the middle bit
+  if (pos_l > 0)
+    single_update(pos_l, context_l, context_l^1);  // flip the right bit
+  if (pos_r < pos_by_pat.size() - 1)
+    single_update(pos_r, context_r, context_r^4);  // flip the left bit
+}
+
+
 void PatSeq::to_seq(std::vector<bool> &seq) const {
   size_t n_site = idx_in_pat.size();
   seq.resize(n_site, true);
@@ -180,6 +207,27 @@ void PatSeq::to_seq(std::vector<bool> &seq) const {
   }
   seq[0] = start_state;
   seq.back() = end_state;
+}
+
+
+void PatSeq::to_domain_sizes(std::vector<size_t> &domain_sizes) const {
+  domain_sizes.clear();
+  std::vector<bool> seq;
+  to_seq(seq);
+  size_t s = 0;
+  bool in_domain = false;
+  for (size_t i = 0; i < seq.size(); ++i) {
+    if (seq[i] && !in_domain) {
+      s = 1;
+      in_domain = true;
+    } else if (seq[i] && in_domain) {
+      ++s;
+    } else if (!seq[i] && in_domain) {
+      in_domain = false;
+      domain_sizes.push_back(s);
+      s = 0;
+    }
+  }
 }
 
 
