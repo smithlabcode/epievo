@@ -180,18 +180,22 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
   for (size_t i = 0; i < triplet_stat.size(); ++i) {
     context_prob[i] = triplet_stat[i]*triplet_rate[i]/rate;
   }
+
+  std::discrete_distribution<size_t> multinom(context_prob.begin(),
+                                              context_prob.end());
+  size_t context = multinom(gen);
+
   std::uniform_real_distribution<double> unif(0.0,1.0);
-  const double sample = unif(gen);
-  double cdf = context_prob[0];
-  size_t context = 0;
-  while (sample > cdf && context < 8) {
-    ++context;
-    cdf += context_prob[context];
-  }
+  // const double sample = unif(gen);
+  // double cdf = context_prob[0];
+  // size_t context = 0;
+  // while (sample > cdf && context < 8) {
+  //   ++context;
+  //   cdf += context_prob[context];
+  // }
+  // assert (context < 8);
 
-  assert (context < 8);
-
-  // sample which position to flip
+  /* sample which position to flip */
   size_t position = 0;
   const size_t n = (((size_t)(unif(gen)*triplet_stat[context])) %
                     triplet_stat[context]) + 1;
@@ -252,15 +256,20 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
     for (size_t i = 0; i < p_size; ++i) {
       context_prob[i] = triplet_stat[i]*triplet_rate[i]/rate;
     }
-    std::uniform_real_distribution<double> unif(0.0,1.0);
-    const double sample = unif(gen);
-    double cdf = context_prob[0];
-    size_t context = 0;
-    while (sample > cdf && context < p_size) {
-      ++context;
-      cdf += context_prob[context];
-    }
-    assert (context < p_size);
+
+    std::discrete_distribution<size_t> multinom(context_prob.begin(),
+                                                context_prob.end());
+    size_t context = multinom(gen);
+
+    // std::uniform_real_distribution<double> unif(0.0,1.0);
+    // const double sample = unif(gen);
+    // double cdf = context_prob[0];
+    // size_t context = 0;
+    // while (sample > cdf && context < p_size) {
+    //   ++context;
+    //   cdf += context_prob[context];
+    // }
+    // assert (context < p_size);
 
     size_t position = patseq.random_mutate(context);  /*make the jump*/
     paths[position].jumps.push_back(time + holding_time);  /* update paths */
@@ -273,7 +282,7 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
 ////////////////////////////////////////////////////////////////////////////////
 // stationary and Markov chain
 ////////////////////////////////////////////////////////////////////////////////
-void covert_parameter(const vector<vector<double> > &stationary_logfac,
+void convert_parameter(const vector<vector<double> > &stationary_logfac,
                       vector<vector<double> > &T) {
   vector<vector<double> > Q = stationary_logfac;
   for (size_t i = 0; i < 2; ++i)
@@ -301,6 +310,8 @@ int main(int argc, const char **argv) {
     string pathfile;
     bool VERBOSE = false;
     size_t OPTION = 2;
+    double watch = 0;
+    string watchfile;
 
     OptionParser opt_parse(strip_path(argv[0]), "simulate methylome evolution",
                            "<params-file>");
@@ -308,6 +319,8 @@ int main(int argc, const char **argv) {
                       "(default: stdout)", false, outfile);
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths"
                       "(default: stdout)", false, pathfile);
+    opt_parse.add_opt("watch", 'w', "print summary statistics "
+                      "at specified time interval (when -o)", false, watch);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     vector<string> leftover_args;
@@ -336,6 +349,20 @@ int main(int argc, const char **argv) {
       return  EXIT_SUCCESS;
     }
 
+    std::ofstream outstat;
+    if (!pathfile.empty() && watch > 0) {
+      watchfile = pathfile;
+      watchfile.append(".stats");
+      outstat.open(watchfile.c_str(), std::ofstream::out);
+      outstat << "branch" << "\t" << "time" << "\t"
+              << "n.domain" << "\t" << "mean.domain" << "\t"
+              << "sd.domain" << "\t" << "fraction" << "\t"
+              << "pattern000" << "\t" << "pattern001" << "\t"
+              << "pattern010" << "\t" << "pattern011" << "\t"
+              << "pattern100" << "\t" << "pattern101" << "\t"
+              << "pattern110" << "\t" << "pattern111" << endl;
+    }
+
     if (VERBOSE)
       cerr << "Reading parameter from file " << param_file << endl;
 
@@ -349,7 +376,7 @@ int main(int argc, const char **argv) {
            << p.init_logfac[1][0] << "\t" << p.init_logfac[1][1] << endl;
 
     vector<vector<double> > T;
-    covert_parameter(p.stationary_logfac, T);
+    convert_parameter(p.stationary_logfac, T);
 
     if (VERBOSE)
       cerr << "Markov chain transition matrix corresponds "
@@ -359,7 +386,7 @@ int main(int argc, const char **argv) {
 
     std::ofstream outpath;
     if (!pathfile.empty()){
-      outpath.open (pathfile.c_str(), std::ofstream::out);
+      outpath.open(pathfile.c_str(), std::ofstream::out);
       outpath << "## paths" << endl;
       outpath.close();
     }
@@ -394,7 +421,7 @@ int main(int argc, const char **argv) {
            << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
     }
 
-    // starting context frequencies
+    /* starting context frequencies */
     vector<size_t> triplet_stat;
     sum_triplet(root_seq, triplet_stat);
     if (VERBOSE) {
@@ -403,7 +430,7 @@ int main(int argc, const char **argv) {
         cerr << i << "\t" << triplet_stat[i] << endl;
     }
 
-    // evolution rates (constant throughout the evolution)
+    /* evolution rates (constant throughout the evolution) */
     vector<double> triplet_rate;
     get_expo_rate(p, triplet_rate);
 
@@ -437,7 +464,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "[tree:]\n" << p.t.tostring() << endl;
 
-    PatSeq patseq(root_seq);
+
     vector<vector<bool> > evolution(subtree_sizes.size(), root_seq);
 
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
@@ -447,6 +474,7 @@ int main(int argc, const char **argv) {
 
       evolution[node_id] = evolution[parent_ids[node_id]];
       sum_triplet(evolution[node_id], triplet_stat);
+      PatSeq patseq(evolution[node_id]);
 
       double time = 0;
       size_t n_jumps = 0;
@@ -463,6 +491,7 @@ int main(int argc, const char **argv) {
              << stat[1][0] << "\t" << stat[1][1] << endl;
       }
 
+      double prev_time = 0;
       while (time < branches[node_id]) {
         if (OPTION == 1) { /* boolean vector */
           first_jump(triplet_rate, gen, evolution[node_id],
@@ -481,6 +510,23 @@ int main(int argc, const char **argv) {
             for (size_t ct = 0; ct < 8; ++ct)
               cerr << patseq.get_context_freq(ct) << "\t";
             cerr << endl;
+          }
+
+          /* output HMR stat*/
+          if (watch > 0 && time - prev_time > watch) {
+            vector<size_t> ds; /*domain sizes*/
+            patseq.to_domain_sizes(ds);
+            double sum = std::accumulate(ds.begin(), ds.end(), 0.0);
+            double mds = sum/ds.size();
+            double sq_sum = std::inner_product(ds.begin(), ds.end(), ds.begin(), 0.0);
+            double stdev = std::sqrt(sq_sum/ds.size() - mds*mds);
+            outstat << node_id << "\t" << floor(time/watch)*watch << "\t"
+                    << ds.size() << "\t" << mds << "\t" << stdev << "\t"
+                    << sum/p.n_site << "\t";
+            for (size_t ct = 0; ct < 8; ++ct)
+              outstat << patseq.get_context_freq(ct) << "\t";
+            outstat << endl;
+            prev_time = floor(time/watch)*watch;
           }
         }
         ++n_jumps;
@@ -504,7 +550,7 @@ int main(int argc, const char **argv) {
             outpath << "," << paths[i].jumps[j];
           if (paths[i].jumps.size() == 0 ||
               paths[i].jumps.back() < paths[i].tot_time)
-            outpath << "," <<  paths[i].tot_time << endl;
+            outpath << "," << paths[i].tot_time << endl;
           else
             outpath << endl;
         }
