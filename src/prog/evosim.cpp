@@ -7,6 +7,8 @@
 #include <cmath>   /* exp, sqrt, pow */
 #include <numeric>  /* std::inner_product */
 
+#include <sys/stat.h>
+
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
@@ -23,9 +25,10 @@ using std::string;
 
 
 
-bool file_exist(string param_file) {
-  std::ifstream in(param_file.c_str());
-  return in.good();
+bool
+file_exist(const string &param_file) {
+  struct stat buf;
+  return (stat(param_file.c_str(), &buf) == 0);
 }
 
 void get_random_sequence(const size_t N, vector<bool>&s) {
