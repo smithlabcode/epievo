@@ -24,40 +24,47 @@ using std::cout;
 using std::string;
 
 
-
 bool
 file_exist(const string &param_file) {
   struct stat buf;
   return (stat(param_file.c_str(), &buf) == 0);
 }
 
-void get_random_sequence(const size_t N, vector<bool>&s) {
+
+bool
+file_is_readable(const string &param_file) {
+  std::ifstream in(param_file.c_str());
+  return in.good();
+}
+
+
+void get_random_sequence(const size_t N, vector<bool> &s) {
   s.resize(N, true);
   std::random_device rd;
   //Standard mersenne_twister_engine seeded with rd()
   std::mt19937 gen(rd());
-  std::uniform_real_distribution<double> unif(0.0,1.0);
+  std::uniform_real_distribution<double> unif(0.0, 1.0);
   for (size_t i = 0; i < N; ++i)
     if (unif(gen) < 0.5)
-      s[i] =false;
+      s[i] = false;
 }
 
 void summary(const vector<bool> &seq, vector<vector<double> > &stat) {
   stat = vector<vector<double> >(2, vector<double>(2, 0.0));
-  for (size_t i = 0; i < seq.size()-1; ++i) {
-    stat[seq[i]][seq[i+1]] += 1;  //implicit conversion
+  for (size_t i = 0; i < seq.size() - 1; ++i) {
+    stat[seq[i]][seq[i+1]] += 1;  // implicit conversion
   }
   for (size_t i = 0; i < 2; ++i)
     for (size_t j = 0; j < 2; ++j)
-      stat[i][j] = stat[i][j]/(seq.size()-1);
+      stat[i][j] = stat[i][j]/(seq.size() - 1);
 }
 
 void gibbs_sample_init_state(const size_t n_site,
                              const vector<vector<double> > &logfac,
-                             vector<bool>& seq) {
+                             vector<bool> &seq) {
   std::random_device rd;
   std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<double> unif(0.0,1.0);
+  std::uniform_real_distribution<double> unif(0.0, 1.0);
   for (size_t i = 1; i < n_site - 1; ++i) {
     const size_t s = static_cast<size_t>(seq[i]);
     const double accept_prob =
@@ -71,10 +78,10 @@ void gibbs_sample_init_state(const size_t n_site,
 }
 
 
-void gibbs_sample_path(const model_param &p, vector<Path>& paths) {
+void gibbs_sample_path(const model_param &p, vector<Path> &paths) {
   std::random_device rd;
   std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-  std::uniform_int_distribution<int> uni(1,  paths.size()-2);
+  std::uniform_int_distribution<int> uni(1,  paths.size() - 2); // why subtract 2?
   for (size_t n = 1; n < paths.size() - 1; ++n) {
     size_t i = uni(gen);
     Environment env;
@@ -87,19 +94,20 @@ void gibbs_sample_path(const model_param &p, vector<Path>& paths) {
     // track current state and current time
     // while generating the new path
     bool s = paths[i].init_state;
-    double t = 0;
+    double t = 0.0;
 
     vector<std::exponential_distribution<double> > exp_distrs(2);
     for (size_t j = 0; j < env.breaks.size(); ++j) {
       for (size_t k = 0; k < 2; ++k) {
         // exponential distribution parameters (add scaler later)
-        double rate = exp(p.stationary_logfac[env.left[j]][1-k] +
-                          p.stationary_logfac[1-k][env.right[j]] +
-                          p.stationary_logbaseline[env.left[j]][env.right[j]]);
+        const double rate =
+          exp(p.stationary_logfac[env.left[j]][1-k] +
+              p.stationary_logfac[1-k][env.right[j]] +
+              p.stationary_logbaseline[env.left[j]][env.right[j]]);
         exp_distrs[k] = std::exponential_distribution<double>(rate);
       }
       while (t < env.breaks[j]) {
-        double interval = exp_distrs[s](gen);
+        const double interval = exp_distrs[s](gen);
         if ((t + interval) <= env.breaks[j]) {
           new_path.jumps.push_back(t + interval);
           s = !s;
@@ -113,14 +121,14 @@ void gibbs_sample_path(const model_param &p, vector<Path>& paths) {
     // take care of the last interval
     for (size_t k = 0; k < 2; ++k) {
       assert(env.left.size() && env.right.size());
-      double rate =
+      const double rate =
         exp(p.stationary_logfac[env.left.back()][1-k] +
             p.stationary_logfac[1-k][env.right.back()]+
             p.stationary_logbaseline[env.left.back()][env.right.back()]);
       exp_distrs[k] = std::exponential_distribution<double>(rate);
     }
     while (t < env.tot_time) {
-      double interval = exp_distrs[s](gen);
+      const double interval = exp_distrs[s](gen);
       if ((t + interval) < env.tot_time) {
         new_path.jumps.push_back(t + interval);
         s = !s;
@@ -131,14 +139,14 @@ void gibbs_sample_path(const model_param &p, vector<Path>& paths) {
     }
 
     // update path
-    paths[i] = new_path;
+    paths[i] = new_path; // maybe paths[i].swap(new_path);?
   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Continuous time Markov chain of sequences
 ////////////////////////////////////////////////////////////////////////////////
-size_t ord(bool i, bool j, bool k) {
+size_t ord(bool i, bool j, bool k) { // needs more intuitive function name
   return i*4+j*2+k;
 }
 
@@ -200,13 +208,15 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
 
   /* sample which position to flip */
   size_t position = 0;
-  const size_t n = (((size_t)(unif(gen)*triplet_stat[context])) %
-                    triplet_stat[context]) + 1;
+  const size_t n =
+    (static_cast<size_t>(unif(gen)*triplet_stat[context]) %
+     triplet_stat[context]) + 1;
   bool found = false;
   size_t count = 0;
   bool I, J, K;
   ord_to_state(context, I, J, K);
   for (size_t i = 1; !found && i < seq.size()-1; ++i) {
+    // ADS should define some inline functions for this below
     if ( !( (seq[i-1]^I) | (seq[i]^J) | (seq[i+1]^K) ) )
       ++count;
 
@@ -218,6 +228,7 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
   assert(found);
 
   // flip the position and update triplet_stat
+  // ADS: seems like the stuff below should be in a separate function
   if (position > 1) {
     --triplet_stat[ord(seq[position-2], seq[position-1], seq[position])];
     ++triplet_stat[ord(seq[position-2], seq[position-1], !seq[position])];
@@ -231,7 +242,7 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
   seq[position] = !seq[position];
 
   // update paths
-  if (time+holding_time < paths[position].tot_time)
+  if (time + holding_time < paths[position].tot_time)
     paths[position].jumps.push_back(time+holding_time);
   //update time
   time += holding_time;
@@ -241,6 +252,7 @@ void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
 // use new data structure PatSeq
 void first_jump(const vector<double> &triplet_rate,  std::mt19937 &gen,
                 PatSeq &patseq, vector<Path> &paths, double &time) {
+
   const size_t p_size = 8;
   vector<size_t> triplet_stat(p_size, 0);
   for (size_t i = 0; i < p_size; ++i) {
@@ -291,14 +303,19 @@ void convert_parameter(const vector<vector<double> > &stationary_logfac,
   for (size_t i = 0; i < 2; ++i)
     for (size_t j = 0; j < 2; ++j)
       Q[i][j] = exp(stationary_logfac[i][j]);
-  double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
+  const double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
   // transition probability matrix
   T = Q;
-  T[1][1] = 2*Q[1][1] /(Q[0][0]+Q[1][1] + delta );
-  T[0][0] = 2*Q[0][0] /(Q[0][0]+Q[1][1] + delta );
-  T[0][1] = 4*Q[0][1]*Q[1][0]/(pow(Q[0][0] + delta, 2) -Q[1][1]*Q[1][1]);
-  T[1][0] = 4*Q[0][1]*Q[1][0]/(pow(Q[1][1] + delta, 2) -Q[0][0]*Q[0][0]);
 
+  // compute the diagonal entries
+  const double diag_denom = Q[0][0]+Q[1][1] + delta;
+  T[1][1] = 2*Q[1][1]/diag_denom;
+  T[0][0] = 2*Q[0][0]/diag_denom;
+
+  // now compute the anti-diagonal entries
+  const double anti_numer = 4*Q[0][1]*Q[1][0];
+  T[0][1] = anti_numer/(pow(Q[0][0] + delta, 2) - Q[1][1]*Q[1][1]);
+  T[1][0] = anti_numer/(pow(Q[1][1] + delta, 2) - Q[0][0]*Q[0][0]);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -346,11 +363,12 @@ int main(int argc, const char **argv) {
       return EXIT_SUCCESS;
     }
     const string param_file(leftover_args.back());
-    if (!file_exist(param_file)) {
-      cerr << "File "<< param_file << "doesn't exist." << endl;
-      cerr << opt_parse.help_message() << endl;
+    if (!file_is_readable(param_file)) {
+      cerr << "cannot read file: "<< param_file << endl
+           << opt_parse.help_message() << endl;
       return  EXIT_SUCCESS;
     }
+    ////////////////////////////////////////////////////////////////////////
 
     std::ofstream outstat;
     if (!pathfile.empty() && watch > 0) {
