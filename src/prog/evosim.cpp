@@ -49,19 +49,26 @@ void get_random_sequence(const size_t N, vector<bool> &s) {
       s[i] = false;
 }
 
-void summary(const vector<bool> &seq, vector<vector<double> > &stat) {
+static void
+get_horizontal_summary_stats(const vector<bool> &seq, vector<vector<double> > &stat) {
   stat = vector<vector<double> >(2, vector<double>(2, 0.0));
-  for (size_t i = 0; i < seq.size() - 1; ++i) {
-    stat[seq[i]][seq[i+1]] += 1;  // implicit conversion
-  }
+
+  // count the number of each type of consecutive pair
+  const size_t n_pairs = seq.size() - 1;
+  for (size_t i = 0; i < n_pairs; ++i)
+    ++stat[seq[i]][seq[i+1]];  // implicit conversion
+
+  // divide by the total to get estimates of probabilities
   for (size_t i = 0; i < 2; ++i)
     for (size_t j = 0; j < 2; ++j)
-      stat[i][j] = stat[i][j]/(seq.size() - 1);
+      stat[i][j] /= n_pairs;
 }
 
-void gibbs_sample_init_state(const size_t n_site,
-                             const vector<vector<double> > &logfac,
-                             vector<bool> &seq) {
+static void
+gibbs_sample_init_state(const size_t n_site,
+                        const vector<vector<double> > &logfac,
+                        vector<bool> &seq) {
+
   std::random_device rd;
   std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<double> unif(0.0, 1.0);
@@ -74,7 +81,7 @@ void gibbs_sample_init_state(const size_t n_site,
       seq[i] = !seq[i];
   }
   vector<vector<double> > stat;
-  summary(seq, stat);
+  get_horizontal_summary_stats(seq, stat);
 }
 
 
@@ -319,6 +326,31 @@ void convert_parameter(const vector<vector<double> > &stationary_logfac,
 }
 
 
+static
+void write_pathfile_header(const string &pathfile) {
+  std::ofstream outpath(pathfile.c_str());
+  outpath << "## paths" << endl;
+}
+
+
+static void
+append_to_pathfile(const string &pathfile, vector<Path> &paths,
+                   const size_t node_id) {
+  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
+  for (size_t i = 0; i < paths.size(); ++i) {
+    outpath << node_id << "\t" <<  i << "\t"
+            << paths[i].init_state << "\t" << 0;
+    for (size_t j = 0; j < paths[i].jumps.size(); ++j)
+      outpath << "," << paths[i].jumps[j];
+    if (paths[i].jumps.size() == 0 ||
+        paths[i].jumps.back() < paths[i].tot_time)
+      outpath << "," << paths[i].tot_time << endl;
+    else
+      outpath << endl;
+  }
+}
+
+
 static void
 write_output(const string &outfile, const vector<size_t> &subtree_sizes,
              const vector<string> &node_names, const model_param &p,
@@ -426,13 +458,8 @@ int main(int argc, const char **argv) {
            << "[" << T[0][0] << "\t" << T[0][1] << endl
            << " " << T[1][0] << "\t" << T[1][1] << "]"<< endl;
 
-
-    std::ofstream outpath;
-    if (!pathfile.empty()){
-      outpath.open(pathfile.c_str(), std::ofstream::out);
-      outpath << "## paths" << endl;
-      outpath.close();
-    }
+    if (!pathfile.empty())
+      write_pathfile_header(pathfile);
 
     /* (2) INITIALIZE THE ROOT SEQUENCE */
     // initial sequence
@@ -444,7 +471,7 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE) {
       vector<vector<double> > stat;
-      summary(root_seq, stat);
+      get_horizontal_summary_stats(root_seq, stat);
       cerr << "initial frquencies" << endl
            << "(" << stat[0][0] << ",\t" << stat[0][1] << ",\t"
            << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
@@ -459,7 +486,7 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE) {
       vector<vector<double> > stat;
-      summary(target_seq, stat);
+      get_horizontal_summary_stats(target_seq, stat);
       cerr << "target frquencies" << endl
            << "(" << stat[0][0] << ",\t" << stat[0][1] << ",\t"
            << stat[1][0] << ",\t"  << stat[1][1] << ")" << endl;
@@ -536,7 +563,7 @@ int main(int argc, const char **argv) {
 
       if (VERBOSE) {
         vector<vector<double> > stat;
-        summary(evolution[node_id], stat);
+        get_horizontal_summary_stats(evolution[node_id], stat);
         cerr << n_jumps << "\t" << time << "\t"
              << stat[0][0] << "\t" << stat[0][1] << "\t"
              << stat[1][0] << "\t" << stat[1][1] << endl;
@@ -549,7 +576,7 @@ int main(int argc, const char **argv) {
                      triplet_stat, paths, time);
           if (VERBOSE && n_jumps % 1000 == 0) {
             vector<vector<double> > stat;
-            summary(evolution[node_id], stat);
+            get_horizontal_summary_stats(evolution[node_id], stat);
             cerr << n_jumps << "\t" << time << "\t"
                  << stat[0][0] << "\t" << stat[0][1] << "\t"
                  << stat[1][0] << "\t" << stat[1][1] << endl;
@@ -590,27 +617,14 @@ int main(int argc, const char **argv) {
 
       if (VERBOSE) {
         vector<vector<double> > stat;
-        summary(evolution[node_id], stat);
+        get_horizontal_summary_stats(evolution[node_id], stat);
         cerr << n_jumps << "\t" << branches[node_id] << "\t"
              << stat[0][0] << "\t" << stat[0][1] << "\t"
              << stat[1][0] << "\t" << stat[1][1] << endl;
       }
 
-      if (!pathfile.empty()) {
-        outpath.open (pathfile.c_str(), std::ofstream::app);
-        for (size_t i = 0; i < paths.size(); ++i) {
-          outpath << node_id << "\t" <<  i << "\t"
-                  << paths[i].init_state << "\t" << 0;
-          for (size_t j = 0; j < paths[i].jumps.size(); ++j)
-            outpath << "," << paths[i].jumps[j];
-          if (paths[i].jumps.size() == 0 ||
-              paths[i].jumps.back() < paths[i].tot_time)
-            outpath << "," << paths[i].tot_time << endl;
-          else
-            outpath << endl;
-        }
-        outpath.close();
-      }
+      if (!pathfile.empty())
+        append_to_pathfile(pathfile, paths, node_id);
     }
 
     if (!outfile.empty())
