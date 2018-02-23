@@ -318,6 +318,26 @@ void convert_parameter(const vector<vector<double> > &stationary_logfac,
   T[1][0] = anti_numer/(pow(Q[1][1] + delta, 2) - Q[0][0]*Q[0][0]);
 }
 
+
+static void
+write_output(const string &outfile, const vector<size_t> &subtree_sizes,
+             const vector<string> &node_names, const model_param &p,
+             const vector<vector<bool> > &evolution) {
+  std::ofstream out(outfile.c_str());
+  out << "pos\t";
+  for (size_t i = 0; i < subtree_sizes.size(); ++ i)
+    out << node_names[i] << "\t";
+  out << endl;
+  for (size_t pos = 0; pos < p.n_site; ++pos) {
+    out << pos ;
+    for (size_t i = 0; i < subtree_sizes.size(); ++ i) {
+      out << "\t" << (size_t)(evolution[i][pos]);
+    }
+    out << endl;
+  }
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // SIMULATION
 ////////////////////////////////////////////////////////////////////////////////
@@ -384,6 +404,7 @@ int main(int argc, const char **argv) {
               << "pattern110" << "\t" << "pattern111" << endl;
     }
 
+    /* (1) INITIALIZING PARAMETERS */
     if (VERBOSE)
       cerr << "Reading parameter from file " << param_file << endl;
 
@@ -405,6 +426,7 @@ int main(int argc, const char **argv) {
            << "[" << T[0][0] << "\t" << T[0][1] << endl
            << " " << T[1][0] << "\t" << T[1][1] << "]"<< endl;
 
+
     std::ofstream outpath;
     if (!pathfile.empty()){
       outpath.open(pathfile.c_str(), std::ofstream::out);
@@ -412,6 +434,7 @@ int main(int argc, const char **argv) {
       outpath.close();
     }
 
+    /* (2) INITIALIZE THE ROOT SEQUENCE */
     // initial sequence
     vector<bool> root_seq;
     get_random_sequence(p.n_site, root_seq);
@@ -590,20 +613,8 @@ int main(int argc, const char **argv) {
       }
     }
 
-    if (!outfile.empty()) {
-      std::ofstream out(outfile.c_str());
-      out << "pos\t";
-      for (size_t i = 0; i < subtree_sizes.size(); ++ i)
-        out << node_names[i] << "\t";
-      out << endl;
-      for (size_t pos = 0; pos < p.n_site; ++pos) {
-        out << pos ;
-        for (size_t i = 0; i < subtree_sizes.size(); ++ i) {
-          out << "\t" << (size_t)(evolution[i][pos]);
-        }
-        out << endl;
-      }
-    }
+    if (!outfile.empty())
+      write_output(outfile, subtree_sizes, node_names, p, evolution);
 
     if (!pathfile.empty() && watch > 0) {
       for (size_t i = 0; i < watch_node.size(); ++i) {
