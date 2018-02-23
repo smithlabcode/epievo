@@ -33,14 +33,17 @@ void read_param(const string param_file, model_param &p) {
     vector<vector<double> >(2, vector<double>(2, 0.0));
   p.init_logfac =
     vector<vector<double> >(2, vector<double>(2, 0.0));
+
   in >> dummy_label >> p.stationary_logfac[0][0]
      >> p.stationary_logfac[0][1] >> p.stationary_logfac[1][1];
   assert(dummy_label == "stationary");
   p.stationary_logfac[1][0] = p.stationary_logfac[0][1];
+
   in >> dummy_label >> p.stationary_logbaseline[0][0]
      >> p.stationary_logbaseline[0][1] >> p.stationary_logbaseline[1][1];
   assert(dummy_label == "baseline");
   p.stationary_logbaseline[1][0] = p.stationary_logbaseline[0][1];
+
   in >> dummy_label >> p.init_logfac[0][0]
      >> p.init_logfac[0][1] >> p.init_logfac[1][1];
   assert(dummy_label == "init");
@@ -56,8 +59,8 @@ void get_rates(const model_param &p, vector<double> &rates) {
                               p.stationary_logfac[1-j][k] +
                               p.stationary_logbaseline[i][k]);
       }
-    }    
-  }  
+    }
+  }
 }
 
 
