@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <random>
-#include <math.h>   /* exp, sqrt, pow */
+#include <cmath>   /* exp, sqrt, pow */
 #include <numeric>  /* std::inner_product */
 
 #include "OptionParser.hpp"
