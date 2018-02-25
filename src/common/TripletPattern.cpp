@@ -198,30 +198,3 @@ void PatSeq::to_domain_sizes(std::vector<size_t> &domain_sizes) const {
   }
 }
 
-/* WatchStat */
-
-void
-WatchStat::set(const PatSeq &patseq, const size_t node_id,
-               const double time, const size_t n_site) {
-  watch_node = node_id;
-  watch_time = time;
-  vector<size_t> ds; /*domain sizes*/
-  patseq.to_domain_sizes(ds);
-  watch_nds = ds.size();
-  double sum = std::accumulate(ds.begin(), ds.end(), 0.0);
-  watch_mds = sum/ds.size();
-  double sq_sum = std::inner_product(ds.begin(), ds.end(), ds.begin(), 0.0);
-  watch_ds_stdev = std::sqrt(sq_sum/ds.size() -  watch_mds*watch_mds);
-  watch_fraction = sum/n_site;
-  patseq.get_all_context_freq(patfreq);
-}
-
-void
-WatchStat::write(std::ofstream &outstat) {
-  outstat << watch_node << "\t" << watch_time << "\t"
-          << watch_nds << "\t" << watch_mds << "\t"
-          << watch_ds_stdev << "\t" << watch_fraction << "\t";
-  for (size_t ct = 0; ct < patfreq.size(); ++ct)
-    outstat << patfreq[ct] << "\t";
-  outstat << endl;
-}

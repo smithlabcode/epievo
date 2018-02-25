@@ -32,24 +32,4 @@ private:
 };
 
 
-struct WatchStat {
-  size_t watch_node;
-  double watch_time;
-  double watch_nds; /*number of domains*/
-  double watch_mds;
-  double watch_ds_stdev;
-  double watch_fraction;
-  std::vector<size_t> patfreq;
-
-  void set(const PatSeq &patseq, const size_t node_id,
-           const double time, const size_t n_site);
-  void write(std::ofstream &outstat);
-};
-
-
-
-
-
-
-
 #endif
