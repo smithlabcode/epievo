@@ -74,41 +74,20 @@ void get_suff_stat(const vector<vector<Jump> > &jumps,
   for (size_t branch = 0; branch < jumps.size(); ++branch) {
     double prev_jump_time = 0;
     const size_t n_jumps = jumps[branch].size();
-    for (size_t i = 0; i < n_jumps; ++i) {
-      size_t context = jumps[branch][i].context;
-      vector<size_t> freq = jumps[branch][i].freq;
-      double jump_time = jumps[branch][i].t ;
-      if (jump_time - prev_jump_time > 0) {
-        J[context] += 1.0;
-        for (size_t ct = 0; ct < 8; ++ct) {
-          D[ct] +=  freq[ct]*jump_time - freq[ct]*prev_jump_time;
-        }
+    for (size_t i = 0; i < n_jumps; ++i) { /*over all jumps*/
+      const size_t context = jumps[branch][i].context;
+      const vector<size_t> freq = jumps[branch][i].freq;
+      const double jump_time = jumps[branch][i].t;
+      const double holding_time = jump_time - prev_jump_time;
+      J[context] += 1.0;
+      for (size_t ct = 0; ct < 8; ++ct) { /*over all contexts*/
+        D[ct] += freq[ct]*holding_time;
       }
       prev_jump_time = jump_time;
     }
   }
 }
 
-
-void get_suff_stat(const vector<Jump> &jumps,
-                   vector<double> &J,
-                   vector<double> &D) {
-  J.resize(8, 0);
-  D.resize(8, 0);
-  double prev_jump_time = 0;
-  for (size_t i = 0; i < jumps.size(); ++i) {
-    size_t context = jumps[i].context;
-    vector<size_t> freq = jumps[i].freq;
-    double jump_time = jumps[i].t ;
-    J[context] += 1 ;
-    for (size_t ct = 0; ct < 8; ++ct) {
-      D[ct] += freq[ct]*jump_time - freq[ct]*prev_jump_time;
-    }
-    prev_jump_time = jump_time;
-  }
-}
-
-////////// likelihood w.r.t logrates //////////
 double llk(const vector<double> &J,
            const vector<double> &D,
            const vector<double> &rates) {
@@ -119,10 +98,10 @@ double llk(const vector<double> &J,
   return l;
 }
 
-void get_gradient_logrates(const vector<double> &J,
-                           const vector<double> &D,
-                           const vector<double> &rates,
-                           vector<double> &gradient) {
+void get_gradient(const vector<double> &J,
+                  const vector<double> &D,
+                  const vector<double> &rates,
+                  vector<double> &gradient) {
   /* gradients w.r.t log(rate[i])*/
   gradient.resize(8, 0);
   gradient[0] = J[0] - D[0]*rates[0] + J[7] - D[7]*rates[7];
@@ -135,11 +114,10 @@ void get_gradient_logrates(const vector<double> &J,
   // gradient[7] remains 0, since rates[7] is determined by other rates.
 }
 
-void candidate_logrates(const double param_tol,
-                        const double step,
-                        const vector<double> &rates,
-                        const vector<double> &gradient,
-                        vector<double> &new_rates) {
+void candidate_rates(const double param_tol, const double step,
+                     const vector<double> &rates,
+                     const vector<double> &gradient,
+                     vector<double> &new_rates) {
   new_rates.resize(8, 0);
   for (size_t i = 0; i < 7; ++i)
     new_rates[i] = exp(log(rates[i]) + gradient[i]*step);
@@ -148,17 +126,17 @@ void candidate_logrates(const double param_tol,
                      - log(new_rates[2]) - 2*log(new_rates[1]));
 }
 
-double gradient_ascent_logrates(const double param_tol,
-                                const vector<vector<Jump> > &jumps,
-                                const vector<double> &J,
-                                const vector<double> &D,
-                                const vector<double> &rates,
-                                vector<double> &new_rates) {
+double gradient_ascent(const double param_tol,
+                       const vector<vector<Jump> > &jumps,
+                       const vector<double> &J,
+                       const vector<double> &D,
+                       const vector<double> &rates,
+                       vector<double> &new_rates) {
   /* compute llk and gradient */
   double l = llk(J, D, rates);
 
   vector<double> g;
-  get_gradient_logrates(J, D, rates, g);
+  get_gradient(J, D, rates, g);
   double norm = 0.0;
   for (size_t i = 0; i < g.size(); ++i)
     norm += fabs(g[i]);
@@ -168,53 +146,31 @@ double gradient_ascent_logrates(const double param_tol,
   double new_l = 0;
   do {
     step *= 0.5;
-    candidate_logrates(param_tol, step, rates, g, new_rates);
+    candidate_rates(param_tol, step, rates, g, new_rates);
     new_l = llk(J, D, new_rates);
   } while (new_l <= l && diff > param_tol);
   return diff;
 }
 
-
-double gradient_ascent_logrates(const double param_tol,
-                                const vector<Jump> &jumps,
-                                const vector<double> &J,
-                                const vector<double> &D,
-                                const vector<double> &rates,
-                                vector<double> &new_rates) {
-  /* compute llk and gradient */
-  vector<double> g;
-  double l = llk(J, D, rates);
-  get_gradient_logrates(J, D, rates, g);
-  double step = 0.2;
-  double new_l = 0;
-  do {
-    step *= 0.5;
-    candidate_logrates(param_tol, step, rates, g, new_rates);
-    new_l = llk(J, D, new_rates);
-  } while (new_l <= l && step > param_tol);
-  return step;
-}
-
-void est_param_logrates(const double param_tol,
-                        const vector<vector<Jump> > &jumps,
-                        const vector<double> &rates,
-                        vector<double> &new_rates) {
-
+void est_param(const double param_tol,
+               const vector<vector<Jump> > &jumps,
+               const vector<double> &rates,
+               vector<double> &new_rates) {
   vector<double> J;
   vector<double> D;
   get_suff_stat(jumps, J, D);
 
   vector<double> current_rates = rates;
   double current_llk = llk(J, D, current_rates);
-  double diff = gradient_ascent_logrates(param_tol, jumps, J, D,
-                                         current_rates, new_rates);
+  double diff = gradient_ascent(param_tol, jumps, J, D,
+                                current_rates, new_rates);
   double new_llk = llk(J, D, new_rates);
 
   while (new_llk - current_llk > param_tol && diff > param_tol) {
     current_llk = new_llk;
     current_rates = new_rates;
-    diff = gradient_ascent_logrates(param_tol, jumps, J, D,
-                                    current_rates, new_rates);
+    diff = gradient_ascent(param_tol, jumps, J, D,
+                           current_rates, new_rates);
     new_llk = llk(J, D, new_rates);
 
     if (DEBUG) {
@@ -225,169 +181,6 @@ void est_param_logrates(const double param_tol,
     }
   }
 }
-
-
-// ////////// likelihood w.r.t rates //////////
-
-// double llk(const vector<double> &J,
-//            const vector<double> &D,
-//            const vector<double> &rates) {
-//   double l = -std::inner_product(D.begin(), D.end(), rates.begin(), 0);
-//   for (size_t i = 0; i < 8; ++i) {
-//     l += J[i]*log(rates[i]);
-//   }
-//   return l;
-// }
-
-// void get_gradient(const vector<double> &J,
-//                   const vector<double> &D,
-//                   const vector<double> &rates,
-//                   vector<double> &gradient) {
-//   gradient.resize(8, 0);
-//   gradient[0] = (J[0] + J[7])/rates[0] - D[0] - D[7]*rates[7]/rates[0];
-//   gradient[2] = (J[2] - J[7])/rates[2] - D[2] + D[7]*rates[7]/rates[2];
-//   gradient[5] = (J[5] + J[7])/rates[5] - D[5] - D[7]*rates[7]/rates[5];
-//   gradient[1] = (J[1] + J[4] - 2*J[7])/rates[1] - (D[1] + D[4]) +
-//     2*D[7]*rates[7]/rates[1];
-//   gradient[3] = (J[3] + J[6] + 2*J[7])/rates[3] - (D[3] + D[6]) -
-//     2*D[7]*rates[7]/rates[3];
-//   gradient[4] = gradient[1];
-//   gradient[6] = gradient[3];
-//   // gradient[7] remains 0, since rates[7] is determined by other rates.
-// }
-
-
-// void candidate_rates(const double param_tol,
-//                      const double init_step,
-//                      const vector<double> &rates,
-//                      const vector<double> &gradient,
-//                      vector<double> &new_rates,
-//                      double &abs_diff) {
-//   new_rates.resize(rates.size(), 0);
-//   double norm = 0.0;
-//   for (size_t i = 0; i < gradient.size(); ++i) {
-//     norm += fabs(gradient[i]);
-//   }
-//   double step = init_step/norm;
-//   bool found = false;
-//   while (!found && step < param_tol) {
-//     step *= 0.5;
-//     for (size_t i = 0; i < rates.size() - 1; ++i) {
-//       new_rates[i] = rates[i] + gradient[i]*step;
-//     }
-//     new_rates.back() = new_rates[0]*new_rates[5]*
-//       pow(new_rates[3]/ new_rates[1], 2)/new_rates[2];
-//     found = true;
-//     for (size_t i = 0; i < rates.size(); ++i) {
-//       if (new_rates[i] <= 0) found = false;
-//     }
-//   }
-//   abs_diff = step*norm;
-// }
-
-
-// double gradient_ascent(const double param_tol,
-//                        const vector<vector<Jump> > &jumps,
-//                        const vector<double> &J,
-//                        const vector<double> &D,
-//                        const vector<double> &rates,
-//                        vector<double> &new_rates) {
-//   /* compute llk and gradient */
-//   vector<double> g;
-//   double l = llk(J, D, rates);
-//   get_gradient(J, D, rates, g);
-//   double step = 0.2;
-//   double diff = 1;
-//   double new_l = 0;
-//   do {
-//     step *= 0.5;
-//     candidate_rates(param_tol, step, rates, g, new_rates, diff);
-//     new_l = llk(J, D, new_rates);
-//   } while (new_l <= l && diff > param_tol);
-//   return diff;
-// }
-
-
-// double gradient_ascent(const double param_tol,
-//                        const vector<Jump> &jumps,
-//                        const vector<double> &J,
-//                        const vector<double> &D,
-//                        const vector<double> &rates,
-//                        vector<double> &new_rates) {
-//   /* compute llk and gradient */
-//   vector<double> g;
-//   double l = llk(J, D, rates);
-//   get_gradient(J, D, rates, g);
-//   double step = 0.2;
-//   double diff = 1;
-//   double new_l = 0;
-//   do {
-//     step *= 0.5;
-//     candidate_rates(param_tol, step, rates, g, new_rates, diff);
-//     new_l = llk(J, D, new_rates);
-//   } while (new_l <= l && diff > param_tol);
-//   return diff;
-// }
-
-
-// void est_param(const double param_tol,
-//                const vector<vector<Jump> > &jumps,
-//                const vector<double> &rates,
-//                vector<double> &new_rates) {
-//   vector<double> J;
-//   vector<double> D;
-//   get_suff_stat(jumps, J, D);
-
-//   vector<double> current_rates = rates;
-//   double current_llk = llk(J, D, current_rates);
-//   double diff = gradient_ascent(param_tol, jumps, J, D,
-//                                 current_rates, new_rates);
-//   double new_llk = llk(J, D, new_rates);
-
-//   while (new_llk - current_llk > param_tol && diff > param_tol) {
-//     current_llk = new_llk;
-//     current_rates = new_rates;
-//     diff = gradient_ascent(param_tol, jumps, J, D,
-//                            current_rates, new_rates);
-//     new_llk = llk(J, D, new_rates);
-
-//     if (DEBUG) {
-//       cerr << "***rates:\t";
-//       for (size_t i = 0; i < new_rates.size(); ++i)
-//         cerr << new_rates[i] << "\t";
-//       cerr << new_llk << endl;
-//     }
-//   }
-// }
-
-// void est_param(const double param_tol,
-//                const vector<Jump> &jumps,
-//                const vector<double> &rates,
-//                vector<double> &new_rates) {
-//   vector<double> J;
-//   vector<double> D;
-//   get_suff_stat(jumps, J, D);
-
-//   vector<double> current_rates = rates;
-//   double current_llk = llk(J, D, current_rates);
-//   double diff = gradient_ascent(param_tol, jumps, J, D,
-//                                 current_rates, new_rates);
-//   double new_llk = llk(J, D, new_rates);
-//   while (new_llk - current_llk > param_tol && diff > param_tol) {
-//     current_llk = new_llk;
-//     current_rates = new_rates;
-//     diff = gradient_ascent(param_tol, jumps, J, D,
-//                            current_rates, new_rates);
-//     new_llk = llk(J, D, new_rates);
-
-//     if (DEBUG) {
-//       cerr << "***rates:\t";
-//       for (size_t i = 0; i < new_rates.size(); ++i)
-//         cerr << new_rates[i] << "\t";
-//       cerr << new_llk << endl;
-//     }
-//   }
-// }
 
 void est_trans_prob(const vector<bool> &seq,
                     vector<vector<double> > & trans_prob) {
@@ -497,12 +290,21 @@ int main(int argc, const char **argv) {
 
     if (!param_file.empty()) {
       model_param p;
-      read_param(param_file, p);
+      p.read_param(param_file);
       vector<double> J;
       vector<double> D;
       get_suff_stat(jumps, J, D);
 
       //////////
+      if (VERBOSE) {
+        cerr << "J:\t";
+        size_t sum = 0;
+        for (size_t i = 0; i < J.size(); ++i) {
+          cerr << J[i] << "\t";
+          sum += J[i];
+        }
+        cerr << "(" << sum << ")" << endl;
+      }
       if (DEBUG) {
         for (size_t i = 0; i < 10; ++i) {
           cerr << "J" << i << "\tT(" << jumps[0][i].t << ")\t";
@@ -520,7 +322,7 @@ int main(int argc, const char **argv) {
       //////////
 
       vector<double> rates;
-      get_rates(p, rates);
+      p.get_rates(rates);
 
       if (VERBOSE) {
         cerr << "starting rates:\t";
@@ -539,7 +341,7 @@ int main(int argc, const char **argv) {
       }
 
       vector<double> gradient;
-      get_gradient_logrates(J, D, rates, gradient);
+      get_gradient(J, D, rates, gradient);
 
       if (DEBUG) {
         cerr << "gradient :" << endl;
@@ -549,8 +351,7 @@ int main(int argc, const char **argv) {
 
       double param_tol = 1e-8;
       vector<double> new_rates;
-      //est_param(param_tol, jumps, rates, new_rates);
-      est_param_logrates(param_tol, jumps, rates, new_rates);
+      est_param(param_tol, jumps, rates, new_rates);
 
       if (VERBOSE) {
         cerr << "new rates:\t" << endl;
