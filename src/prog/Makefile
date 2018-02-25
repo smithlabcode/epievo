@@ -28,7 +28,7 @@ all: $(PROGS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o \
 	smithlab_os.o) \
-	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o) \
+	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TripletPattern.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
 
