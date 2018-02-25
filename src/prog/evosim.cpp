@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 #include <random>
 #include <cmath>   /* exp, sqrt, pow */
 #include <numeric>  /* std::inner_product */
@@ -353,13 +354,12 @@ update_watch_stats(const model_param &p,
 template <class T> string
 mat_tostring(const vector<vector<T> > &m) {
   std::ostringstream oss;
-  oss << '[' << '\n';
   for (size_t i = 0; i < m.size(); ++i) {
-    for (size_t j = 0; j < m[i].size(); ++j)
-      oss << m[i][j] << '\t';
-    oss << endl;
+    oss << "[" << std::setw(10) << std::right << m[i][0];
+    for (size_t j = 1; j < m[i].size(); ++j)
+      oss << ',' << std::setw(10) << std::right << m[i][j];
+    oss << "]" << endl;
   }
-  oss << ']';
   return oss.str();
 }
 
@@ -367,8 +367,12 @@ template <class T> string
 vec_tostring(const vector<T> &v) {
   std::ostringstream oss;
   oss << '[';
-  for (size_t i = 0; i < v.size(); ++i)
-    oss << v[i] << ",\t";
+  if (!v.empty()) {
+    oss << v[0];
+    for (size_t i = 1; i < v.size(); ++i)
+      oss << ',' << v[i];
+  }
+  oss << ']';
   return oss.str();
 }
 
@@ -386,6 +390,7 @@ int main(int argc, const char **argv) {
     string outfile;
     string pathfile;
     bool VERBOSE = false;
+    bool EXTRA_VERBOSE = false;
     size_t OPTION = 2;
     double watch = 0;
     string watchfile;
@@ -400,6 +405,8 @@ int main(int argc, const char **argv) {
                       "at specified time interval (when -o)", false, watch);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
+    opt_parse.add_opt("extra-verbose", 'V', "print way more run info",
+                      false, EXTRA_VERBOSE);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -524,7 +531,7 @@ int main(int argc, const char **argv) {
       vector<Path> paths;
       initialize_paths(evolution[node_id], branches[node_id], paths);
 
-      if (VERBOSE)
+      if (EXTRA_VERBOSE)
         cerr << n_jumps << "\t" << time << "\t"
              << horiz_summary_str(evolution[node_id]) << endl;
 
@@ -534,13 +541,13 @@ int main(int argc, const char **argv) {
         if (OPTION == 1) { /* boolean vector */
           first_jump(triplet_rate, gen, evolution[node_id],
                      triplet_stat, paths, time);
-          if (VERBOSE && n_jumps % 1000 == 0)
+          if (EXTRA_VERBOSE && n_jumps % 1000 == 0)
             cerr << n_jumps << "\t" << time << "\t"
                  << horiz_summary_str(evolution[node_id]) << endl;
         }
         else { /* pattern pos array*/
           first_jump(triplet_rate, gen, patseq, paths, time);
-          if (VERBOSE && n_jumps % 1000 == 0) {
+          if (EXTRA_VERBOSE && n_jumps % 1000 == 0) {
             cerr << n_jumps << "\t" << time << "\t";
             for (size_t ct = 0; ct < 8; ++ct)
               cerr << patseq.get_context_freq(ct) << "\t";
