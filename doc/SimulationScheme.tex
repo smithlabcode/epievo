@@ -499,11 +499,11 @@ Let $\Delta_m = t_m - t_{m-1}$ be the holding time just prior to the
 $m$-th jump. Then $\Delta_m$ is an exponential variable
 \[
 \Delta_m \sim \mathit{Exp}(\lambda_m), ~\text{ with }~
-\lambda_m = \sum_{i,j,k}c_{ijk}(t_m - \epsilon)\lambda_{ijk}.
+\lambda_m = \sum_{i,j,k}c_{ijk}(t_m^-)\lambda_{ijk}.
 \]
-The constant $\epsilon \in (0, \textstyle\min_m \Delta_{m})$ is
-defined so that $c_{ijk}(t_m - \epsilon)$ is the sequence context
-distribution between the $(m-1)$th jump and the $m$-th jump.
+The time point $t_m^-$ indicates the instant before the $m$-th jump,
+so that $c_{ijk}(t_m^-)$ is the sequence context distribution between
+the $(m-1)$th jump and the $m$-th jump.
 
 \subsection{Likelihood expressions}
 
@@ -517,11 +517,21 @@ And the log-likelihood function is
 \begin{equation}\label{eqn:loglik1}
 \begin{aligned}
 l & = \sum_{i,j,k} \left(~
-\sum_{m=1}^M\log\lambda_{ijk}\times I_{\{\context{}_m = ijk\}} - c_{ijk}(t_m-\epsilon)\lambda_{ijk}\Delta_m\right) \\
+\sum_{m=1}^M\log\lambda_{ijk}\times I_{\{\context{}_m = ijk\}} - c_{ijk}(t_m^-)\lambda_{ijk}\Delta_m\right) \\
 & = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
 \end{aligned}
 \end{equation}
-where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and $D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_m-\epsilon)\Delta_m$.
+where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and 
+
+\begin{equation*}
+\begin{aligned}
+D_{ijk} &= \sum_{m=1}^Mc_{ijk}(t_m^-)\Delta_m \\
+& = \sum_{m=1}^M (\sum_{n=1}^{N} I_{\{\text{con}(n; t_m^-) = ijk\}})*(t_m - t_{m-1}) \\
+& = \sum_{n=1}^{N}\int_{0}^{t_M} I_{\{\text{con}(n;t) = ijk\}} dt\\
+& = \text{Total time in context $ijk$ aggregated over all sites}
+\end{aligned}
+\end{equation*}
+where $\text{con}(n; t)$ is the sequence context of site $n$ at time $t$.
 
 The constraints on the transition rates $\lambda_{ijk}$ as indicated in
 the matrix \eqref{eqn:Gamma} and equation \eqref{eqn:constraint} are:
