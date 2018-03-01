@@ -55,3 +55,84 @@ model_param::get_rates(vector<double> &rates) const {
     }
   }
 }
+
+void
+model_param::get_branch_lengths(vector<double> &branch_lengths) const {
+  t.get_branch_lengths(branch_lengths);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// stationary and Markov chain
+////////////////////////////////////////////////////////////////////////////////
+
+void
+potential_to_transprob(const vector<vector<double> > &Q,
+                       vector<vector<double> > &T) {
+  const double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
+  // transition probability matrix
+  T = Q;
+
+  // compute the diagonal entries
+  const double diag_denom = Q[0][0]+Q[1][1] + delta;
+  T[1][1] = 2*Q[1][1]/diag_denom;
+  T[0][0] = 2*Q[0][0]/diag_denom;
+
+  // now compute the anti-diagonal entries
+  const double anti_numer = 4*Q[0][1]*Q[1][0];
+  T[0][1] = anti_numer/(pow(Q[0][0] + delta, 2) - Q[1][1]*Q[1][1]);
+  T[1][0] = anti_numer/(pow(Q[1][1] + delta, 2) - Q[0][0]*Q[0][0]);
+}
+
+
+
+void
+convert_parameter(const vector<vector<double> > &stationary_logfac,
+                  vector<vector<double> > &T) {
+  vector<vector<double> > Q = stationary_logfac;
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      Q[i][j] = exp(stationary_logfac[i][j]);
+
+  potential_to_transprob(Q, T);
+}
+
+
+void
+scale_rates(const vector<double> &rates,
+            const vector<double> &branches,
+            vector<double> &scaled_rates,
+            vector<double> &scaled_branches) {
+  // pair-wise potentials Q
+  vector<vector<double> > Q(2, vector<double>(2, 1.0));
+  Q[0][0] = Q[0][1] * sqrt(rates[2]/rates[0]);
+  Q[1][1] = Q[0][1] * sqrt(rates[2]/rates[0]) * (rates[1]/rates[3]);
+
+  // transition probability matrix
+  vector<vector<double> > T;
+  potential_to_transprob(Q, T);
+
+  vector<double> pi(2, 0);
+  pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
+  pi[0] = 1.0 - pi[1];
+  vector<double> stationary_prob(rates.size(), 0.0);
+  double unit = 0.0;
+  for (size_t i = 0; i < rates.size(); ++i) {
+    const size_t left = i/4;
+    const size_t mid = (i % 4)/2;
+    const size_t right = i % 2;
+    stationary_prob[i] = pi[left]*T[left][mid]*T[mid][right];
+    unit += stationary_prob[i] * rates[i];
+  }
+
+  scaled_rates.resize(rates.size());
+  for (size_t i = 0; i < rates.size(); ++i) {
+    scaled_rates[i] = rates[i]/unit;
+  }
+
+  scaled_branches.resize(branches.size());
+  for (size_t i = 0; i < branches.size(); ++i) {
+    scaled_branches[i] = branches[i]*unit;
+  }
+
+}

@@ -15,7 +15,22 @@ struct model_param {
 
   void read_param(const std::string &param_file);
   void get_rates(std::vector<double> &rates) const;
+  void get_branch_lengths(std::vector<double> &branch_lengths) const;
 };
 
+
+void
+potential_to_transprob(const std::vector<std::vector<double> > &Q,
+                       std::vector<std::vector<double> > &T);
+
+void
+convert_parameter(const std::vector<std::vector<double> > &stationary_logfac,
+                  std::vector<std::vector<double> > &T);
+
+void
+scale_rates(const std::vector<double> &rates,
+            const std::vector<double> &branches,
+            std::vector<double> &scaled_rates,
+            std::vector<double> &scaled_branches);
 
 #endif
