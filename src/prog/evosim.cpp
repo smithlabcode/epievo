@@ -222,31 +222,6 @@ first_jump(const vector<double> &triplet_rate, std::mt19937 &gen,
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-// stationary and Markov chain
-////////////////////////////////////////////////////////////////////////////////
-static void
-convert_parameter(const vector<vector<double> > &stationary_logfac,
-                  vector<vector<double> > &T) {
-  vector<vector<double> > Q = stationary_logfac;
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      Q[i][j] = exp(stationary_logfac[i][j]);
-  const double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
-  // transition probability matrix
-  T = Q;
-
-  // compute the diagonal entries
-  const double diag_denom = Q[0][0]+Q[1][1] + delta;
-  T[1][1] = 2*Q[1][1]/diag_denom;
-  T[0][0] = 2*Q[0][0]/diag_denom;
-
-  // now compute the anti-diagonal entries
-  const double anti_numer = 4*Q[0][1]*Q[1][0];
-  T[0][1] = anti_numer/(pow(Q[0][0] + delta, 2) - Q[1][1]*Q[1][1]);
-  T[1][0] = anti_numer/(pow(Q[1][1] + delta, 2) - Q[0][0]*Q[0][0]);
-}
-
 static
 void write_pathfile_header(const string &pathfile) {
   std::ofstream outpath(pathfile.c_str());
