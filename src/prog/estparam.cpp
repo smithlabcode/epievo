@@ -480,6 +480,8 @@ int main(int argc, const char **argv) {
       vector<double> new_branches;
       est_params(param_tol, jumps, rates, branches, new_rates, new_branches);
 
+      /* scale rates and branches to have unit branch length corresponding
+         to one expected transition per site */
       vector<double> scaled_rates;
       vector<double> scaled_branches;
       scale_rates(new_rates, new_branches, scaled_rates, scaled_branches);
