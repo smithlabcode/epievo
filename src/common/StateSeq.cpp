@@ -27,7 +27,7 @@
 using std::vector;
 
 void
-PatSeq::get_domain_sizes(vector<size_t> &domain_sizes) const {
+StateSeq::get_domain_sizes(vector<size_t> &domain_sizes) const {
   domain_sizes.clear();
   size_t s = 0;
   bool in_domain = false;
