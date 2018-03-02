@@ -101,12 +101,16 @@ TripletSampler::single_update(const size_t pos, size_t context,
                 pos_by_pat.begin() + preceding_block_start);
       iter_swap(idx_in_pat.begin() + pos_by_pat[block_start],
                 idx_in_pat.begin() + pos_by_pat[preceding_block_start]);
+      block_start = preceding_block_start;
     }
     ++cum_pat_count[context]; // no swap for last context (block boundary moves)
   }
   else {
 
-    ++context; // refers to the context after the one of interest
+    /* (ADS) for this case, I originally coded it using a "context +
+       1" in most places, but then realized it would be the same if I
+       just incremented the context at the start: */
+    ++context;
 
     size_t block_end = cum_pat_count[context] - 1; // last position in
                                                    // current block
@@ -127,6 +131,7 @@ TripletSampler::single_update(const size_t pos, size_t context,
                 pos_by_pat.begin() + next_block_end);
       iter_swap(idx_in_pat.begin() + pos_by_pat[block_end],
                 idx_in_pat.begin() + pos_by_pat[next_block_end]);
+      block_end = next_block_end;
     }
     --cum_pat_count[context];
   }
