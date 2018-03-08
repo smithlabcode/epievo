@@ -32,7 +32,15 @@ public:
   void get_triplet_counts(std::vector<size_t> &counts) const;
   size_t get_triplet_count(const size_t context) const;
   size_t random_mutate(const size_t context, std::mt19937 &gen);
-  void mutate(const size_t pos);
+
+  // mutate: the second argument can be computed using the first, but
+  // passing it as parameter skips having to compute it again
+  void mutate(const size_t pos, const size_t context);
+
+  // get_sequence: extracts the sequences corresponding to the current
+  // state of the calling TripletSampler object, which is obtained by
+  // "unpermuting" the idx_in_pat; essentially placing the correct bit
+  // into each position of the sequence.
   void get_sequence(std::vector<char> &seq) const;
 
 private:
