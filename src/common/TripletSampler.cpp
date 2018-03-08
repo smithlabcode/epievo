@@ -23,6 +23,7 @@
 
 #include "StateSeq.hpp"
 
+#include <iostream>
 #include <vector>
 #include <random>
 #include <algorithm>
@@ -32,6 +33,7 @@
 using std::vector;
 
 TripletSampler::TripletSampler(const vector<char> &seq) {
+  assert(seq.size() >= 3); // must have at least one triplet
 
   const size_t seq_len = seq.size();
 
@@ -66,8 +68,8 @@ TripletSampler::TripletSampler(const vector<char> &seq) {
 void
 TripletSampler::get_triplet_counts(vector<size_t> &triplet_counts) const {
   triplet_counts.clear();
-  std::copy(cum_pat_count.begin(), cum_pat_count.end() - 1, // we get 8 elements
-            std::back_inserter(triplet_counts));
+  adjacent_difference(cum_pat_count.begin() + 1, cum_pat_count.end(),
+                      std::back_inserter(triplet_counts));
 }
 
 size_t
@@ -83,6 +85,7 @@ TripletSampler::single_update(const size_t pos, size_t context,
 
   size_t loc = idx_in_pat[pos];
   if (context > to_context) {
+
     size_t block_start = cum_pat_count[context];
 
     // swap to current location to beginning of block
@@ -138,21 +141,32 @@ TripletSampler::single_update(const size_t pos, size_t context,
 }
 
 
+/* get_context is used to lookup the context of a particular triplet
+   using its position in the pos_by_pat. The vector pos_by_pat is
+   organized such that all positions having a particular pattern
+   appear consecutively, but are otherwise unordered.
+*/
 size_t
 TripletSampler::get_context(const size_t pos) const {
-  assert(pos > 0 && pos < pos_by_pat.size() - 1);
+  assert(pos > 0 && pos < idx_in_pat.size() - 1);
   const size_t idx = idx_in_pat[pos];
   size_t pat = 0;
-  while (cum_pat_count[pat] < idx) ++pat; // iterates at most 8 times
+  // below: iterates at most 8 times; using "pat + 1" because the
+  // cum_pat_count is shifted. Also, the "<=" is needed in case some
+  // set of triplets immediately preceding the triplet at pos appear 0
+  // times. For example, if there are no 000 or 001 patterns, and pos
+  // appears first among the 010 patterns, then cum_pat_count[pat + 1]
+  // would be equal to idx immediately, and we would return
+  // pat=0. This can only happen in degenerate cases.
+  while (cum_pat_count[pat + 1] <= idx) ++pat;
   return pat;
 }
 
 
 void
-TripletSampler::mutate(const size_t pos) {
+TripletSampler::mutate(const size_t pos, const size_t context) {
 
   // flip the middle bit of the current triplet pattern
-  const size_t context = get_context(pos);
   single_update(pos, context, flip_mid_bit(context));
 
   // flip the right bit of the left neighbor's triplet pattern (unless
@@ -182,8 +196,7 @@ TripletSampler::random_mutate(const size_t context, std::mt19937 &gen) {
   std::uniform_int_distribution<size_t> dist(cum_pat_count[context],
                                              cum_pat_count[context + 1] - 1);
   const size_t pos = pos_by_pat[dist(gen)];
-
-  mutate(pos);
+  mutate(pos, context);
 
   return pos;
 }
