@@ -23,6 +23,8 @@
 
 #include <vector>
 #include <cassert>
+#include <functional>
+#include <algorithm>
 
 using std::vector;
 
@@ -45,4 +47,25 @@ StateSeq::get_domain_sizes(vector<size_t> &domain_sizes) const {
       s = 0;
     }
   }
+}
+
+void
+StateSeq::get_triplet_counts(std::vector<size_t> &triplet_counts) const {
+  static const size_t n_triplets = 8;
+
+  triplet_counts.resize(n_triplets, 0);
+  for (size_t i = 2; i < seq.size(); ++i)
+    triplet_counts[triple2idx(seq[i-2], seq[i-1], seq[i])]++;
+}
+
+void
+StateSeq::get_triplet_proportions(std::vector<double> &triplet_props) const {
+
+  vector<size_t> triplet_counts;
+  get_triplet_counts(triplet_counts);
+
+  triplet_props.resize(triplet_counts.size());
+  std::transform(triplet_counts.begin(), triplet_counts.end(),
+                 triplet_props.begin(), std::bind2nd(std::divides<double>(),
+                                                     seq.size() - 2));
 }
