@@ -23,15 +23,19 @@
 #define STATESEQ_HPP
 
 #include <vector>
+#include <cstdlib>
 
 struct StateSeq {
   StateSeq(const std::vector<char> &s) : seq(s) {}
   void get_domain_sizes(std::vector<size_t> &domain_sizes) const;
   std::vector<char> seq;
+
+  void get_triplet_counts(std::vector<size_t> &triplet_counts) const;
+  void get_triplet_proportions(std::vector<double> &triplet_proportions) const;
 };
 
-template <class T> size_t
-triple2idx(const T i, const T j, const T k) {
+inline size_t
+triple2idx(const bool i, const bool j, const bool k) {
   return i*4 + j*2 + k;
 }
 
