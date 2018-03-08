@@ -521,7 +521,7 @@ l & = \sum_{i,j,k} \left(~
 & = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
 \end{aligned}
 \end{equation}
-where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and 
+where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and
 
 \begin{equation*}
 \begin{aligned}
@@ -546,58 +546,119 @@ the matrix \eqref{eqn:Gamma} and equation \eqref{eqn:constraint} are:
 \end{equation}
 So the log-likelihood function \eqref{eqn:loglik1} becomes
 \begin{equation}\label{eqn:loglik2}
-\begin{aligned}
-l = ~ & J_{000}\log\lambda_{000} - D_{000}\lambda_{000} ~ + \\
-    & J_{010}\log\lambda_{010} - D_{010}\lambda_{010} ~ + \\
-    & J_{101}\log\lambda_{101} - D_{101}\lambda_{101} ~ + \\
-    & (J_{100} + J_{001})\log\lambda_{001} - (D_{100}+D_{001})\lambda_{001} +  \\
-    & (J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011} +  \\
-    & J_{111}\log\left(\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}\right) - D_{111}\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}.
-\end{aligned}
+  \begin{aligned}
+    l = ~ & \bigg(J_{000}\log\lambda_{000} - D_{000}\lambda_{000}\bigg) ~ +
+    \bigg(J_{010}\log\lambda_{010} - D_{010}\lambda_{010}\bigg) ~ +
+    \bigg(J_{101}\log\lambda_{101} - D_{101}\lambda_{101}\bigg) ~ + \\
+    & \bigg( (J_{100} + J_{001})\log\lambda_{001} - (D_{100}+D_{001})\lambda_{001}\bigg) +
+    \bigg((J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011}\bigg) +  \\
+    & J_{111}\log\left(\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}\right) - D_{111}\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2} \\
+    = ~ & \sum\limits_{c=0,2,5}\bigg(J_c\log\lambda_c - D_c\lambda_c\bigg) ~ +
+    \sum\limits_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c - (D_c + D_{c'})\lambda_c\bigg) ~ + \\
+    ~ & \bigg(J_7\log(\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2})
+    - D_7\cdot\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2} \bigg),
+  \end{aligned}
 \end{equation}
+where $c'$ is the symmetric context pattern of $c$, \textit{i.e.} if
+$c$ is $001$, then $c'$ is $100$.
 
 \subsection{Estimates when evolutionary time is a parameter}
-
 %%% ADS: I feel this is stated backwards. The paramters are not
 %%% identifiable until we make the assumption about unit branch
 %%% lengths.
 When the total time span of this complete evolutionary history is
 unknown, the value of $t$ is also a model parameter to be
-estimated. If we assume that all the jump times are expressed as a
-fraction of $t$, then the transition rates and the evolutionary time
-are jointly identifiable and can be estimated. We require an
-additional constraint: the unit branch length corresponds to 1
-expected mutation per site. This is a common constraint in
-phylogenetic studies.
+estimated. We assume that all the jumping times are observed as a
+fraction of the unknown $t$. Suppose the jumping times are
+$\{t_m\}_{m=0}^M$, which are monotonic strictly increasing values
+between $(0,1]$, and $t_0 = 0, t_M = 1$ represent the start
+and end of observation and do not correspond to a jump. 
 
-Here we explain how to formulate this constraint on the
-$\lambda_{ijk}$ transition parameters. Given $\lambda_{ijk}$ according
-to \eqref{eqn:rel}, the ratios $\frac{\lambda_{010}}{\lambda_{000}}$
-and $\frac{\lambda_{001}}{\lambda_{011}}$ uniquely determine the
+The observed data likelihood becomes
+\begin{equation}
+L = \Bigg(\prod\limits_{m=1}^{M-1} \lambda_{c_m}\exp(-\lambda_{(m)}(t_m - t_{m-1})t) \Bigg) \times \exp(-\lambda_{(M)}(t_M - t_{M-1})t) 
+\end{equation}
+and the log likelihood is 
+\begin{equation}
+\begin{aligned}
+l = & \sum\limits_{m=1}^{M-1} \log\lambda_{c_m} - \sum\limits_{m=1}^{M} \lambda_{(m)}(t_m - t_{m-1})t \\
+= & \sum_{c} J_c\log\lambda_c  - \sum_{c} D_c\lambda_c t, 
+\end{aligned}
+\end{equation}
+where $J_c = \sum_{m=1}^{M-1}I_{\{c_m = c\}}$, and $D_c = \sum_{m=1}^{M}I_{\{c_m = c\}}(t_m - t_{m-1})$. 
+
+The rate parameters and the evolutionary time are not identifiable in
+the optimization problem. The data likelihood is unbounded: for any
+values of the parameters, we can always increase the likelihood by
+multiplying all $\lambda_c$ by some constant $x > 1$, and scale $t$ by
+a factor of $1/x$. The rate parameters become identifiable when we fix
+$t$ at a constant value.
+
+When we consider evolutionary processes on a tree, we have multiple
+branches of unknown lengths. Suppose we observe all jumps with holding
+times observed as a fraction of the unknown total tree size. The
+transition rates are identifiable when the total tree size is
+fixed. For example, we can set the total tree size to 1, \textit{i.e.}
+$\sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b}(t_{b,m} - t_{b,m-1})
+= 1$.
+ 
+\begin{equation}
+L = \prod\limits_{b=1}^B\Bigg(\prod\limits_{m=1}^{M_b-1} \lambda_{c_{b,m}}\exp(-\lambda_{(b,m)}(t_{b,m} - t_{b,m-1}))  \times \exp(-\lambda_{(M_b)}(t_{M_b} - t_{M_b-1})) \Bigg)
+\end{equation}
+and the log likelihood is 
+\begin{equation}
+  \begin{aligned}
+    l = ~ & \sum\limits_{b=1}^B\Bigg( 
+    \sum\limits_{m=1}^{M_b-1} \log\lambda_{c_{b,m}} 
+    - \sum\limits_{m=1}^{M_b} \lambda_{(b,m)}(t_{b,m} - t_{b,m-1}) \Bigg) \\
+    = ~ & \sum_{c} J_c\log\lambda_c  - \sum_{c} D_{c}\lambda_c \\
+    = ~ & \sum\limits_{c=0,2,5}\bigg(J_c\log\lambda_c - D_{c}\lambda_c\bigg) ~ + 
+    ~ \sum\limits_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c ~ - 
+    (D_{c} + D_{c'})\lambda_c\bigg) ~ + \\
+    ~ & \bigg(J_7\log(\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2})
+    - D_{7}\cdot\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2} \bigg)
+  \end{aligned}
+\end{equation}
+where $J_c = \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b-1}I_{\{c_{b,m}
+= c\}}$, and $D_{c} = \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b}I_{\{c_{b,m} =
+c\}}(t_{b,m} - t_{b,m-1})$.
+
+\subsubsection{Gradients of log-likelihood}
+We treat $\{\log\lambda_c: c = 0,1,2,3,5\}$ as free parameters as they can take any real value.
+\begin{equation}
+\begin{aligned}
+\frac{\partial l}{\partial \log\lambda_0} &= J_0 - D_0\lambda_0 + J_7 - D_7\lambda_7\\
+\frac{\partial l}{\partial \log\lambda_2} &= J_2 - D_2\lambda_2 - J_7 + D_7\lambda_7 \\
+\frac{\partial l}{\partial \log\lambda_5} &= J_5 - D_5\lambda_5 + J_7 - D_7\lambda_7\\
+\frac{\partial l}{\partial \log\lambda_1} &= J_1 + J_4 - (D_1 + D_4)\lambda_1 - 2J_7 + 2D_7\lambda_7\\
+\frac{\partial l}{\partial \log\lambda_3} &= J_3 + J_6 - (D_3 + D_6)\lambda_3 + 2J_7 - 2D_7\lambda_7
+\end{aligned}
+\end{equation}
+
+\subsubsection{Scaling parameters}
+After the estimates are made, we can scale the transition rates and
+branch lengths to have unit branch length corresponding to 1 expected
+transition per site.  Given $\lambda_{c}$ according to
+\eqref{eqn:rel}, the ratios $\frac{\lambda_{010}}{\lambda_{000}}$ and
+$\frac{\lambda_{001}}{\lambda_{011}}$ uniquely determine the
 stationary distribution for the epigenome described by a Gibbs measure
 of the form \eqref{eqn:stationary}. The Gibbs measure for the
 epigenome sequence, in turn, is equivalent to the Markov chain
 \eqref{eqn:gibbs2markov}. Given the Markov chain formulation, we can
 compute the expected frequency of triplet patterns
 \[
-p_{ijk} = \frac{1}{N}\E(c_{ijk}),
-\]
-where $c_{ijk}$ is the frequency of the triplet pattern in an
-epigenomic sequence of length $N$ sampled from the Gibbs
-distribution. Then the expected number of changes per position per
-unit time is $\sum_{ijk}p_{ijk}\lambda_{ijk}$. When the evolutionary
-time is also unknown, we add the constraint:
-%%
+p_{ijk} = \pi_i T[i,j] T[j,k].
+\] 
+Then the expected number of changes per position per
+unit time is $\mu = \sum_{ijk}p_{ijk}\lambda_{ijk}$. We can scale transition
+rates and branch lengths as follows:
 \begin{equation}\label{eqn:tidentifiable}
-\sum_{ijk}p_{ijk}\lambda_{ijk} = 1,
+\begin{aligned}
+\lambda_{ijk} &\leftarrow \lambda_{ijk}\times \mu \\
+t_b &\leftarrow \sum\limits_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \frac{1}{\mu}.
+\end{aligned}
 \end{equation}
 %%
-where $\{p_{ijk}\}$ as explained above are functions of
-$\{\lambda_{ijk}\}$. Estimation maximizes the log-likelihood
-\eqref{eqn:loglik1} over $\{\lambda_{ijk}\}\cup\{t\}$ under the
-constraints \eqref{eqn:constraints} and \eqref{eqn:tidentifiable},
-where the unknown parameter $t$ is included within $\{D_{ijk}\}$ in
-\eqref{eqn:loglik1}.
 
 \subsection{Posterior distribution of a path given two neighboring paths}
 
