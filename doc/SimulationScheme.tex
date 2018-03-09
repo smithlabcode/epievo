@@ -464,7 +464,7 @@ $c_{ijk}$ at each time point, and updating them by removing
 %%% (2) simulated paths with different parameter, show examples and summary statistics for events
 
 
-\section{Parameter inference}
+\section{Parameter estimation}
 
 If we are given the complete epigenome evolution path from time $0$ to
 time $t$, can we effectively recover the initial distribution and
@@ -523,14 +523,14 @@ l & = \sum_{i,j,k} \left(~
 \end{equation}
 where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and
 
-\begin{equation*}
+\begin{equation}\label{eqn:Dijk}
 \begin{aligned}
 D_{ijk} &= \sum_{m=1}^Mc_{ijk}(t_m^-)\Delta_m \\
 & = \sum_{m=1}^M (\sum_{n=1}^{N} I_{\{\text{con}(n; t_m^-) = ijk\}})*(t_m - t_{m-1}) \\
 & = \sum_{n=1}^{N}\int_{0}^{t_M} I_{\{\text{con}(n;t) = ijk\}} dt\\
 & = \text{Total time in context $ijk$ aggregated over all sites}
 \end{aligned}
-\end{equation*}
+\end{equation}
 where $\text{con}(n; t)$ is the sequence context of site $n$ at time $t$.
 
 The constraints on the transition rates $\lambda_{ijk}$ as indicated in
@@ -610,18 +610,19 @@ and the log likelihood is
   \begin{aligned}
     l = ~ & \sum\limits_{b=1}^B\Bigg( 
     \sum\limits_{m=1}^{M_b-1} \log\lambda_{c_{b,m}} 
-    - \sum\limits_{m=1}^{M_b} \lambda_{(b,m)}(t_{b,m} - t_{b,m-1}) \Bigg) \\
-    = ~ & \sum_{c} J_c\log\lambda_c  - \sum_{c} D_{c}\lambda_c \\
-    = ~ & \sum\limits_{c=0,2,5}\bigg(J_c\log\lambda_c - D_{c}\lambda_c\bigg) ~ + 
-    ~ \sum\limits_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c ~ - 
-    (D_{c} + D_{c'})\lambda_c\bigg) ~ + \\
-    ~ & \bigg(J_7\log(\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2})
-    - D_{7}\cdot\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2} \bigg)
+    - \sum\limits_{m=1}^{M_b} \lambda_{(b,m)}(t_{b,m} - t_{b,m-1}) \Bigg)
+    = ~ \sum_{c} J_c\log\lambda_c  - \sum_{c} D_{c}\lambda_c 
+    % \\
+    % = ~ & \sum\limits_{c=0,2,5}\bigg(J_c\log\lambda_c - D_{c}\lambda_c\bigg) ~ + 
+    % ~ \sum\limits_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c ~ - 
+    % (D_{c} + D_{c'})\lambda_c\bigg) ~ + \\
+    % ~ & \bigg(J_7\log(\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2})
+    % - D_{7}\cdot\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2} \bigg)
   \end{aligned}
 \end{equation}
 where $J_c = \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b-1}I_{\{c_{b,m}
-= c\}}$, and $D_{c} = \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b}I_{\{c_{b,m} =
-c\}}(t_{b,m} - t_{b,m-1})$.
+= c\}}$, $D_{c} = \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b}I_{\{c_{b,m} =
+c\}}(t_{b,m} - t_{b,m-1})$, and $c_{b,m}$ is the context of the $m$-th jump on branch $b$.
 
 \subsubsection{Gradients of log-likelihood}
 We treat $\{\log\lambda_c: c = 0,1,2,3,5\}$ as free parameters as they can take any real value.
@@ -714,41 +715,67 @@ and $n+1$ do not change.
 \item Collect the time intervals from site $n-1$ and site $n+1$, so
   that within each of the intervals the states of the neighboring
   sites are unchanged. Let the intervals be represented by a sorted
-  array $\{t_0, t_1, \cdots, t_M\}$.
+  array $\{t_0, t_1, \cdots, t_M\}$. 
+\item Initialize proposal probability $p\leftarrow 1$.
 \item For $m = 1, \ldots, M$:
   \begin{itemize}
   \item Let $X$ be a random variable from an exponential distribution,
-    representing the jumping time of the middle site given that the
-    states of its two neighbors are constant.  For a time interval
-    $[t_{m-1}, t_m]$ during which the neighboring sites' states are
-    unchanged, suppose $X\sim \text{Exp}(\lambda_{ijk})$, where $i$
-    and $k$ are the states of the two neighboring sites in this time
-    interval, and $j$ is the starting state of position $n$.
+    representing the jumping time of the middle site given that the states
+    of its two neighbors are constant.  For a time interval $[t_{m-1},
+    t_m]$ during which the neighboring sites' states are unchanged,
+    suppose $X \sim \text{Exp}(\lambda_{ijk})$, where $i$ and $k$ are the
+    states of the two neighboring sites in this time interval, and $j$ is
+    the starting state of position $n$. Let $f_{\lambda}$ be the p.d.f. of
+    Exponential distribution $\text{Exp}(\lambda)$.
   \item Let $t = t_{m-1}$, and a sample value of $X=x$.
-  \item While $t +x < t_m$:
+  \item While $t + x < t_m$:
     \begin{enumerate}[label={(\arabic*)}]
+    \item Update proposal probability $p \leftarrow p\times f_{\lambda_{ijk}}(x)$.
+    \item Update the state of the center site $j \leftarrow \bar{j}$.
     \item Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
     \item Update $T_n \leftarrow T_n\cup\{t+x\}$.
     \item Update $t \leftarrow  t+x$,
     \item Sample another value of $X=x$ from $\text{Exp}(\lambda_{ijk})$.
     \end{enumerate}
+  \item Update proposal probability $p \leftarrow p\times \Pr_{\lambda_{ijk}}(X > t_m - t )$.
   \end{itemize}
 \end{itemize}
 
-The proposal probability density $q()$ is thus the product of the
-appropriate Exponential distribution probability densities for the
-holding times at position $n$. The proposal distribution is
-independent of any current guess of the path. Therefore, this is also
-an \textit{independence sampler}. The rejection rule stays the same,
-as in (\ref{eqn:rejection}).
+The proposal probability density function $q()$ is thus the product of
+the appropriate Exponential distribution probability densities for the
+holding times at position $n$, and is calculated as $p$. The proposal
+distribution is independent of any current guess of the
+path. Therefore, this is also an \textit{independence sampler}. The
+rejection rule stays the same, as in (\ref{eqn:rejection}).
 
-\paragraph{Note:} A jump at time $\tau$ within the path $L_{n}$
-will affect the probability of all jumps that occur after time $\tau$,
-regardless of their position within the epigenome. The is because such
-a jump affects $\{c_{ijk}(t)\}$ for any $t > \tau$. Therefore, we
-cannot cancel out factors in the likelihood function. However, we may
-try to make things easy by only considering the evolutionary paths at
-positions $n-2$, $n-1$, $n+1$, and $n+2$.
+\paragraph{Note:} For two versions of complete evolutionary history
+that only differ at one position, their difference in likelihood is
+determined by the paths at that position, and two positions to each
+side, \textit{i.e.} 5 positions in total. Because the total time spent
+in each triplet context \eqref{eqn:Dijk} is altered at the center
+position and its two neighboring positions. Let $n$  be the center position. 
+Let $D_{n,c}$ be the total time spent in triplet context $c$ at position $n$
+in the current instance of evolutionary paths, and let $D'_{n,c}$ be that of 
+the new proposed evolutionary path. Similarly let $J_{n,c}$ and $J'_{n,c}$ be 
+the total number of jumps out of context $c$ at position $n$ in the
+current and proposed paths. Thus, the ratio of complete data
+likelihood in acceptance probability \eqref{eqn:rejection} can be
+computed as
+\[
+\frac{\pi(L', L_{-n})}{\pi(L_n, L_{-n})} = \prod\limits_{c}\prod\limits_{s=n-1}^{n+1}
+\lambda_c^{J'_{s,c} - J_{s,c}} \exp(-(D'_{s,c}-D_{s,c})\lambda_c).
+\]
+
+%% JQU: current goal of coding is to make sure after one pass of updates,
+%%  the parameters can be recovered from the updated paths.
+
+% \paragraph{Note:} A jump at time $\tau$ within the path $L_{n}$
+% will affect the probability of all jumps that occur after time $\tau$,
+% regardless of their position within the epigenome. The is because such
+% a jump affects $\{c_{ijk}(t)\}$ for any $t > \tau$. Therefore, we
+% cannot cancel out factors in the likelihood function. However, we may
+% try to make things easy by only considering the evolutionary paths at
+% positions $n-2$, $n-1$, $n+1$, and $n+2$.
 
 \section{Inferences in the context of a tree structure with fixed leaf data}
 
