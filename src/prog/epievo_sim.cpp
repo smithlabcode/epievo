@@ -155,7 +155,6 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
 
   // update the current time_value
   time_value += holding_time;
-  cerr << time_value << endl;
 
   // if the holding time ends before the total time interval, we can
   // make a change to the state sequence
@@ -163,36 +162,24 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
 
     /* first: get a probability distribution for the triplet to change */
     vector<double> triplet_prob(n_triplets, 0.0);
-    for (size_t i = 0; i < n_triplets; ++i) {
+    for (size_t i = 0; i < n_triplets; ++i)
       triplet_prob[i] =
         triplet_counts[i]*the_model.triplet_rates[i]/holding_rate;
-      cerr << std::bitset<3>(i & 7) << '\t' << triplet_prob[i] << endl;
-    }
+
     /* next: use that distribution to sample which triplet type at
        which the change will happen */
     std::discrete_distribution<size_t> multinom(triplet_prob.begin(),
                                                 triplet_prob.end());
     const size_t context = multinom(gen);
-    cerr << "CONTEXT:\t" << context << endl;
 
     /* sample a change position having the relevant triplet; this
        changes the TripletSampler data structure to reflect a changed
        state at the position sampled */
     const size_t change_position = ts.random_mutate(context, gen);
-    cerr << change_position << endl;
 
     /* add the changed position and change time to the path */
     the_path.push_back(Segment(time_value, change_position));
   }
-  cerr << time_value << '\t' << total_time << endl;
-
-  vector<size_t> triplet_counts_b;
-  ts.get_triplet_counts(triplet_counts_b);
-  cerr << "COUNTS AFTER" << endl;
-  for (size_t i = 0; i < n_triplets; ++i) {
-    cerr << std::bitset<3>(i & 7) << '\t' << triplet_counts_b[i] << endl;
-  }
-
 
 }
 
@@ -218,6 +205,8 @@ write_output(const string &outfile,
              const vector<string> &node_names,
              const vector<vector<char> > &sequences) {
 
+  cerr << sequences.size() << endl;
+
   std::ofstream out(outfile.c_str());
   if (!out)
     throw std::runtime_error("bad output file: " + outfile);
@@ -225,15 +214,19 @@ write_output(const string &outfile,
   const size_t n_sequences = sequences.size();
   const size_t n_sites = sequences.front().size();
 
+  cerr << node_names.size() << endl;
+
   out << '#';
   for (size_t i = 0; i < n_sequences; ++i)
     out << '\t' << node_names[i];
   out << '\n';
 
+  cerr << node_names.size() << endl;
+
   for (size_t i = 0; i < n_sites; ++i) {
     out << i;
     for (size_t j = 0; j < n_sequences; ++j)
-      out << '\t' << sequences[i][j];
+      out << '\t' << static_cast<bool>(sequences[j][i]);
     out << '\n';
   }
 }
