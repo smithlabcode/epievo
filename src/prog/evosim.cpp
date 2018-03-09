@@ -507,7 +507,7 @@ int main(int argc, const char **argv) {
       initialize_paths(evolution[node_id], branches[node_id], paths);
 
       if (EXTRA_VERBOSE)
-        cerr << n_jumps << "\t" << time << "\t"
+        cerr << "n_jumps=" << n_jumps << "\ttime=" << time << "\t"
              << horiz_summary_str(evolution[node_id]) << endl;
 
       /* SAMPLE CHANGES ALONG THE CURRENT BRANCH */
@@ -516,14 +516,14 @@ int main(int argc, const char **argv) {
         if (OPTION == 1) { /* boolean vector */
           first_jump(triplet_rate, gen, evolution[node_id],
                      triplet_stat, paths, time);
-          if (EXTRA_VERBOSE && n_jumps % 1000 == 0)
-            cerr << n_jumps << "\t" << time << "\t"
+          if (EXTRA_VERBOSE && (n_jumps + 1) % 1000 == 0)
+            cerr << "n_jumps=" << n_jumps << "\ttime=" << time << "\t"
                  << horiz_summary_str(evolution[node_id]) << endl;
         }
         else { /* pattern pos array*/
           first_jump(triplet_rate, gen, patseq, paths, time);
-          if (EXTRA_VERBOSE && n_jumps % 1000 == 0) {
-            cerr << n_jumps << "\t" << time << "\t";
+          if (EXTRA_VERBOSE && (n_jumps + 1) % 1000 == 0 && time < branches[node_id]) {
+            cerr << "n_jumps=" << n_jumps << "\ttime=" << time << "\tPatSeq_context_freq:";
             for (size_t ct = 0; ct < 8; ++ct)
               cerr << patseq.get_context_freq(ct) << "\t";
             cerr << endl;
