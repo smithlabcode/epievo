@@ -29,10 +29,12 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
+#include <bitset>
 
 using std::vector;
 using std::string;
 using std::transform;
+using std::bitset;
 
 
 string
@@ -81,13 +83,9 @@ EpiEvoModel::tostring() const {
       << "[STATIONARY POTENTIALS]\n"
       << format_two_by_two(Q) << '\n'
       << "[TRIPLE RATES]" << '\n';
-  for (size_t i = 0; i < triplet_rates.size(); ++i) {
-    const size_t left_bit = get_left_bit(i);
-    const size_t mid_bit = get_mid_bit(i);
-    const size_t right_bit = get_right_bit(i);
-    oss << left_bit << mid_bit << right_bit << '\t'
-        << triplet_rates[i] << '\n';
-  }
+  oss << bitset<3>(0) << '\t' << triplet_rates[0];
+  for (size_t i = 0; i < triplet_rates.size(); ++i)
+    oss << '\n' << bitset<3>(i) << '\t' << triplet_rates[i];
   return oss.str();
 }
 
@@ -218,6 +216,13 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
    for triples */
 void
 EpiEvoModel::initialize() {
+
+  // make sure every node has a name
+  t.assign_missing_node_names();
+  t.get_subtree_sizes(subtree_sizes);
+  t.get_node_names(node_names);
+  get_parent_id(subtree_sizes, parent_ids);
+  t.get_branch_lengths(branches);
 
   // convert the initial potentials into transition probs
   two_by_two init_Q(2, vector<double>(2, 0.0));

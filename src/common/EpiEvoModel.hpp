@@ -28,44 +28,17 @@
 
 #include "PhyloTreePreorder.hpp"
 
-// template <typename T>
-// struct two_by_two {
-//   two_by_two() : x00(0), x01(0), x10(0), x11(0) {}
-//   T x00;
-//   T x01;
-//   T x10;
-//   T x11;
-
-//   template <class U> T
-//   operator()(const U first, const U second) const {
-//     if (first) {
-//       if (second) return x11;
-//       else return x10;
-//     }
-//     else {
-//       if (second) return x01;
-//       else return x00;
-//     }
-//   }
-
-//   template <class U> T &
-//   operator()(const U first, const U second) {
-//     if (first) {
-//       if (second) return x11;
-//       else return x10;
-//     }
-//     else {
-//       if (second) return x01;
-//       else return x00;
-//     }
-//   }
-// };
-
 typedef std::vector<std::vector<double> > two_by_two;
 
 struct EpiEvoModel {
 
   PhyloTreePreorder t; // tree topology and branch lengths
+
+  /* information we need quick access to, but implicit in the tree */
+  std::vector<size_t> subtree_sizes;
+  std::vector<std::string> node_names;
+  std::vector<size_t> parent_ids;
+  std::vector<double> branches;
 
   // "logfac" means log of potential factors
   two_by_two stationary_logfac;      // log of stationary potentials for pairs
