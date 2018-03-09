@@ -53,11 +53,26 @@ using std::to_string;
 
 template <class T> std::string
 triplet_info_to_string(const std::vector<T> &v) {
-  assert(v.size() >= 8);
+  static const size_t n_triplets = 8;
+  assert(v.size() >= n_triplets);
   std::ostringstream oss;
   oss << std::bitset<3>(0) << '\t' << v.front();
-  for (size_t i = 0; i < 8; ++i) {
+  for (size_t i = 1; i < n_triplets; ++i) {
     oss << '\n' << std::bitset<3>(i) << '\t' << v[i];
+  }
+  return oss.str();
+}
+
+
+template <class T> std::string
+pair_info_to_string(const std::vector<T> &v) {
+  static const size_t n_pairs = 4;
+
+  assert(v.size() >= n_pairs);
+  std::ostringstream oss;
+  oss << std::bitset<2>(0) << '\t' << v.front();
+  for (size_t i = 1; i < n_pairs; ++i) {
+    oss << '\n' << std::bitset<2>(i) << '\t' << v[i];
   }
   return oss.str();
 }
@@ -109,7 +124,9 @@ horiz_summary_str(const vector<char> &seq) {
 static void
 count_triplets(const vector<char> &state_sequence,
                vector<size_t> &triplet_count) {
-  triplet_count = vector<size_t>(8, 0);
+  static const size_t n_triplets = 8;
+
+  triplet_count = vector<size_t>(n_triplets, 0);
   for (size_t i = 1; i < state_sequence.size()-1; ++i)
     ++triplet_count[triple2idx(state_sequence[i-1],
                                state_sequence[i],
@@ -205,8 +222,6 @@ write_output(const string &outfile,
              const vector<string> &node_names,
              const vector<vector<char> > &sequences) {
 
-  cerr << sequences.size() << endl;
-
   std::ofstream out(outfile.c_str());
   if (!out)
     throw std::runtime_error("bad output file: " + outfile);
@@ -214,14 +229,10 @@ write_output(const string &outfile,
   const size_t n_sequences = sequences.size();
   const size_t n_sites = sequences.front().size();
 
-  cerr << node_names.size() << endl;
-
   out << '#';
   for (size_t i = 0; i < n_sequences; ++i)
     out << '\t' << node_names[i];
   out << '\n';
-
-  cerr << node_names.size() << endl;
 
   for (size_t i = 0; i < n_sites; ++i) {
     out << i;
@@ -403,19 +414,17 @@ int main(int argc, const char **argv) {
     std::mt19937 gen(rng_seed);
 
     /* (2) INITIALIZE THE ROOT SEQUENCE */
-    // initial sequence
     if (VERBOSE)
-      cerr << "sampling root sequence" << endl;
+      cerr << "[SIMULATING: " << the_model.node_names[0] << " (ROOT)]" << endl;
     vector<char> root_seq;
     the_model.sample_state_sequence_init(n_sites, gen, root_seq);
 
     StateSeq s(root_seq);
     if (VERBOSE) {
-      cerr << "root triplet proportions:" << endl;
+      cerr << "[SUMMARY:]" << endl
+           << s.summary_string() << endl;
       vector<double> triplet_props;
       s.get_triplet_proportions(triplet_props);
-      cerr << triplet_info_to_string(triplet_props) << endl
-           << "initial frquencies\n" << horiz_summary_str(root_seq) << endl;
       double total_rate = 0;
       for (size_t i = 0; i < triplet_props.size(); ++i)
         total_rate += the_model.triplet_rates[i]*triplet_props[i];
@@ -424,33 +433,25 @@ int main(int argc, const char **argv) {
     }
 
     /* EXTRACT INFO FROM THE PHYLOGENETIC TREE */
-    vector<size_t> subtree_sizes;
-    the_model.t.get_subtree_sizes(subtree_sizes);
-    the_model.t.assign_missing_node_names();
-    vector<string> node_names;
-    the_model.t.get_node_names(node_names);
-    const size_t n_nodes = subtree_sizes.size();
-    vector<size_t> parent_ids;
-    get_parent_id(subtree_sizes, parent_ids);
-    vector<double> branches;
-    the_model.t.get_branch_lengths(branches);
+    const size_t n_nodes = the_model.t.get_size();
 
-    vector<vector<char> > sequences(subtree_sizes.size(), root_seq);
+    vector<vector<char> > sequences(n_nodes, root_seq);
     // vector<watch_info> w; // only used if "watching" requested
 
     /* ITERATE OVER THE NODES IN THE TREE */
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
+      const double curr_branch_len = the_model.branches[node_id];
       if (VERBOSE)
-        cerr << "[NODE: " << node_names[node_id] << ", "
-             << branches[node_id] << ']' << endl;
+        cerr << "[SIMULATING: " << the_model.node_names[node_id] << " ("
+             << curr_branch_len << ")]" << endl;
 
-      TripletSampler ts(sequences[parent_ids[node_id]]);
+      TripletSampler ts(sequences[the_model.parent_ids[node_id]]);
       double time_value = 0;
       vector<Segment> the_path;
 
       /* SAMPLE CHANGES ALONG THE CURRENT BRANCH */
-      while (time_value < branches[node_id])
-        sample_jump(the_model, branches[node_id], gen, ts, the_path, time_value);
+      while (time_value < curr_branch_len)
+        sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value);
 
       ts.get_sequence(sequences[node_id]);
 
@@ -459,7 +460,7 @@ int main(int argc, const char **argv) {
     }
 
     if (!outfile.empty())
-      write_output(outfile, node_names, sequences);
+      write_output(outfile, the_model.node_names, sequences);
 
     // if (keep_watch_info) {
     //   watchfile = pathfile + ".stats";
