@@ -97,11 +97,8 @@ convert_parameter(const vector<vector<double> > &stationary_logfac,
 }
 
 
-void
-scale_rates(const vector<double> &rates,
-            const vector<double> &branches,
-            vector<double> &scaled_rates,
-            vector<double> &scaled_branches) {
+double
+rate_factor(const vector<double> &rates) {
   // pair-wise potentials Q
   vector<vector<double> > Q(2, vector<double>(2, 1.0));
   Q[0][0] = Q[0][1] * sqrt(rates[2]/rates[0]);
@@ -124,14 +121,5 @@ scale_rates(const vector<double> &rates,
     unit += stationary_prob[i] * rates[i];
   }
 
-  scaled_rates.resize(rates.size());
-  for (size_t i = 0; i < rates.size(); ++i) {
-    scaled_rates[i] = rates[i]/unit;
-  }
-
-  scaled_branches.resize(branches.size());
-  for (size_t i = 0; i < branches.size(); ++i) {
-    scaled_branches[i] = branches[i]*unit;
-  }
-
+  return unit;
 }

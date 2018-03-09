@@ -27,10 +27,7 @@ void
 convert_parameter(const std::vector<std::vector<double> > &stationary_logfac,
                   std::vector<std::vector<double> > &T);
 
-void
-scale_rates(const std::vector<double> &rates,
-            const std::vector<double> &branches,
-            std::vector<double> &scaled_rates,
-            std::vector<double> &scaled_branches);
+double
+rate_factor(const std::vector<double> &rates);
 
 #endif
