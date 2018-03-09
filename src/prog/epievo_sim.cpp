@@ -51,33 +51,6 @@ using std::string;
 using std::to_string;
 
 
-template <class T> std::string
-triplet_info_to_string(const std::vector<T> &v) {
-  static const size_t n_triplets = 8;
-  assert(v.size() >= n_triplets);
-  std::ostringstream oss;
-  oss << std::bitset<3>(0) << '\t' << v.front();
-  for (size_t i = 1; i < n_triplets; ++i) {
-    oss << '\n' << std::bitset<3>(i) << '\t' << v[i];
-  }
-  return oss.str();
-}
-
-
-template <class T> std::string
-pair_info_to_string(const std::vector<T> &v) {
-  static const size_t n_pairs = 4;
-
-  assert(v.size() >= n_pairs);
-  std::ostringstream oss;
-  oss << std::bitset<2>(0) << '\t' << v.front();
-  for (size_t i = 1; i < n_pairs; ++i) {
-    oss << '\n' << std::bitset<2>(i) << '\t' << v[i];
-  }
-  return oss.str();
-}
-
-
 bool
 file_exist(const string &param_file) {
   struct stat buf;
@@ -88,36 +61,6 @@ bool
 file_is_readable(const string &param_file) {
   std::ifstream in(param_file.c_str());
   return in.good();
-}
-
-
-static void
-get_horizontal_summary_stats(const vector<char> &seq,
-                             vector<vector<double> > &stat) {
-  stat = vector<vector<double> >(2, vector<double>(2, 0.0));
-
-  // count the number of each type of consecutive pair
-  const size_t n_pairs = seq.size() - 1;
-  for (size_t i = 0; i < n_pairs; ++i)
-    ++stat[seq[i]][seq[i+1]];  // implicit conversion
-
-  // divide by the total to get estimates of probabilities
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      stat[i][j] /= n_pairs;
-}
-
-
-static string
-horiz_summary_str(const vector<char> &seq) {
-  vector<vector<double> > stat;
-  get_horizontal_summary_stats(seq, stat);
-
-  std::ostringstream oss;
-  oss << '('
-      << stat[0][0] << ',' << '\t' << stat[0][1] << ',' << '\t'
-      << stat[1][0] << ',' << '\t' << stat[1][1] << ')';
-  return oss.str();
 }
 
 
@@ -301,32 +244,6 @@ write_output(const string &outfile,
 //   w.back().node_id = node_id;
 //   w.back().time_val = floor(time/watch)*watch;
 // }
-
-
-template <class T> string
-mat_tostring(const vector<vector<T> > &m) {
-  std::ostringstream oss;
-  for (size_t i = 0; i < m.size(); ++i) {
-    oss << "[" << std::setw(10) << std::right << m[i][0];
-    for (size_t j = 1; j < m[i].size(); ++j)
-      oss << ',' << std::setw(10) << std::right << m[i][j];
-    oss << "]" << endl;
-  }
-  return oss.str();
-}
-
-template <class T> string
-vec_tostring(const vector<T> &v) {
-  std::ostringstream oss;
-  oss << '[';
-  if (!v.empty()) {
-    oss << v[0];
-    for (size_t i = 1; i < v.size(); ++i)
-      oss << ',' << v[i];
-  }
-  oss << ']';
-  return oss.str();
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
