@@ -24,6 +24,7 @@
 
 #include <vector>
 #include <cstdlib>
+#include <string>
 
 struct StateSeq {
   StateSeq(const std::vector<char> &s) : seq(s) {}
@@ -32,11 +33,23 @@ struct StateSeq {
 
   void get_triplet_counts(std::vector<size_t> &triplet_counts) const;
   void get_triplet_proportions(std::vector<double> &triplet_proportions) const;
+
+  void get_pair_counts(std::vector<size_t> &pair_counts) const;
+  void get_pair_proportions(std::vector<double> &pair_proportions) const;
+
+  std::string
+  summary_string() const;
+
 };
 
 inline size_t
 triple2idx(const bool i, const bool j, const bool k) {
   return i*4 + j*2 + k;
+}
+
+inline size_t
+pair2idx(const bool i, const bool j) {
+  return i*2 + j;
 }
 
 inline size_t
@@ -49,12 +62,19 @@ inline size_t
 flip_left_bit(const size_t x) {return x ^ 4ul;}
 
 inline bool
-get_right_bit(const size_t x) {return x & 1ul;}
+get_left_bit(const size_t x) {return x & 4ul;}
 
 inline bool
 get_mid_bit(const size_t x) {return x & 2ul;}
 
 inline bool
-get_left_bit(const size_t x) {return x & 4ul;}
+get_right_bit(const size_t x) {return x & 1ul;}
+
+inline void
+get_bits_from_triple(const size_t x, bool &l, bool &m, bool &r) {
+  l = get_left_bit(x);
+  m = get_mid_bit(x);
+  r = get_right_bit(x);
+}
 
 #endif

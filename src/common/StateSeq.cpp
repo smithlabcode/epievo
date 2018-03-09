@@ -25,8 +25,12 @@
 #include <cassert>
 #include <functional>
 #include <algorithm>
+#include <string>
+#include <bitset>
+#include <sstream>
 
 using std::vector;
+using std::string;
 
 void
 StateSeq::get_domain_sizes(vector<size_t> &domain_sizes) const {
@@ -68,4 +72,68 @@ StateSeq::get_triplet_proportions(std::vector<double> &triplet_props) const {
   std::transform(triplet_counts.begin(), triplet_counts.end(),
                  triplet_props.begin(), std::bind2nd(std::divides<double>(),
                                                      seq.size() - 2));
+}
+
+void
+StateSeq::get_pair_counts(std::vector<size_t> &pair_counts) const {
+  static const size_t n_pairs = 4;
+
+  pair_counts.resize(n_pairs, 0);
+  for (size_t i = 1; i < seq.size(); ++i)
+    pair_counts[pair2idx(seq[i-1], seq[i])]++;
+}
+
+void
+StateSeq::get_pair_proportions(std::vector<double> &pair_props) const {
+
+  vector<size_t> pair_counts;
+  get_pair_counts(pair_counts);
+
+  pair_props.resize(pair_counts.size());
+  std::transform(pair_counts.begin(), pair_counts.end(),
+                 pair_props.begin(), std::bind2nd(std::divides<double>(),
+                                                  seq.size() - 1));
+}
+
+
+template <class T> static string
+triplet_info_to_string(const std::vector<T> &v) {
+  static const size_t n_triplets = 8;
+  assert(v.size() >= n_triplets);
+  std::ostringstream oss;
+  oss << std::bitset<3>(0) << '\t' << v.front();
+  for (size_t i = 1; i < n_triplets; ++i) {
+    oss << '\n' << std::bitset<3>(i) << '\t' << v[i];
+  }
+  return oss.str();
+}
+
+
+template <class T> static string
+pair_info_to_string(const std::vector<T> &v) {
+  static const size_t n_pairs = 4;
+
+  assert(v.size() >= n_pairs);
+  std::ostringstream oss;
+  oss << std::bitset<2>(0) << '\t' << v.front();
+  for (size_t i = 1; i < n_pairs; ++i) {
+    oss << '\n' << std::bitset<2>(i) << '\t' << v[i];
+  }
+  return oss.str();
+}
+
+string
+StateSeq::summary_string() const {
+
+  vector<double> triplet_props;
+  get_triplet_proportions(triplet_props);
+  vector<double> pair_props;
+  get_pair_proportions(pair_props);
+
+  std::ostringstream oss;
+  oss << "TRIPLET PROPORTIONS:\n"
+      << triplet_info_to_string(triplet_props) << '\n'
+      << "PAIR PROPORTIONS:\n"
+      << pair_info_to_string(pair_props);
+  return oss.str();
 }
