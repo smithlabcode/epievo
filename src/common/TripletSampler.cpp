@@ -88,7 +88,7 @@ TripletSampler::single_update(const size_t pos, size_t context,
 
     size_t block_start = cum_pat_count[context];
 
-    // swap to current location to beginning of block
+    // swap current location to beginning of block
     iter_swap(pos_by_pat.begin() + block_start, pos_by_pat.begin() + loc);
     iter_swap(idx_in_pat.begin() + pos_by_pat[block_start],
               idx_in_pat.begin() + pos_by_pat[loc]);
@@ -118,7 +118,7 @@ TripletSampler::single_update(const size_t pos, size_t context,
     size_t block_end = cum_pat_count[context] - 1; // last position in
                                                    // current block
 
-    // swap to current location to end of block
+    // swap current location to end of block
     iter_swap(pos_by_pat.begin() + block_end, pos_by_pat.begin() + loc);
     iter_swap(idx_in_pat.begin() + pos_by_pat[block_end],
               idx_in_pat.begin() + pos_by_pat[loc]);
@@ -158,6 +158,9 @@ TripletSampler::get_context(const size_t pos) const {
   // appears first among the 010 patterns, then cum_pat_count[pat + 1]
   // would be equal to idx immediately, and we would return
   // pat=0. This can only happen in degenerate cases.
+  // JQU: cum_pat_count[pat + 1] - 1 is the index of the last element
+  // in the block of pat in pos_by_pat, so advance pat by 1 as long
+  // as cum_pat_count[pat + 1] - 1 < idx
   while (cum_pat_count[pat + 1] <= idx) ++pat;
   return pat;
 }
