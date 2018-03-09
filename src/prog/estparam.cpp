@@ -4,7 +4,7 @@
 #include <fstream>
 #include <random>
 #include <math.h>   /* exp, sqrt, pow fabs*/
-#include <numeric>  /* std::inner_product */
+#include <numeric>  /* std::inner_product, accumulate*/
 #include <functional>
 
 #include "OptionParser.hpp"
@@ -101,11 +101,12 @@ gradient_ascent(const double param_tol,
 
 void est_rates(const double param_tol,
                const vector<vector<Jump> > &jumps,
+               const vector<Hold> &holds,
                const vector<double> &rates,
                vector<double> &new_rates) {
   vector<double> J;
   vector<double> D;
-  get_suff_stat(jumps, J, D);
+  get_suff_stat(jumps, holds, J, D);
 
   vector<double> current_rates = rates;
   double current_llk = llk(J, D, current_rates);
@@ -130,170 +131,6 @@ void est_rates(const double param_tol,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Estimate rates and branch length together
-////////////////////////////////////////////////////////////////////////////////
-double llk(const vector<double> &J,
-           const vector<vector<double> > &D,
-           const vector<double> &rates,
-           const vector<double> &branches) {
-  double l = 0;
-  for (size_t i = 0; i < 8; ++i) {
-    l += J[i]*log(rates[i]);
-    for (size_t b = 0; b < branches.size(); ++b)
-      l -= D[b][i]*rates[i]*branches[b];
-  }
-  return l;
-}
-
-void get_gradient(const vector<double> &J,
-                  const vector<vector<double> > &D,
-                  const vector<double> &rates,
-                  const vector<double> &branches,
-                  vector<double> &gradient) {
-  /* gradients w.r.t log(rate[i])*/
-  gradient.resize(rates.size(), 0);
-  gradient[0] = J[0] + J[7];
-  gradient[2] = J[2] - J[7];
-  gradient[5] = J[5] + J[7];
-  gradient[1] = J[1] + J[4] - 2*J[7];
-  gradient[3] = J[3] + J[6] + 2*J[7];
-  for (size_t b = 0; b < branches.size(); ++b) {
-    gradient[0] += (- D[b][0]*rates[0] - D[b][7]*rates[7])*branches[b];
-    gradient[2] += (- D[b][2]*rates[2] + D[b][7]*rates[7])*branches[b];
-    gradient[5] += (- D[b][5]*rates[5] - D[b][7]*rates[7])*branches[b];
-    gradient[1] += (- (D[b][1]+D[b][4])*rates[1] + 2*D[b][7]*rates[7])*branches[b];
-    gradient[3] += (- (D[b][3]+D[b][6])*rates[3] - 2*D[b][7]*rates[7])*branches[b];
-  }
-  gradient[4] = gradient[1];
-  gradient[6] = gradient[3];
-  // gradient[7] remains 0, since rates[7] is determined by other rates.
-  if (DEBUG) {
-    cerr << "gradient :" << endl;
-    for (size_t i = 0; i < gradient.size(); ++i)
-      cerr << "[" << i << "]\t" << gradient[i] << endl;
-  }
-}
-
-void estimate_branches(const vector<double> &rates,
-                       const vector<vector<Jump> > &jumps,
-                       vector<double> &branches) {
-  const size_t n_branches = jumps.size();
-  branches = vector<double>(n_branches, 0.0);
-  for (size_t b = 0; b < n_branches; ++b) {
-    for (size_t j = 0; j < jumps[b].size(); ++j) {
-      double rate_at_jump = 0.0;
-      for (size_t i = 0; i < rates.size(); ++i ) {
-        rate_at_jump += jumps[b][j].freq[i]*rates[i];
-      }
-      branches[b] += 1.0/rate_at_jump;
-    }
-  }
-}
-
-
-void
-candidate_params(const double param_tol, const double step,
-                 const vector<double> &rates,
-                 const vector<vector<Jump> > &jumps,
-                 const vector<double> &gradient,
-                 vector<double> &new_rates,
-                 vector<double> &new_branches) {
-  const size_t n_rates = rates.size(); // 8
-  new_rates.resize(n_rates, 0);
-  for (size_t i = 0; i < n_rates - 1; ++i)
-    new_rates[i] = exp(log(rates[i]) + gradient[i]*step);
-
-  new_rates[7] = exp(log(new_rates[0]) + log(new_rates[5]) +  2*log(new_rates[3])
-                     - log(new_rates[2]) - 2*log(new_rates[1]));
-
-  estimate_branches(new_rates, jumps, new_branches);
-}
-
-
-double
-gradient_ascent(const double param_tol,
-                const vector<vector<Jump> > &jumps,
-                const vector<double> &J,
-                const vector<vector<double> > &D,
-                const vector<double> &rates,
-                const vector<double> &branches,
-                vector<double> &new_rates,
-                vector<double> &new_branches) {
-  /* compute llk and gradient */
-  double l = llk(J, D, rates, branches);
-
-  vector<double> g;
-  get_gradient(J, D, rates, branches, g);
-  double norm = 0.0;
-  for (size_t i = 0; i < g.size(); ++i)
-    norm += fabs(g[i]);
-
-  double step = 0.2/norm;
-  double new_l = 0;
-  do {
-    step *= 0.5;
-    candidate_params(param_tol, step, rates, jumps, g,
-                     new_rates, new_branches);
-    new_l = llk(J, D, new_rates, new_branches);
-  } while (new_l <= l && step > param_tol);
-
-  return step;
-}
-
-void
-est_params(const double param_tol,
-           const vector<vector<Jump> > &jumps,
-           const vector<double> &rates,
-           const vector<double> &branches,
-           vector<double> &new_rates,
-           vector<double> &new_branches) {
-  vector<double> J;
-  vector<vector<double> > D;
-  get_suff_stat_by_branch(jumps, J, D);
-
-  vector<double> curr_rates = rates;
-  const size_t n_branches = branches.size();
-  vector<double> curr_branches(n_branches, 0.0);
-  for (size_t b = 0; b < n_branches; ++b) {
-    for (size_t j = 0; j < jumps[b].size(); ++j) {
-      double rate_at_jump = 0.0;
-      for (size_t i = 0; i < rates.size(); ++i ) {
-        rate_at_jump += jumps[b][j].freq[i]*rates[i];
-      }
-      curr_branches[b] += 1.0/rate_at_jump;
-    }
-  }
-
-  double curr_llk = llk(J, D, curr_rates, curr_branches);
-  double diff = gradient_ascent(param_tol, jumps, J, D,
-                                curr_rates, curr_branches,
-                                new_rates, new_branches);
-
-  double new_llk = llk(J, D, new_rates, new_branches);
-
-  while (new_llk - curr_llk > param_tol && diff > param_tol) {
-    curr_llk = new_llk;
-    curr_rates = new_rates;
-    curr_branches = new_branches;
-    diff = gradient_ascent(param_tol, jumps, J, D,
-                           curr_rates, curr_branches,
-                           new_rates, new_branches);
-    new_llk = llk(J, D, new_rates, new_branches);
-
-    if (DEBUG) {
-      cerr << "###rates:\t";
-      for (size_t i = 0; i < 8; ++i)
-        cerr << new_rates[i] << "\t";
-      for (size_t b = 0; b < new_branches.size(); ++b)
-        cerr << new_branches[b] << "\t";
-      cerr << "new_llk=" << new_llk
-           << "\tImprov=" << new_llk - curr_llk << endl;
-    }
-  }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 void est_trans_prob(const vector<bool> &seq,
@@ -307,6 +144,11 @@ void est_trans_prob(const vector<bool> &seq,
     c0 += (size_t)(!seq[i]);
     c1 += (size_t)(seq[i]);
   }
+
+  if (c00*c11*c10*c01 == 0) {
+    cerr << "WARNING: Root sequence lack diversity" << endl;
+  }
+
   const double p00 = c00/c0;
   const double p11 = c11/c1;
   trans_prob = vector<vector<double> >(2, vector<double>(2, 0.0));
@@ -315,6 +157,15 @@ void est_trans_prob(const vector<bool> &seq,
   trans_prob[1][0] = 1 - p11;
   trans_prob[1][1] = p11;
 }
+
+void scale_treesize(vector<double> &rates, vector<double> &branches) {
+  double treesize = std::accumulate(branches.begin(), branches.end(), 0.0);
+  for (size_t i = 0; i < rates.size(); ++i)
+    rates[i] *= treesize;
+  for (size_t b = 0; b < branches.size(); ++b)
+    branches[b] /= treesize;
+}
+
 
 
 int main(int argc, const char **argv) {
@@ -357,6 +208,11 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > paths; // along multiple branches
     read_paths(path_file, paths);
 
+    vector<double> branches_from_paths;
+    for (size_t i = 0; i < paths.size(); ++i) {
+      branches_from_paths.push_back(paths[i][0].tot_time);
+    }
+
     vector<bool> seq;
     get_inital_seq(paths[0], seq);
 
@@ -377,10 +233,13 @@ int main(int argc, const char **argv) {
     }
 
     vector<vector<Jump> > jumps;
+    vector<Hold> holds;
     for (size_t b = 0; b < paths.size(); ++b) {
       vector<Jump> j;
-      get_scaled_jumps(paths[b], j);
+      Hold h;
+      get_jumps(paths[b], j, h);
       jumps.push_back(j);
+      holds.push_back(h);
 
       if (VERBOSE) {
         cerr<< "Branch-" << b << endl;
@@ -412,8 +271,8 @@ int main(int argc, const char **argv) {
       model_param p;
       p.read_param(param_file);
       vector<double> J;
-      vector<vector<double> > D;
-      get_suff_stat_by_branch(jumps, J, D);
+      vector<double> D;
+      get_suff_stat(jumps, holds, J, D);
 
       //////////
       if (DEBUG) {
@@ -431,7 +290,7 @@ int main(int argc, const char **argv) {
             cerr << jumps[0][i].freq[j] << "\t";
           cerr << endl;
         }
-        for (size_t i = 10; i >0; --i) {
+        for (size_t i = 10; i > 0; --i) {
           cerr << "J" << jumps[0].size()-i
                << "\tT(" << jumps[0][jumps[0].size()-i].t << ")\t";
           for (size_t j = 0; j < 8; ++j)
@@ -443,11 +302,9 @@ int main(int argc, const char **argv) {
 
       vector<double> rates;
       p.get_rates(rates);
-
       vector<double> branches;
       p.t.get_branch_lengths(branches);
       branches.erase(branches.begin());
-
 
       if (VERBOSE) {
         cerr << "Provided starting rates:\t";
@@ -457,7 +314,7 @@ int main(int argc, const char **argv) {
         for (size_t i = 0; i < branches.size(); ++i) cerr << branches[i] << "\t";
         cerr << endl;
         cerr << "log-likelihood= "
-             << llk(J, D, rates, branches) << endl;
+             << llk(J, D, rates) << endl;
       }
       if (DEBUG) {
         cerr << "tot_freq:" << endl;
@@ -466,8 +323,7 @@ int main(int argc, const char **argv) {
       }
 
       vector<double> gradient;
-      get_gradient(J, D, rates, branches, gradient);
-
+      get_gradient(J, D, rates, gradient);
 
       if (DEBUG) {
         cerr << "gradient :" << endl;
@@ -477,27 +333,42 @@ int main(int argc, const char **argv) {
 
       double param_tol = 1e-10;
       vector<double> new_rates;
-      vector<double> new_branches;
-      est_params(param_tol, jumps, rates, branches, new_rates, new_branches);
+      est_rates(param_tol, jumps, holds, rates, new_rates);
+
+      if (VERBOSE) {
+        cerr << "optimized rates:\t" << endl;
+        for (size_t i = 0; i < new_rates.size(); ++i)
+          cerr << new_rates[i] << "\t";
+        cerr << endl << "optimized likelihood:\t"
+             << llk(J, D, new_rates) << endl;
+      }
 
       /* scale rates and branches to have unit branch length corresponding
          to one expected transition per site */
-      vector<double> scaled_rates;
-      vector<double> scaled_branches;
-      scale_rates(new_rates, new_branches, scaled_rates, scaled_branches);
+      double rf = rate_factor(new_rates);
+      vector<double> scaled_rates = new_rates;
+      vector<double> scaled_D = D;
+      for (size_t i = 0; i < new_rates.size(); ++i) {
+        scaled_rates[i] /= rf;
+        scaled_D[i] *= rf;
+      }
+
+      vector<double> scaled_branches = branches_from_paths;
+      for (size_t b = 0; b < branches_from_paths.size(); ++b)
+        scaled_branches[b] *= rf;
 
       if (VERBOSE) {
-        cerr << "new rates:\t" << endl;
+        cerr << "scaled rates:\t" << endl;
         for (size_t i = 0; i < new_rates.size(); ++i)
           cerr << scaled_rates[i] << "\t";
         cerr << endl;
-        cerr << "new branches:\t" << endl;
-        for (size_t i = 0; i < new_branches.size(); ++i)
+        cerr << "scaled branches:\t" << endl;
+        for (size_t i = 0; i < branches.size(); ++i)
           cerr << scaled_branches[i] << "\t";
 
         cerr << endl
              <<"new log-likelihood= "
-             << llk(J, D, scaled_rates, scaled_branches) << endl;
+             << llk(J, scaled_D, scaled_rates) << endl;
       }
 
     }
