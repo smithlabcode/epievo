@@ -498,19 +498,19 @@ occurred at the $m$-th jump.
 Let $\Delta_m = t_m - t_{m-1}$ be the holding time just prior to the
 $m$-th jump. Then $\Delta_m$ is an exponential variable
 \[
-\Delta_m \sim \mathit{Exp}(\lambda_m), ~\text{ with }~
-\lambda_m = \sum_{i,j,k}c_{ijk}(t_m^-)\lambda_{ijk}.
+\Delta_m \sim \mathit{Exp}(\lambda_{(m)}), ~\text{ with }~
+\lambda_{(m)} = \sum_{i,j,k}c_{ijk}(t_m^-)\lambda_{ijk}.
 \]
 The time point $t_m^-$ indicates the instant before the $m$-th jump,
 so that $c_{ijk}(t_m^-)$ is the sequence context distribution between
-the $(m-1)$th jump and the $m$-th jump.
+the $(m-1)$-th jump and the $m$-th jump.
 
 \subsection{Likelihood expressions}
 
 The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
 \begin{equation}\label{eqn:lik}
-L = \prod\limits_{m=1}^{M} \lambda_m \exp(-\lambda_m\Delta_m) \times \frac{\lambda_{\context{}_m}}{\lambda_m}
-=\prod\limits_{m=1}^{M}\lambda_{\context{}_m}\exp(-\lambda_m\Delta_m).
+L = \prod\limits_{m=1}^{M} \lambda_{(m)} \exp(-\lambda_{(m)}\Delta_m) \times \frac{\lambda_{\context{}_m}}{\lambda_{(m)}}
+=\prod\limits_{m=1}^{M}\lambda_{\context{}_m}\exp(-\lambda_{(m)}\Delta_m).
 \end{equation}
 %%
 And the log-likelihood function is
@@ -526,7 +526,7 @@ where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and
 \begin{equation}\label{eqn:Dijk}
 \begin{aligned}
 D_{ijk} &= \sum_{m=1}^Mc_{ijk}(t_m^-)\Delta_m \\
-& = \sum_{m=1}^M (\sum_{n=1}^{N} I_{\{\text{con}(n; t_m^-) = ijk\}})*(t_m - t_{m-1}) \\
+& = \sum_{m=1}^M \bigg(\sum_{n=1}^{N} I_{\{\text{con}(n; t_m^-) = ijk\}}\bigg)\times(t_m - t_{m-1}) \\
 & = \sum_{n=1}^{N}\int_{0}^{t_M} I_{\{\text{con}(n;t) = ijk\}} dt\\
 & = \text{Total time in context $ijk$ aggregated over all sites}
 \end{aligned}
@@ -572,20 +572,20 @@ estimated. We assume that all the jumping times are observed as a
 fraction of the unknown $t$. Suppose the jumping times are
 $\{t_m\}_{m=0}^M$, which are monotonic strictly increasing values
 between $(0,1]$, and $t_0 = 0, t_M = 1$ represent the start
-and end of observation and do not correspond to a jump. 
+and end of observation and do not correspond to a jump.
 
 The observed data likelihood becomes
 \begin{equation}
-L = \Bigg(\prod\limits_{m=1}^{M-1} \lambda_{c_m}\exp(-\lambda_{(m)}(t_m - t_{m-1})t) \Bigg) \times \exp(-\lambda_{(M)}(t_M - t_{M-1})t) 
+L = \Bigg(\prod\limits_{m=1}^{M-1} \lambda_{c_m}\exp(-\lambda_{(m)}(t_m - t_{m-1})t) \Bigg) \times \exp(-\lambda_{(M)}(t_M - t_{M-1})t)
 \end{equation}
-and the log likelihood is 
+and the log likelihood is
 \begin{equation}
 \begin{aligned}
 l = & \sum\limits_{m=1}^{M-1} \log\lambda_{c_m} - \sum\limits_{m=1}^{M} \lambda_{(m)}(t_m - t_{m-1})t \\
-= & \sum_{c} J_c\log\lambda_c  - \sum_{c} D_c\lambda_c t, 
+= & \sum_{c} J_c\log\lambda_c  - \sum_{c} D_c\lambda_c t,
 \end{aligned}
 \end{equation}
-where $J_c = \sum_{m=1}^{M-1}I_{\{c_m = c\}}$, and $D_c = \sum_{m=1}^{M}I_{\{c_m = c\}}(t_m - t_{m-1})$. 
+where $J_c = \sum_{m=1}^{M-1}I_{\{c_m = c\}}$, and $D_c = \sum_{m=1}^{M}I_{\{c_m = c\}}(t_m - t_{m-1})$.
 
 The rate parameters and the evolutionary time are not identifiable in
 the optimization problem. The data likelihood is unbounded: for any
@@ -601,20 +601,20 @@ transition rates are identifiable when the total tree size is
 fixed. For example, we can set the total tree size to 1, \textit{i.e.}
 $\sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b}(t_{b,m} - t_{b,m-1})
 = 1$.
- 
+
 \begin{equation}
 L = \prod\limits_{b=1}^B\Bigg(\prod\limits_{m=1}^{M_b-1} \lambda_{c_{b,m}}\exp(-\lambda_{(b,m)}(t_{b,m} - t_{b,m-1}))  \times \exp(-\lambda_{(M_b)}(t_{M_b} - t_{M_b-1})) \Bigg)
 \end{equation}
-and the log likelihood is 
+and the log likelihood is
 \begin{equation}
   \begin{aligned}
-    l = ~ & \sum\limits_{b=1}^B\Bigg( 
-    \sum\limits_{m=1}^{M_b-1} \log\lambda_{c_{b,m}} 
+    l = ~ & \sum\limits_{b=1}^B\Bigg(
+    \sum\limits_{m=1}^{M_b-1} \log\lambda_{c_{b,m}}
     - \sum\limits_{m=1}^{M_b} \lambda_{(b,m)}(t_{b,m} - t_{b,m-1}) \Bigg)
-    = ~ \sum_{c} J_c\log\lambda_c  - \sum_{c} D_{c}\lambda_c 
+    = ~ \sum_{c} J_c\log\lambda_c  - \sum_{c} D_{c}\lambda_c
     % \\
-    % = ~ & \sum\limits_{c=0,2,5}\bigg(J_c\log\lambda_c - D_{c}\lambda_c\bigg) ~ + 
-    % ~ \sum\limits_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c ~ - 
+    % = ~ & \sum\limits_{c=0,2,5}\bigg(J_c\log\lambda_c - D_{c}\lambda_c\bigg) ~ +
+    % ~ \sum\limits_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c ~ -
     % (D_{c} + D_{c'})\lambda_c\bigg) ~ + \\
     % ~ & \bigg(J_7\log(\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2})
     % - D_{7}\cdot\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2} \bigg)
@@ -649,7 +649,7 @@ epigenome sequence, in turn, is equivalent to the Markov chain
 compute the expected frequency of triplet patterns
 \[
 p_{ijk} = \pi_i T[i,j] T[j,k].
-\] 
+\]
 Then the expected number of changes per position per
 unit time is $\mu = \sum_{ijk}p_{ijk}\lambda_{ijk}$. We can scale transition
 rates and branch lengths as follows:
@@ -715,7 +715,7 @@ and $n+1$ do not change.
 \item Collect the time intervals from site $n-1$ and site $n+1$, so
   that within each of the intervals the states of the neighboring
   sites are unchanged. Let the intervals be represented by a sorted
-  array $\{t_0, t_1, \cdots, t_M\}$. 
+  array $\{t_0, t_1, \cdots, t_M\}$.
 \item Initialize proposal probability $p\leftarrow 1$.
 \item For $m = 1, \ldots, M$:
   \begin{itemize}
@@ -753,10 +753,10 @@ that only differ at one position, their difference in likelihood is
 determined by the paths at that position, and two positions to each
 side, \textit{i.e.} 5 positions in total. Because the total time spent
 in each triplet context \eqref{eqn:Dijk} is altered at the center
-position and its two neighboring positions. Let $n$  be the center position. 
+position and its two neighboring positions. Let $n$  be the center position.
 Let $D_{n,c}$ be the total time spent in triplet context $c$ at position $n$
-in the current instance of evolutionary paths, and let $D'_{n,c}$ be that of 
-the new proposed evolutionary path. Similarly let $J_{n,c}$ and $J'_{n,c}$ be 
+in the current instance of evolutionary paths, and let $D'_{n,c}$ be that of
+the new proposed evolutionary path. Similarly let $J_{n,c}$ and $J'_{n,c}$ be
 the total number of jumps out of context $c$ at position $n$ in the
 current and proposed paths. Thus, the ratio of complete data
 likelihood in acceptance probability \eqref{eqn:rejection} can be
