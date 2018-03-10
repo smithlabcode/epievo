@@ -26,9 +26,12 @@
 #include <random>
 #include <algorithm>
 
+class StateSeq;
+
 class TripletSampler {
 public:
   TripletSampler(const std::vector<char> &seq);
+  TripletSampler(const StateSeq &seq);
   void get_triplet_counts(std::vector<size_t> &counts) const;
   size_t get_triplet_count(const size_t context) const;
   size_t random_mutate(const size_t context, std::mt19937 &gen);
@@ -42,6 +45,7 @@ public:
   // "unpermuting" the idx_in_pat; essentially placing the correct bit
   // into each position of the sequence.
   void get_sequence(std::vector<char> &seq) const;
+  void get_sequence(StateSeq &seq) const;
 
 private:
   /* positions in state sequence organized by triplet pattern */
