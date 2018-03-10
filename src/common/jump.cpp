@@ -19,7 +19,7 @@ void get_jumps(const vector<Path> &paths, vector<Jump> &jumps, Hold &hold) {
 
   /* mutate from start and compute context and freqs at jumps */
   vector<bool> seq;
-  get_inital_seq(paths, seq);
+  get_initial_seq(paths, seq);
 
   PatSeq patseq(seq);
   for (size_t i = 0; i < jumps.size(); ++i) {

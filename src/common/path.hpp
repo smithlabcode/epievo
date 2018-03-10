@@ -28,7 +28,7 @@ void initialize_paths(const std::vector<bool> &seq, const double tot_time,
 
 void read_paths(const string path_file, vector<vector<Path> > &paths);
 
-void get_inital_seq(const vector<Path> paths, vector<bool> &seq);
+void get_initial_seq(const vector<Path> &paths, vector<bool> &seq);
 
 void end_sequence(const vector<Path> &paths, vector<bool> &seq);
 

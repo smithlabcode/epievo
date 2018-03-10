@@ -85,7 +85,7 @@ void read_paths(const string path_file, vector<vector<Path> > &paths) {
   }
 }
 
-void get_inital_seq(const vector<Path> paths, vector<bool> &seq) {
+void get_initial_seq(const vector<Path> &paths, vector<bool> &seq) {
   seq.clear();
   for (size_t i = 0; i < paths.size(); ++i)
     seq.push_back(paths[i].init_state);
