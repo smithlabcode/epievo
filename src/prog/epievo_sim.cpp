@@ -43,6 +43,8 @@
 #include "StateSeq.hpp"
 #include "EpiEvoModel.hpp"
 
+#include "GlobalJump.hpp"
+
 using std::vector;
 using std::string;
 using std::endl;
@@ -56,36 +58,6 @@ bool
 file_is_readable(const string &param_file) {
   std::ifstream in(param_file.c_str());
   return in.good();
-}
-
-
-struct Segment {
-  Segment(const double tp, const size_t pos) : time_point(tp), position(pos) {}
-  double time_point;
-  size_t position;
-  bool operator<<(const Segment &other) const {
-    return time_point < other.time_point;
-  }
-};
-
-std::ostream &
-operator<<(std::ostream &os, const Segment &s) {
-  return os << s.time_point << '\t' << s.position;
-}
-
-static
-void write_pathfile_header(const string &pathfile) {
-  std::ofstream outpath(pathfile.c_str());
-  outpath << "## paths" << endl;
-}
-
-static void
-append_to_pathfile(const string &pathfile, const size_t node_id,
-                   const vector<Segment> &the_path) {
-  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
-  outpath << "NODE\t" << node_id << '\n';
-  for (size_t i = 0; i < the_path.size(); ++i)
-    outpath << the_path[i] << '\n';
 }
 
 
@@ -119,7 +91,7 @@ write_output(const string &outfile,
  */
 static void
 sample_jump(const EpiEvoModel &the_model, const double total_time,
-            std::mt19937 &gen, TripletSampler &ts, vector<Segment> &the_path,
+            std::mt19937 &gen, TripletSampler &ts, vector<GlobalJump> &the_path,
             double &time_value) {
 
   static const size_t n_triplets = 8;
@@ -163,7 +135,7 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
     const size_t change_position = ts.random_mutate(context, gen);
 
     /* add the changed position and change time to the path */
-    the_path.push_back(Segment(time_value, change_position));
+    the_path.push_back(GlobalJump(time_value, change_position));
   }
 }
 
@@ -225,9 +197,6 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << the_model << endl;
 
-    if (!pathfile.empty())
-      write_pathfile_header(pathfile);
-
     /* standard mersenne_twister_engine seeded with rd()*/
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
@@ -256,6 +225,9 @@ int main(int argc, const char **argv) {
       cerr << "mutations per site (at root): " << total_rate << endl;
     }
 
+    if (!pathfile.empty())
+      write_root_to_pathfile_global(pathfile, the_model.node_names[0], s);
+
     const size_t n_nodes = the_model.t.get_size();
 
     vector<StateSeq> sequences(n_nodes, s);
@@ -269,7 +241,7 @@ int main(int argc, const char **argv) {
 
       TripletSampler ts(sequences[the_model.parent_ids[node_id]]);
       double time_value = 0;
-      vector<Segment> the_path;
+      vector<GlobalJump> the_path;
 
       /* (4) SAMPLE CHANGES ALONG THE CURRENT BRANCH */
       while (time_value < curr_branch_len)
@@ -278,7 +250,8 @@ int main(int argc, const char **argv) {
       ts.get_sequence(sequences[node_id]);
 
       if (!pathfile.empty())
-        append_to_pathfile(pathfile, node_id, the_path);
+        append_to_pathfile_global(pathfile,
+                                  the_model.node_names[node_id], the_path);
 
       if (VERBOSE)
         cerr << "[SUMMARY:]" << endl
