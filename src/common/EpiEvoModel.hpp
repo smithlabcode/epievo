@@ -57,7 +57,9 @@ struct EpiEvoModel {
   void sample_state_sequence_stationary(const size_t n_sites, std::mt19937 &gen,
                                         std::vector<char> &sequence) const;
 
-  string tostring() const;
+  std::string tostring() const;
+
+  std::string root_name() const {return node_names[0];}
 
 private:
   void get_rates(std::vector<double> &rates) const;
