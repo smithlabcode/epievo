@@ -28,6 +28,7 @@
 
 struct StateSeq {
 
+  StateSeq() {}
   StateSeq(const std::vector<char> &s) : seq(s) {}
   void get_domain_sizes(std::vector<size_t> &domain_sizes) const;
   std::vector<char> seq;
