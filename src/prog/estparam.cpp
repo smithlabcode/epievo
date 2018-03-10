@@ -35,9 +35,11 @@ bool DEBUG = false;
 // Estimate rates given branch lenghts and jumping times
 ////////////////////////////////////////////////////////////////////////////////
 
-double llk(const vector<double> &J,
-           const vector<double> &D,
-           const vector<double> &rates) {
+static double
+log_likelihood(const vector<double> &J,
+               const vector<double> &D,
+               const vector<double> &rates) {
+
   static const size_t n_triplets = 8;
 
   assert(J.size() == n_triplets && D.size() == n_triplets &&
@@ -50,35 +52,66 @@ double llk(const vector<double> &J,
   return l;
 }
 
-void get_gradient(const vector<double> &J,
-                  const vector<double> &D,
-                  const vector<double> &rates,
-                  vector<double> &gradient) {
+/* compute gradients wrt log(rate[i]) */
+void
+get_gradient(const vector<double> &J, const vector<double> &D,
+             const vector<double> &rates, vector<double> &gradient) {
 
+  /* ordering of parameters:
+     000 -> 010: 0 birth
+     010 -> 000: 2 death
+     001 -> 011: 1 expansion
+     011 -> 001: 3 contraction
+     100 -> 110: 4 expansion
+     110 -> 100: 6 contraction
+     101 -> 111: 5 merging
+     111 -> 101: 7 splitting (not a free parameter)
+   */
   static const size_t n_params = 8;
-
-  /* gradients w.r.t log(rate[i])*/
   gradient.resize(n_params, 0.0);
-  gradient[0] = J[0] - D[0]*rates[0] + J[7] - D[7]*rates[7];
-  gradient[2] = J[2] - D[2]*rates[2] - J[7] + D[7]*rates[7];
-  gradient[5] = J[5] - D[5]*rates[5] + J[7] - D[7]*rates[7];
-  gradient[1] = J[1] + J[4] - (D[1]+D[4])*rates[1] - 2*J[7] + 2*D[7]*rates[7];
-  gradient[3] = J[3] + J[6] - (D[3]+D[6])*rates[3] + 2*J[7] - 2*D[7]*rates[7];
-  gradient[4] = gradient[1];
-  gradient[6] = gradient[3];
-  /* gradient[7] remains 0, since rates[7] is determined by other rates. */
+
+  const double factor_111 = (J[7] - D[7]*rates[7]);
+
+  // [0] BIRTH: parameter 0 corresponds to 000->010
+  gradient[0] = J[0] - D[0]*rates[0] + factor_111;
+
+  // [2] DEATH: parameter 2 corresponds to 010->000
+  gradient[2] = J[2] - D[2]*rates[2] - factor_111;
+
+  // [1, 4] EXPANSION: parameter 1 corresponds to 001->011
+  gradient[1] = J[1] + J[4] - (D[1] + D[4])*rates[1] - 2*factor_111;
+  gradient[4] = gradient[1]; // expansion in other direction: 100->110
+
+  // [3, 6] CONTRACTION: parameter 3 corresponds to 011->001
+  gradient[3] = J[3] + J[6] - (D[3] + D[6])*rates[3] + 2*factor_111;
+  gradient[6] = gradient[3]; // contraction in other direction: 110->100
+
+  // [5] MERGING: parameter 2 corresponds to 101->111
+  gradient[5] = J[5] - D[5]*rates[5] + factor_111;
+
+  // [7] SPLITTING: parameter 7 corresponds to 111->101
+  /* gradient[7] remains 0, since rates[7] is determined by other rates */
 }
 
-void candidate_rates(const double param_tol, const double step,
-                     const vector<double> &rates,
-                     const vector<double> &gradient,
-                     vector<double> &new_rates) {
-  new_rates.resize(8, 0);
-  for (size_t i = 0; i < 7; ++i)
+static void
+candidate_rates(const double step,
+                const vector<double> &rates,
+                const vector<double> &gradient,
+                vector<double> &new_rates) {
+
+  static const size_t n_rates = 8;
+
+  new_rates.resize(n_rates, 0);
+  for (size_t i = 0; i < n_rates - 1; ++i)
     new_rates[i] = exp(log(rates[i]) + gradient[i]*step);
 
-  new_rates[7] = exp(log(new_rates[0]) + log(new_rates[5]) +  2*log(new_rates[3])
-                     - log(new_rates[2]) - 2*log(new_rates[1]));
+  // final rate is in terms of other rates
+  new_rates[n_rates - 1] =
+    exp(log(new_rates[0])       // 000 -> 010 (once, numerator)
+        + log(new_rates[5])     // 101 -> 111 (once, numerator)
+        + 2*log(new_rates[3])   // 011 -> 001 (twice,numerator)
+        - log(new_rates[2])     // 010 -> 000 (once, denominator)
+        - 2*log(new_rates[1])); // 001 -> 011 (twice,denominator)
 }
 
 double
@@ -89,45 +122,48 @@ gradient_ascent(const double param_tol,
                 const vector<double> &rates,
                 vector<double> &new_rates) {
   /* compute llk and gradient */
-  double l = llk(J, D, rates);
+  double l = log_likelihood(J, D, rates);
 
   vector<double> g;
   get_gradient(J, D, rates, g);
+
   double norm = 0.0;
   for (size_t i = 0; i < g.size(); ++i)
     norm += fabs(g[i]);
 
-  double step = 0.2/norm;
+  double step = 0.2/norm; // MAGIC!!!!
   double new_l = 0;
   do {
     step *= 0.5;
-    candidate_rates(param_tol, step, rates, g, new_rates);
-    new_l = llk(J, D, new_rates);
+    candidate_rates(step, rates, g, new_rates);
+    new_l = log_likelihood(J, D, new_rates);
   } while (new_l <= l && step > param_tol);
+
   return step;
 }
 
-void est_rates(const double param_tol,
+void
+estimate_rates(const double param_tol,
                const vector<vector<Jump> > &jumps,
                const vector<Hold> &holds,
                const vector<double> &rates,
                vector<double> &new_rates) {
+
   vector<double> J;
   vector<double> D;
   get_suff_stat(jumps, holds, J, D);
 
   vector<double> current_rates = rates;
-  double current_llk = llk(J, D, current_rates);
+  double current_llk = log_likelihood(J, D, current_rates);
   double diff = gradient_ascent(param_tol, jumps, J, D,
                                 current_rates, new_rates);
-  double new_llk = llk(J, D, new_rates);
+  double new_llk = log_likelihood(J, D, new_rates);
 
   while (new_llk - current_llk > param_tol && diff > param_tol) {
     current_llk = new_llk;
     current_rates = new_rates;
-    diff = gradient_ascent(param_tol, jumps, J, D,
-                           current_rates, new_rates);
-    new_llk = llk(J, D, new_rates);
+    diff = gradient_ascent(param_tol, jumps, J, D, current_rates, new_rates);
+    new_llk = log_likelihood(J, D, new_rates);
 
     if (DEBUG) {
       cerr << "###rates:\t";
@@ -141,9 +177,9 @@ void est_rates(const double param_tol,
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void
-est_trans_prob(const vector<bool> &seq,
-               vector<vector<double> > & trans_prob) {
+static void
+estimate_transition_probabilities(const vector<bool> &seq,
+                                  vector<vector<double> > & trans_prob) {
 
   // count the different pair-wise transitions within the sequence
   double c00 = 0.0, c01 = 0.0, c10 = 0.0, c11 = 0.0;
@@ -228,15 +264,14 @@ int main(int argc, const char **argv) {
     read_paths(path_file, paths);
 
     vector<double> branches_from_paths;
-    for (size_t i = 0; i < paths.size(); ++i) {
+    for (size_t i = 0; i < paths.size(); ++i)
       branches_from_paths.push_back(paths[i][0].tot_time);
-    }
 
     vector<bool> seq;
     get_initial_seq(paths[0], seq);
 
     vector<vector<double> > trans_prob;
-    est_trans_prob(seq, trans_prob);
+    estimate_transition_probabilities(seq, trans_prob);
 
     if (VERBOSE) {
       cerr << "Root transition probabilities are" << endl
@@ -320,6 +355,7 @@ int main(int argc, const char **argv) {
 
       vector<double> rates;
       p.get_rates(rates);
+
       vector<double> branches;
       p.t.get_branch_lengths(branches);
       branches.erase(branches.begin());
@@ -332,7 +368,7 @@ int main(int argc, const char **argv) {
         for (size_t i = 0; i < branches.size(); ++i) cerr << branches[i] << "\t";
         cerr << endl;
         cerr << "log-likelihood= "
-             << llk(J, D, rates) << endl;
+             << log_likelihood(J, D, rates) << endl;
       }
       if (DEBUG) {
         cerr << "tot_freq:" << endl;
@@ -351,29 +387,29 @@ int main(int argc, const char **argv) {
 
       double param_tol = 1e-10;
       vector<double> new_rates;
-      est_rates(param_tol, jumps, holds, rates, new_rates);
+      estimate_rates(param_tol, jumps, holds, rates, new_rates);
 
       if (VERBOSE) {
         cerr << "optimized rates:\t" << endl;
         for (size_t i = 0; i < new_rates.size(); ++i)
           cerr << new_rates[i] << "\t";
         cerr << endl << "optimized likelihood:\t"
-             << llk(J, D, new_rates) << endl;
+             << log_likelihood(J, D, new_rates) << endl;
       }
 
-      /* scale rates and branches to have unit branch length corresponding
-         to one expected transition per site */
-      double rf = rate_factor(new_rates);
+      /* scale rates and branches to have unit branch length
+         corresponding to one expected transition per site */
+      const double the_rate_factor = rate_factor(new_rates);
       vector<double> scaled_rates = new_rates;
       vector<double> scaled_D = D;
       for (size_t i = 0; i < new_rates.size(); ++i) {
-        scaled_rates[i] /= rf;
-        scaled_D[i] *= rf;
+        scaled_rates[i] /= the_rate_factor;
+        scaled_D[i] *= the_rate_factor;
       }
 
-      vector<double> scaled_branches = branches_from_paths;
+      vector<double> scaled_branches(branches_from_paths);
       for (size_t b = 0; b < branches_from_paths.size(); ++b)
-        scaled_branches[b] *= rf;
+        scaled_branches[b] *= the_rate_factor;
 
       if (VERBOSE) {
         cerr << "scaled rates:\t" << endl;
@@ -386,7 +422,7 @@ int main(int argc, const char **argv) {
 
         cerr << endl
              <<"new log-likelihood= "
-             << llk(J, scaled_D, scaled_rates) << endl;
+             << log_likelihood(J, scaled_D, scaled_rates) << endl;
       }
 
     }
