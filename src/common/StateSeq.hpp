@@ -27,6 +27,7 @@
 #include <string>
 
 struct StateSeq {
+
   StateSeq(const std::vector<char> &s) : seq(s) {}
   void get_domain_sizes(std::vector<size_t> &domain_sizes) const;
   std::vector<char> seq;
@@ -37,9 +38,7 @@ struct StateSeq {
   void get_pair_counts(std::vector<size_t> &pair_counts) const;
   void get_pair_proportions(std::vector<double> &pair_proportions) const;
 
-  std::string
-  summary_string() const;
-
+  std::string summary_string() const;
 };
 
 inline size_t
@@ -52,23 +51,15 @@ pair2idx(const bool i, const bool j) {
   return i*2 + j;
 }
 
-inline size_t
-flip_right_bit(const size_t x) {return x ^ 1ul;}
+// flipping bits
+inline size_t flip_left_bit(const size_t x)  {return x ^ 4ul;}
+inline size_t flip_mid_bit(const size_t x)   {return x ^ 2ul;}
+inline size_t flip_right_bit(const size_t x) {return x ^ 1ul;}
 
-inline size_t
-flip_mid_bit(const size_t x) {return x ^ 2ul;}
-
-inline size_t
-flip_left_bit(const size_t x) {return x ^ 4ul;}
-
-inline bool
-get_left_bit(const size_t x) {return x & 4ul;}
-
-inline bool
-get_mid_bit(const size_t x) {return x & 2ul;}
-
-inline bool
-get_right_bit(const size_t x) {return x & 1ul;}
+// accessing bits
+inline bool get_left_bit(const size_t x)  {return x & 4ul;}
+inline bool get_mid_bit(const size_t x)   {return x & 2ul;}
+inline bool get_right_bit(const size_t x) {return x & 1ul;}
 
 inline void
 get_bits_from_triple(const size_t x, bool &l, bool &m, bool &r) {

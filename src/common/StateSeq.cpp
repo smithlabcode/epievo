@@ -102,9 +102,8 @@ triplet_info_to_string(const std::vector<T> &v) {
   assert(v.size() >= n_triplets);
   std::ostringstream oss;
   oss << std::bitset<3>(0) << '\t' << v.front();
-  for (size_t i = 1; i < n_triplets; ++i) {
+  for (size_t i = 1; i < n_triplets; ++i)
     oss << '\n' << std::bitset<3>(i) << '\t' << v[i];
-  }
   return oss.str();
 }
 
@@ -116,9 +115,8 @@ pair_info_to_string(const std::vector<T> &v) {
   assert(v.size() >= n_pairs);
   std::ostringstream oss;
   oss << std::bitset<2>(0) << '\t' << v.front();
-  for (size_t i = 1; i < n_pairs; ++i) {
+  for (size_t i = 1; i < n_pairs; ++i)
     oss << '\n' << std::bitset<2>(i) << '\t' << v[i];
-  }
   return oss.str();
 }
 
@@ -131,9 +129,9 @@ StateSeq::summary_string() const {
   get_pair_proportions(pair_props);
 
   std::ostringstream oss;
-  oss << "TRIPLET PROPORTIONS:\n"
+  oss << "triplet proportions:\n"
       << triplet_info_to_string(triplet_props) << '\n'
-      << "PAIR PROPORTIONS:\n"
+      << "pair proportions:\n"
       << pair_info_to_string(pair_props);
   return oss.str();
 }
