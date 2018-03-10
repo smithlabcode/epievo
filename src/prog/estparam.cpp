@@ -54,8 +54,11 @@ void get_gradient(const vector<double> &J,
                   const vector<double> &D,
                   const vector<double> &rates,
                   vector<double> &gradient) {
+
+  static const size_t n_params = 8;
+
   /* gradients w.r.t log(rate[i])*/
-  gradient.resize(8, 0);
+  gradient.resize(n_params, 0.0);
   gradient[0] = J[0] - D[0]*rates[0] + J[7] - D[7]*rates[7];
   gradient[2] = J[2] - D[2]*rates[2] - J[7] + D[7]*rates[7];
   gradient[5] = J[5] - D[5]*rates[5] + J[7] - D[7]*rates[7];
@@ -138,39 +141,50 @@ void est_rates(const double param_tol,
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void est_trans_prob(const vector<bool> &seq,
-                    vector<vector<double> > & trans_prob) {
-  double c00(0), c01(0), c10(0), c11(0), c0(0), c1(1);
-  for (size_t i = 0; i < seq.size() -1; ++i) {
-    c00 += (size_t)((!seq[i]) & (!seq[i+1]));
-    c01 += (size_t)((!seq[i]) & seq[i+1]);
-    c10 += (size_t)(seq[i] & (!seq[i+1]));
-    c11 += (size_t)(seq[i] & seq[i+1]);
-    c0 += (size_t)(!seq[i]);
-    c1 += (size_t)(seq[i]);
-  }
+void
+est_trans_prob(const vector<bool> &seq,
+               vector<vector<double> > & trans_prob) {
 
-  if (c00*c11*c10*c01 == 0) {
+  // count the different pair-wise transitions within the sequence
+  double c00 = 0.0, c01 = 0.0, c10 = 0.0, c11 = 0.0;
+  for (size_t i = 0; i < seq.size() - 1; ++i) {
+    c00 += static_cast<size_t>((seq[i] == false) && (seq[i+1] == false));
+    c01 += static_cast<size_t>((seq[i] == false) && (seq[i+1] == true));
+    c10 += static_cast<size_t>((seq[i] == true) && (seq[i+1] == false));
+    c11 += static_cast<size_t>((seq[i] == true) && (seq[i+1] == true));
+  }
+  if (c00*c11*c10*c01 == 0)
     cerr << "WARNING: Root sequence lack diversity" << endl;
-  }
 
-  const double p00 = c00/c0;
-  const double p11 = c11/c1;
+  // calculate horizontal probability of no change
+  const double p00 = c00/(c00 + c01);
+  const double p11 = c11/(c10 + c11);
+
+  // assign horizontal probabilities to matrix
   trans_prob = vector<vector<double> >(2, vector<double>(2, 0.0));
   trans_prob[0][0] = p00;
-  trans_prob[0][1] = 1 - p00;
-  trans_prob[1][0] = 1 - p11;
+  trans_prob[0][1] = 1.0 - p00;
+  trans_prob[1][0] = 1.0 - p11;
   trans_prob[1][1] = p11;
 }
 
-void scale_treesize(vector<double> &rates, vector<double> &branches) {
-  double treesize = std::accumulate(branches.begin(), branches.end(), 0.0);
+/* This function scales the branches of the tree so that the sum of
+ * the branch lengths is 1.
+ */
+static void
+scale_treesize(vector<double> &rates, vector<double> &branches) {
+
+  // get the total sum of branch lengths in the tree
+  const double treesize = accumulate(branches.begin(), branches.end(), 0.0);
+
+  // scale the rates by the sum of the tree branches
   for (size_t i = 0; i < rates.size(); ++i)
     rates[i] *= treesize;
-  for (size_t b = 0; b < branches.size(); ++b)
-    branches[b] /= treesize;
-}
 
+  // scale the tree branch lengths so they have unit sum
+  for (size_t i = 0; i < branches.size(); ++i)
+    branches[i] /= treesize;
+}
 
 
 int main(int argc, const char **argv) {
@@ -219,7 +233,7 @@ int main(int argc, const char **argv) {
     }
 
     vector<bool> seq;
-    get_inital_seq(paths[0], seq);
+    get_initial_seq(paths[0], seq);
 
     vector<vector<double> > trans_prob;
     est_trans_prob(seq, trans_prob);
@@ -229,9 +243,8 @@ int main(int argc, const char **argv) {
            << "[";
       for (size_t i = 0; i < 2; ++i) {
         if (i > 0) cerr << " ";
-        for (size_t j = 0; j < 2; ++j) {
+        for (size_t j = 0; j < 2; ++j)
           cerr << trans_prob[i][j] << "\t";
-        }
         if (i > 0) cerr << "]";
         cerr << endl;
       }
