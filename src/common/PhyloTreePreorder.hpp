@@ -25,25 +25,22 @@
 
 #include "PhyloTree.hpp"
 
-using std::string;
-using std::vector;
-
 class PhyloTreePreorder : public PhyloTree {
 public:
   void
-  get_subtree_sizes(vector<size_t> &subtree_sizes) const {
+  get_subtree_sizes(std::vector<size_t> &subtree_sizes) const {
     get_subtree_sizes(root, subtree_sizes);
   }
   void
-  get_branch_lengths(vector<double> &branch_lengths) const {
+  get_branch_lengths(std::vector<double> &branch_lengths) const {
     get_branch_lengths(root, branch_lengths);
   }
   void
-  get_leaf_names(vector<string> &names) const {
+  get_leaf_names(std::vector<std::string> &names) const {
     get_leaf_names(root, names);
   };
   void
-  get_node_names(vector<string> &names) const {
+  get_node_names(std::vector<std::string> &names) const {
     get_node_names(root, names);
   };
 
@@ -52,26 +49,26 @@ public:
     assign_missing_node_names(root, 0);
   }
   void
-  set_branch_lengths(vector<double> branch_lengths) {
+  set_branch_lengths(std::vector<double> branch_lengths) {
     set_branch_lengths(root, branch_lengths);
   }
 
 private:
   void
   get_subtree_sizes(const PhyloTree::PTNode &node,
-                    vector<size_t> &subtree_sizes) const;
+                    std::vector<size_t> &subtree_sizes) const;
   void
   get_branch_lengths(const PhyloTree::PTNode &node,
-                     vector<double> &branch_lengths) const;
+                     std::vector<double> &branch_lengths) const;
   void
   get_leaf_names(const PhyloTree::PTNode &node,
-                 vector<string> &names) const;
+                 std::vector<std::string> &names) const;
   void
   get_node_names(const PhyloTree::PTNode &node,
-                 vector<string> &names) const;
+                 std::vector<std::string> &names) const;
   void
   set_branch_lengths(PhyloTree::PTNode &node,
-                     vector<double> &branch_lengths);
+                     std::vector<double> &branch_lengths);
   void
   assign_missing_node_names(PhyloTree::PTNode &node,
                             size_t count);
@@ -92,7 +89,7 @@ inline bool
 is_leaf(const size_t subtree_size) {return subtree_size == 1;}
 
 inline bool
-is_binary(const vector<size_t> &subtree_sizes) {
+is_binary(const std::vector<size_t> &subtree_sizes) {
   // ADS: this function seems not to be used
   return (subtree_sizes[0] == 1 + subtree_sizes[1] +
           subtree_sizes[subtree_sizes[1] + 1]);
