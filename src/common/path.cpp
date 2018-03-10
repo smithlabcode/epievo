@@ -12,6 +12,13 @@
 using std::vector;
 using std::string;
 
+std::ostream &
+operator<<(std::ostream &os, const Path &p) {
+  os << p.init_state << '\t' << p.tot_time << '\t';
+  copy(p.jumps.begin(), p.jumps.end(), std::ostream_iterator<double>(os, "\t"));
+  return os;
+}
+
 void initialize_paths(const std::vector<bool> &seq, const double tot_time,
                       std::vector<Path> &paths) {
   paths.resize(seq.size());

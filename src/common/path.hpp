@@ -16,8 +16,10 @@ struct Path {
   bool init_state;
   double tot_time;
   vector<double> jumps;
-
 };
+
+std::ostream &
+operator<<(std::ostream &os, const Path &p);
 
 void to_path(const bool s, const string jumps, Path &p);
 
