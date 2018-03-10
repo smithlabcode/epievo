@@ -44,36 +44,18 @@
 #include "EpiEvoModel.hpp"
 
 using std::vector;
+using std::string;
 using std::endl;
 using std::cerr;
 using std::cout;
-using std::string;
 using std::to_string;
+using std::ostream_iterator;
 
-
-bool
-file_exist(const string &param_file) {
-  struct stat buf;
-  return (stat(param_file.c_str(), &buf) == 0);
-}
 
 bool
 file_is_readable(const string &param_file) {
   std::ifstream in(param_file.c_str());
   return in.good();
-}
-
-
-static void
-count_triplets(const vector<char> &state_sequence,
-               vector<size_t> &triplet_count) {
-  static const size_t n_triplets = 8;
-
-  triplet_count = vector<size_t>(n_triplets, 0);
-  for (size_t i = 1; i < state_sequence.size()-1; ++i)
-    ++triplet_count[triple2idx(state_sequence[i-1],
-                               state_sequence[i],
-                               state_sequence[i+1])];
 }
 
 
@@ -91,7 +73,50 @@ operator<<(std::ostream &os, const Segment &s) {
   return os << s.time_point << '\t' << s.position;
 }
 
-// use new data structure PatSeq
+static
+void write_pathfile_header(const string &pathfile) {
+  std::ofstream outpath(pathfile.c_str());
+  outpath << "## paths" << endl;
+}
+
+static void
+append_to_pathfile(const string &pathfile, const size_t node_id,
+                   const vector<Segment> &the_path) {
+  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
+  outpath << "NODE\t" << node_id << '\n';
+  for (size_t i = 0; i < the_path.size(); ++i)
+    outpath << the_path[i] << '\n';
+}
+
+
+static void
+write_output(const string &outfile,
+             const vector<string> &node_names,
+             const vector<vector<char> > &sequences) {
+
+  std::ofstream out(outfile.c_str());
+  if (!out)
+    throw std::runtime_error("bad output file: " + outfile);
+
+  const size_t n_sequences = sequences.size();
+  const size_t n_sites = sequences.front().size();
+
+  out << '#';
+  copy(node_names.begin(), node_names.end(), ostream_iterator<string>(out, "\t"));
+  out << '\n';
+
+  for (size_t i = 0; i < n_sites; ++i) {
+    out << i;
+    for (size_t j = 0; j < n_sequences; ++j)
+      out << '\t' << static_cast<bool>(sequences[j][i]);
+    out << '\n';
+  }
+}
+
+
+/* This function does the sampling for an individual change in the
+   state sequence
+ */
 static void
 sample_jump(const EpiEvoModel &the_model, const double total_time,
             std::mt19937 &gen, TripletSampler &ts, vector<Segment> &the_path,
@@ -100,7 +125,7 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
   static const size_t n_triplets = 8;
 
   // triplet_count = c_{ijk} for current sequence (encoded in the
-  // TripletSapler object)
+  // TripletSampler object)
   vector<size_t> triplet_counts;
   ts.get_triplet_counts(triplet_counts);
 
@@ -140,128 +165,16 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
     /* add the changed position and change time to the path */
     the_path.push_back(Segment(time_value, change_position));
   }
-
 }
 
-
-static
-void write_pathfile_header(const string &pathfile) {
-  std::ofstream outpath(pathfile.c_str());
-  outpath << "## paths" << endl;
-}
-
-static void
-append_to_pathfile(const string &pathfile, const size_t node_id,
-                   const vector<Segment> &the_path) {
-  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
-  outpath << "NODE\t" << node_id << '\n';
-  for (size_t i = 0; i < the_path.size(); ++i)
-    outpath << the_path[i] << '\n';
-}
-
-
-static void
-write_output(const string &outfile,
-             const vector<string> &node_names,
-             const vector<vector<char> > &sequences) {
-
-  std::ofstream out(outfile.c_str());
-  if (!out)
-    throw std::runtime_error("bad output file: " + outfile);
-
-  const size_t n_sequences = sequences.size();
-  const size_t n_sites = sequences.front().size();
-
-  out << '#';
-  for (size_t i = 0; i < n_sequences; ++i)
-    out << '\t' << node_names[i];
-  out << '\n';
-
-  for (size_t i = 0; i < n_sites; ++i) {
-    out << i;
-    for (size_t j = 0; j < n_sequences; ++j)
-      out << '\t' << static_cast<bool>(sequences[j][i]);
-    out << '\n';
-  }
-}
-
-// struct watch_info {
-//   double node_id;
-//   double time_val;
-//   double n_dom;
-//   double mean_dom_size;
-//   double dom_size_sd;
-//   double fraction;
-//   vector<size_t> patfreq;
-// };
-
-
-// std::ostream &
-// operator<<(std::ostream &os, const watch_info &w) {
-//   os << w.node_id << '\t'
-//      << w.time_val << '\t'
-//      << w.n_dom << '\t'
-//      << w.mean_dom_size << '\t'
-//      << w.dom_size_sd << '\t'
-//      << w.fraction << '\t';
-//   for (size_t ct = 0; ct < 8; ++ct)
-//     os << w.patfreq[ct] << '\t';
-//   return os;
-// }
-
-
-// static void
-// update_watch_stats(const model_param &p,
-//                    const PatSeq &patseq,
-//                    const size_t node_id,
-//                    const double watch,
-//                    const double time,
-//                    vector<watch_info> &w) {
-
-//   w.push_back(watch_info());
-
-//   vector<size_t> dom_size; // domain sizes
-//   patseq.to_domain_sizes(dom_size);
-//   const size_t n_domains = dom_size.size();
-
-//   const double dom_tot =
-//     std::accumulate(dom_size.begin(), dom_size.end(), 0.0);
-
-//   const double mds = dom_tot/n_domains; // mean domain size
-
-//   // standard deviation
-//   const double sq_sum =
-//     std::inner_product(dom_size.begin(), dom_size.end(), dom_size.begin(), 0.0);
-//   const double stdev = std::sqrt(sq_sum/n_domains - mds*mds);
-
-//   w.back().n_dom = n_domains;
-//   w.back().mean_dom_size = mds;
-//   w.back().dom_size_sd = stdev;
-//   w.back().fraction = dom_tot/p.n_site;
-
-//   patseq.get_all_context_freq(w.back().patfreq);
-
-//   w.back().node_id = node_id;
-//   w.back().time_val = floor(time/watch)*watch;
-// }
-
-
-////////////////////////////////////////////////////////////////////////////////
-// SIMULATION
-////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, const char **argv) {
 
   try {
 
-    // static const size_t n_gibbs_iter = 500;
-
     string outfile;
     string pathfile;
     bool VERBOSE = false;
-    bool EXTRA_VERBOSE = false;
-    double watch = 0;
-    string watchfile;
     size_t n_sites = 100;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
@@ -274,13 +187,9 @@ int main(int argc, const char **argv) {
                       "(default: " + to_string(n_sites) + ")", false, n_sites);
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths"
                       "(default: stdout)", false, pathfile);
-    opt_parse.add_opt("watch", 'w', "print summary statistics "
-                      "at specified time interval (when -o)", false, watch);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
-    opt_parse.add_opt("extra-verbose", 'V', "print way more run info",
-                      false, EXTRA_VERBOSE);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -307,8 +216,6 @@ int main(int argc, const char **argv) {
       return  EXIT_SUCCESS;
     }
     ////////////////////////////////////////////////////////////////////////
-
-    const bool keep_watch_info = (!pathfile.empty() && watch > 0);
 
     /* (1) INITIALIZING PARAMETERS */
     if (VERBOSE)
@@ -353,7 +260,6 @@ int main(int argc, const char **argv) {
     const size_t n_nodes = the_model.t.get_size();
 
     vector<vector<char> > sequences(n_nodes, root_seq);
-    // vector<watch_info> w; // only used if "watching" requested
 
     /* ITERATE OVER THE NODES IN THE TREE */
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
@@ -379,22 +285,6 @@ int main(int argc, const char **argv) {
     if (!outfile.empty())
       write_output(outfile, the_model.node_names, sequences);
 
-    // if (keep_watch_info) {
-    //   watchfile = pathfile + ".stats";
-    //   std::ofstream outstat(watchfile.c_str());
-    //   outstat << "branch" << "\t" << "time" << "\t"
-    //           << "n.domain" << "\t" << "mean.domain" << "\t"
-    //           << "sd.domain" << "\t" << "fraction" << "\t"
-    //           << "pattern000" << "\t" << "pattern001" << "\t"
-    //           << "pattern010" << "\t" << "pattern011" << "\t"
-    //           << "pattern100" << "\t" << "pattern101" << "\t"
-    //           << "pattern110" << "\t" << "pattern111" << endl;
-    //   copy(w.begin(), w.end(), std::ostream_iterator<watch_info>(outstat, "\n"));
-    // }
-  }
-  catch (std::bad_alloc &ba) {
-    cerr << "ERROR: could not allocate memory" << endl;
-    return EXIT_FAILURE;
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
