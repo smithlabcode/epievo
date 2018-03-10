@@ -92,14 +92,14 @@ append_to_pathfile(const string &pathfile, const size_t node_id,
 static void
 write_output(const string &outfile,
              const vector<string> &node_names,
-             const vector<vector<char> > &sequences) {
+             const vector<StateSeq> &sequences) {
 
   std::ofstream out(outfile.c_str());
   if (!out)
     throw std::runtime_error("bad output file: " + outfile);
 
   const size_t n_sequences = sequences.size();
-  const size_t n_sites = sequences.front().size();
+  const size_t n_sites = sequences.front().seq.size();
 
   out << '#';
   copy(node_names.begin(), node_names.end(), ostream_iterator<string>(out, "\t"));
@@ -108,7 +108,7 @@ write_output(const string &outfile,
   for (size_t i = 0; i < n_sites; ++i) {
     out << i;
     for (size_t j = 0; j < n_sequences; ++j)
-      out << '\t' << static_cast<bool>(sequences[j][i]);
+      out << '\t' << static_cast<bool>(sequences[j].seq[i]);
     out << '\n';
   }
 }
@@ -256,12 +256,11 @@ int main(int argc, const char **argv) {
       cerr << "mutations per site (at root): " << total_rate << endl;
     }
 
-    /* EXTRACT INFO FROM THE PHYLOGENETIC TREE */
     const size_t n_nodes = the_model.t.get_size();
 
-    vector<vector<char> > sequences(n_nodes, root_seq);
+    vector<StateSeq> sequences(n_nodes, s);
 
-    /* ITERATE OVER THE NODES IN THE TREE */
+    /* (3) ITERATE OVER THE NODES IN THE TREE */
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
       const double curr_branch_len = the_model.branches[node_id];
       if (VERBOSE)
@@ -272,7 +271,7 @@ int main(int argc, const char **argv) {
       double time_value = 0;
       vector<Segment> the_path;
 
-      /* SAMPLE CHANGES ALONG THE CURRENT BRANCH */
+      /* (4) SAMPLE CHANGES ALONG THE CURRENT BRANCH */
       while (time_value < curr_branch_len)
         sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value);
 
@@ -280,6 +279,10 @@ int main(int argc, const char **argv) {
 
       if (!pathfile.empty())
         append_to_pathfile(pathfile, node_id, the_path);
+
+      if (VERBOSE)
+        cerr << "[SUMMARY:]" << endl
+             << sequences[node_id].summary_string() << endl;
     }
 
     if (!outfile.empty())
