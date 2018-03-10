@@ -38,8 +38,13 @@ bool DEBUG = false;
 double llk(const vector<double> &J,
            const vector<double> &D,
            const vector<double> &rates) {
+  static const size_t n_triplets = 8;
+
+  assert(J.size() == n_triplets && D.size() == n_triplets &&
+         rates.size() == n_triplets);
+
   double l = 0;
-  for (size_t i = 0; i < 8; ++i) {
+  for (size_t i = 0; i < n_triplets; ++i) {
     l += J[i]*log(rates[i]) - D[i]*rates[i];
   }
   return l;
