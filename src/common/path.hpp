@@ -30,6 +30,11 @@ void initialize_paths(const std::vector<bool> &seq, const double tot_time,
 
 void read_paths(const string path_file, vector<vector<Path> > &paths);
 
+void
+read_paths(const string &path_file,
+           std::vector<std::string> &node_names,
+           std::vector<std::vector<Path> > &paths);
+
 void get_initial_seq(const vector<Path> &paths, vector<bool> &seq);
 
 void end_sequence(const vector<Path> &paths, vector<bool> &seq);
@@ -58,8 +63,5 @@ struct TriplePath {
   TriplePath(const Path &l, const Path &m, const Path &r);
   void time_by_context(vector<double> &tbc) const;
 };
-
-
-
 
 #endif

@@ -12,6 +12,20 @@
 using std::vector;
 using std::string;
 
+static const string NODE_TAG = "NODE";
+static const size_t TAG_LENGTH = 4;
+
+static bool
+is_node_line(const string &buffer) {
+  return buffer.length() > TAG_LENGTH &&
+    (buffer.compare(0, TAG_LENGTH, NODE_TAG) == 0);
+}
+
+static string
+get_node_name(const string &buffer) {
+  return string(buffer.begin() + buffer.find(':') + 1, buffer.end());
+}
+
 std::ostream &
 operator<<(std::ostream &os, const Path &p) {
   os << p.init_state << '\t' << p.tot_time << '\t';
@@ -88,6 +102,34 @@ void read_paths(const string path_file, vector<vector<Path> > &paths) {
       Path p;
       to_path(init_state, jumpstring, p);
       paths[node_ids.size() - 1].push_back(p);
+    }
+  }
+}
+
+
+void
+read_paths(const string &path_file, vector<string> &node_names,
+           vector<vector<Path> > &paths) {
+
+  std::ifstream in(path_file.c_str());
+  if (!in)
+    throw std::runtime_error("cannot read: " + path_file);
+
+  size_t pos = 0;
+  double tmp_jump = 0.0;
+  string line;
+  while (getline(in, line)) {
+    if (is_node_line(line)) {
+      node_names.push_back(get_node_name(line));
+      paths.push_back(vector<Path>());
+    }
+    else {
+      Path p;
+      std::istringstream iss(std::move(line));
+      iss >> pos >> p.init_state >> p.tot_time;
+      while (iss >> tmp_jump)
+        p.jumps.push_back(tmp_jump);
+      paths.back().push_back(p);
     }
   }
 }
