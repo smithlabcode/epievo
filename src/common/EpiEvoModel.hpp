@@ -80,4 +80,7 @@ scale_rates(const std::vector<double> &rates,
             std::vector<double> &scaled_rates,
             std::vector<double> &scaled_branches);
 
+double
+rate_scaling_factor(const std::vector<double> &triplet_rates);
+
 #endif

@@ -84,7 +84,7 @@ EpiEvoModel::tostring() const {
       << format_two_by_two(Q) << '\n'
       << "[TRIPLE RATES]" << '\n';
   oss << bitset<3>(0) << '\t' << triplet_rates[0];
-  for (size_t i = 0; i < triplet_rates.size(); ++i)
+  for (size_t i = 1; i < triplet_rates.size(); ++i)
     oss << '\n' << bitset<3>(i) << '\t' << triplet_rates[i];
   return oss.str();
 }
@@ -283,4 +283,56 @@ EpiEvoModel::sample_state_sequence_stationary(const size_t n_sites,
                                               std::mt19937 &gen,
                                               vector<char> &sequence) const {
   sample_state_sequence(n_sites, T, gen, sequence);
+}
+
+void
+pairwise_potentials_from_triplet_rates(const vector<double> &triplet_rates,
+                                       two_by_two &Q) {
+  // pair-wise potentials Q from rates lambda_ijk
+  Q = vector<vector<double> >(2, vector<double>(2, 1.0));
+  const double death_birth_ratio = triplet_rates[2]/triplet_rates[0];
+  const double expand_contract_ratio = triplet_rates[1]/triplet_rates[3];
+  Q[0][0] = Q[0][1] * sqrt(death_birth_ratio);
+  Q[1][1] = Q[0][1] * sqrt(death_birth_ratio) * expand_contract_ratio;
+}
+
+
+void
+stationary_from_horiz_trans_prob(const two_by_two &T, vector<double> &pi) {
+  pi = vector<double>(2, 0.0);
+  pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
+  pi[0] = 1.0 - pi[1];
+}
+
+double
+rate_scaling_factor(const vector<double> &pi,
+                    const two_by_two &T,
+                    const vector<double> &triplet_rates) {
+
+  double mu_rate_value = 0.0;
+  for (size_t i = 0; i < triplet_rates.size(); ++i) {
+    const size_t l = get_left_bit(i);
+    const size_t m = get_mid_bit(i);
+    const size_t r = get_right_bit(i);
+    mu_rate_value += (pi[l]*T[l][m]*T[m][r]) * triplet_rates[i];
+  }
+  return mu_rate_value;
+}
+
+double
+rate_scaling_factor(const vector<double> &triplet_rates) {
+
+  // pair-wise potentials Q from lambda_ijk
+  two_by_two Q;
+  pairwise_potentials_from_triplet_rates(triplet_rates, Q);
+
+  // transition probability matrix T from Q
+  two_by_two T;
+  potential_to_transition_prob(Q, T);
+
+  // stationary rates pi from T
+  vector<double> pi;
+  stationary_from_horiz_trans_prob(T, pi);
+
+  return rate_scaling_factor(pi, T, triplet_rates);
 }
