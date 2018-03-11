@@ -99,6 +99,7 @@ convert_parameter(const vector<vector<double> > &stationary_logfac,
 
 double
 rate_factor(const vector<double> &rates) {
+
   // pair-wise potentials Q
   vector<vector<double> > Q(2, vector<double>(2, 1.0));
   Q[0][0] = Q[0][1] * sqrt(rates[2]/rates[0]);
@@ -111,13 +112,14 @@ rate_factor(const vector<double> &rates) {
   vector<double> pi(2, 0);
   pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
   pi[0] = 1.0 - pi[1];
+
   vector<double> stationary_prob(rates.size(), 0.0);
   double unit = 0.0;
   for (size_t i = 0; i < rates.size(); ++i) {
-    const size_t left = i/4;
-    const size_t mid = (i % 4)/2;
-    const size_t right = i % 2;
-    stationary_prob[i] = pi[left]*T[left][mid]*T[mid][right];
+    const size_t l = get_left_bit(i);
+    const size_t m = get_mid_bit(i);
+    const size_t r = get_right_bit(i);
+    stationary_prob[i] = pi[l]*T[l][m]*T[m][r];
     unit += stationary_prob[i] * rates[i];
   }
 
