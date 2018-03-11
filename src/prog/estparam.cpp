@@ -11,7 +11,7 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "PhyloTreePreorder.hpp"
-#include "path.hpp"  /* related to Path */
+#include "Path.hpp"  /* related to Path */
 #include "TwoStateSeq.hpp"
 #include "param.hpp" /* model_param */
 #include "TripletPattern.hpp"

@@ -31,7 +31,7 @@
 
 #include "GlobalJump.hpp"
 #include "StateSeq.hpp"
-#include "path.hpp"
+#include "Path.hpp"
 
 using std::vector;
 using std::endl;

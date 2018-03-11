@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "path.hpp"
+#include "Path.hpp"
 #include "TripletPattern.hpp"
 
 struct Jump {
