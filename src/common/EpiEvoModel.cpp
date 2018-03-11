@@ -217,7 +217,9 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
 void
 EpiEvoModel::initialize() {
 
-  // make sure every node has a name
+  // make sure every node has a name ADS: modify below so that all
+  // nodes always have names; check for this rather than attempt to
+  // fix it
   t.assign_missing_node_names();
   t.get_subtree_sizes(subtree_sizes);
   t.get_node_names(node_names);
