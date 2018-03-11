@@ -69,4 +69,32 @@ get_bits_from_triple(const size_t x, bool &l, bool &m, bool &r) {
   r = get_right_bit(x);
 }
 
+#include <bitset>
+#include <sstream>
+#include <cassert>
+
+template <class T> std::string
+triplet_info_to_string(const std::vector<T> &v) {
+  static const size_t n_triplets = 8;
+  assert(v.size() >= n_triplets);
+  std::ostringstream oss;
+  oss << std::bitset<3>(0) << '\t' << v.front();
+  for (size_t i = 1; i < n_triplets; ++i)
+    oss << '\n' << std::bitset<3>(i) << '\t' << v[i];
+  return oss.str();
+}
+
+
+template <class T> std::string
+pair_info_to_string(const std::vector<T> &v) {
+  static const size_t n_pairs = 4;
+
+  assert(v.size() >= n_pairs);
+  std::ostringstream oss;
+  oss << std::bitset<2>(0) << '\t' << v.front();
+  for (size_t i = 1; i < n_pairs; ++i)
+    oss << '\n' << std::bitset<2>(i) << '\t' << v[i];
+  return oss.str();
+}
+
 #endif

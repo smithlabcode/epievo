@@ -96,30 +96,6 @@ StateSeq::get_pair_proportions(std::vector<double> &pair_props) const {
 }
 
 
-template <class T> static string
-triplet_info_to_string(const std::vector<T> &v) {
-  static const size_t n_triplets = 8;
-  assert(v.size() >= n_triplets);
-  std::ostringstream oss;
-  oss << std::bitset<3>(0) << '\t' << v.front();
-  for (size_t i = 1; i < n_triplets; ++i)
-    oss << '\n' << std::bitset<3>(i) << '\t' << v[i];
-  return oss.str();
-}
-
-
-template <class T> static string
-pair_info_to_string(const std::vector<T> &v) {
-  static const size_t n_pairs = 4;
-
-  assert(v.size() >= n_pairs);
-  std::ostringstream oss;
-  oss << std::bitset<2>(0) << '\t' << v.front();
-  for (size_t i = 1; i < n_pairs; ++i)
-    oss << '\n' << std::bitset<2>(i) << '\t' << v[i];
-  return oss.str();
-}
-
 string
 StateSeq::summary_string() const {
 
