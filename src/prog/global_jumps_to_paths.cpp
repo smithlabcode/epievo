@@ -90,6 +90,21 @@ assign_changes_to_sites(const vector<GlobalJump> &global_path,
     by_site[global_path[i].position].jumps.push_back(global_path[i].timepoint);
 }
 
+static void
+write_root_to_pathfile_local(const string &outfile, const string &root_name) {
+  std::ofstream outpath(outfile.c_str());
+  outpath << "NODE:" << root_name << endl;
+}
+
+static void
+append_to_pathfile_local(const string &pathfile, const string &node_name,
+                         const vector<Path> &path_by_site) {
+  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
+  outpath << "NODE:" << node_name << endl;
+  for (size_t i = 0; i < path_by_site.size(); ++i)
+    outpath << i << '\t' << path_by_site[i] << '\n';
+}
+
 
 int main(int argc, const char **argv) {
 
@@ -150,7 +165,7 @@ int main(int argc, const char **argv) {
     vector<vector<GlobalJump> > the_paths; // along multiple branches
     read_pathfile_global(pathsfile, root, node_names_from_pathsfile, the_paths);
 
-    write_root_to_pathfile_global(outfile, node_names.front(), root);
+    write_root_to_pathfile_local(outfile, node_names.front());
 
     vector<StateSeq> the_states;
     vector<string> node_names_from_statesfile;
@@ -160,10 +175,6 @@ int main(int argc, const char **argv) {
            node_names == node_names_from_pathsfile);
 
     const size_t n_sites = root.seq.size();
-
-    std::ofstream out(outfile.c_str());
-    if (!out)
-      throw std::runtime_error("bad output file: " + outfile);
 
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
 
@@ -177,9 +188,8 @@ int main(int argc, const char **argv) {
       }
       assign_changes_to_sites(the_paths[node_id], path_by_site);
 
-      out << "NODE:" << node_names[node_id] << endl;
-      for (size_t i = 0; i < path_by_site.size(); ++i)
-        out << i << '\t' << path_by_site[i] << endl;
+      append_to_pathfile_local(outfile, node_names[node_id], path_by_site);
+
     }
   }
   catch (const std::exception &e) {
