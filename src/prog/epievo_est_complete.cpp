@@ -54,23 +54,23 @@ add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
   double prev_time = 0.0;
   size_t i = 0, j = 0, k = 0;
   while (i < left.jumps.size() && j < mid.jumps.size() && k < right.jumps.size())
-    if (left.jumps[i] < min(mid.jumps[j], right.jumps[k])) {
+    if (left.jumps[i] < min(mid.jumps[j], right.jumps[k])) { // LEFT
       D[triplet] += left.jumps[i] - prev_time;
-      J[triplet] += 1.0;
+      /* no need to update J[triplet] += 1.0; here */
       prev_time = left.jumps[i];
       triplet = flip_left_bit(triplet);
       ++i;
     }
-    else if (mid.jumps[j] < right.jumps[k]) {
+    else if (mid.jumps[j] < right.jumps[k]) { // MID
       D[triplet] += mid.jumps[j] - prev_time;
       J[triplet] += 1.0;
       prev_time = mid.jumps[j];
       triplet = flip_mid_bit(triplet);
       ++j;
     }
-    else {
+    else { // RIGHT
       D[triplet] += right.jumps[k] - prev_time;
-      J[triplet] += 1.0;
+      /* no need to update J[triplet] += 1.0; here */
       prev_time = right.jumps[k];
       triplet = flip_right_bit(triplet);
       ++k;
