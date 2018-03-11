@@ -1,5 +1,7 @@
 #include "param.hpp"
 
+#include "StateSeq.hpp"
+
 #include <fstream>
 #include <sstream>
 #include <cassert>
