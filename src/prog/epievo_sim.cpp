@@ -21,18 +21,11 @@
 
 #include <string>
 #include <vector>
-
 #include <iostream>
 #include <fstream>
-#include <iomanip>
-#include <sstream>
-#include <bitset>
-
 #include <random>
 #include <cmath>   /* exp, sqrt, pow */
 #include <numeric>  /* std::inner_product */
-
-#include <sys/stat.h>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -42,7 +35,6 @@
 #include "TripletSampler.hpp"
 #include "StateSeq.hpp"
 #include "EpiEvoModel.hpp"
-
 #include "GlobalJump.hpp"
 
 using std::vector;
@@ -62,8 +54,7 @@ file_is_readable(const string &param_file) {
 
 
 static void
-write_output(const string &outfile,
-             const vector<string> &node_names,
+write_output(const string &outfile, const vector<string> &node_names,
              const vector<StateSeq> &sequences) {
 
   std::ofstream out(outfile.c_str());
@@ -151,6 +142,7 @@ int main(int argc, const char **argv) {
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
+    ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "simulate methylome evolution",
                            "<params-file>");
     opt_parse.add_opt("output", 'o', "name of output file for methylomes"
@@ -236,8 +228,8 @@ int main(int argc, const char **argv) {
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
       const double curr_branch_len = the_model.branches[node_id];
       if (VERBOSE)
-        cerr << "[SIMULATING: " << the_model.node_names[node_id] << " ("
-             << curr_branch_len << ")]" << endl;
+        cerr << "[SIMULATING: " << the_model.node_names[node_id]
+             << " (" << curr_branch_len << ")]" << endl;
 
       TripletSampler ts(sequences[the_model.parent_ids[node_id]]);
       double time_value = 0;
