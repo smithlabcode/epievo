@@ -167,6 +167,8 @@ TripletSampler::single_update(const size_t pos, size_t context,
       const size_t next_block_end = cum_pat_count[context] - 1;
       iter_swap(pos_by_pat.begin() + block_end,
                 pos_by_pat.begin() + next_block_end);
+      // ADS: is it ok to swap below after having already modified
+      // pos_by_pat above?
       iter_swap(idx_in_pat.begin() + pos_by_pat[block_end],
                 idx_in_pat.begin() + pos_by_pat[next_block_end]);
       block_end = next_block_end;
@@ -207,7 +209,7 @@ TripletSampler::mutate(const size_t pos, const size_t context) {
   // flip the middle bit of the current triplet pattern
   single_update(pos, context, flip_mid_bit(context));
 
-  // flip the right bit of the left neighbor's triplet pattern (unless
+  // flip the [right bit of the left neighbor] triplet pattern (unless
   // the left neighbor is not part of a full triplet due to being at
   // the start of the sequence)
   const size_t pos_l = pos - 1;
@@ -216,7 +218,7 @@ TripletSampler::mutate(const size_t pos, const size_t context) {
     single_update(pos_l, context_l, flip_right_bit(context_l));
   }
 
-  // flip the left bit of the right neighbor's triplet pattern (unless
+  // flip the [left bit of the right neighbor] triplet pattern (unless
   // the right neighbor would be past the end of the sequence).
   const size_t pos_r = pos + 1;
   if (pos_r < pos_by_pat.size() - 1) {
@@ -243,12 +245,16 @@ TripletSampler::random_mutate(const size_t context, std::mt19937 &gen) {
 // extract the sequence by "unpermuting" the positions
 void
 TripletSampler::get_sequence(std::vector<char> &seq) const {
+  static const size_t n_triplets = 8;
+
   seq.resize(idx_in_pat.size(), true);
 
-  size_t idx = 1;
-  for (size_t pat = 0; pat < 8; ++pat) {
+  size_t idx = 0; // start at 0 because indexing within pos_by_pat,
+                  // which keeps positions that exclude the first and
+                  // last
+  for (size_t pat = 0; pat < n_triplets; ++pat) {
     const bool state = get_mid_bit(pat);
-    while (idx <= cum_pat_count[pat]) {
+    while (idx < cum_pat_count[pat + 1]) {
       seq[pos_by_pat[idx]] = state;
       ++idx;
     }
