@@ -76,10 +76,10 @@ EpiEvoModel::tostring() const {
       << format_two_by_two(init_T) << '\n'
       << "[STATIONARY HORIZ LOG POTENTIALS]\n"
       << format_two_by_two(stationary_logfac) << '\n'
-      << "[STATIONARY LOG BASELINE VALUES]\n"
-      << format_two_by_two(stationary_logbaseline) << '\n'
       << "[STATIONARY HORIZ TRANSITION PROBS]\n"
       << format_two_by_two(T) << '\n'
+      << "[STATIONARY LOG BASELINE VALUES]\n"
+      << format_two_by_two(stationary_logbaseline) << '\n'
       << "[STATIONARY POTENTIALS]\n"
       << format_two_by_two(Q) << '\n'
       << "[TRIPLE RATES]" << '\n';
@@ -136,22 +136,6 @@ read_model(const string &param_file, EpiEvoModel &m) {
   m.initialize();
 }
 
-
-void
-EpiEvoModel::get_rates(vector<double> &rates) const {
-  rates.resize(8, 0.0);
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      for (size_t k = 0; k < 2; ++k)
-        rates[triple2idx(i, j, k)] = std::exp(stationary_logfac[i][1-j] +
-                                              stationary_logfac[1-j][k] +
-                                              stationary_logbaseline[i][k]);
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-// stationary and Markov chain
-////////////////////////////////////////////////////////////////////////////////
 
 void
 potential_to_transition_prob(const two_by_two &Q, two_by_two &T) {
@@ -213,6 +197,20 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
 }
 
 
+void
+EpiEvoModel::compute_triplet_rates() {
+  static const size_t n_triplets = 8;
+  triplet_rates.resize(n_triplets, 0.0);
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      for (size_t k = 0; k < 2; ++k)
+        triplet_rates[triple2idx(i, j, k)] =
+          std::exp(stationary_logfac[i][1-j] +
+                   stationary_logfac[1-j][k] +
+                   stationary_logbaseline[i][k]);
+}
+
+
 /* This function takes the parameter values for the model, which were
    most likely read from a parameter file, and computes the initial
    horizontal transitions (init_T), the stationary horizontal
@@ -237,22 +235,17 @@ EpiEvoModel::initialize() {
       init_Q[i][j] = exp(init_logfac[i][j]);
   potential_to_transition_prob(init_Q, init_T);
 
-  // convert the stationary potentials into transition probs
+  // initialize stationary potentials
   Q = two_by_two(2, vector<double>(2, 0.0));
   for (size_t i = 0; i < 2; ++i)
     for (size_t j = 0; j < 2; ++j)
       Q[i][j] = exp(stationary_logfac[i][j]);
+
+  // convert the stationary potentials into transition probs
   potential_to_transition_prob(Q, T);
 
   // get the 1D vector of rates for the triples
-  triplet_rates.resize(8, 0.0);
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      for (size_t k = 0; k < 2; ++k)
-        triplet_rates[triple2idx(i, j, k)] =
-          std::exp(stationary_logfac[i][1-j] +
-                   stationary_logfac[1-j][k] +
-                   stationary_logbaseline[i][k]);
+  compute_triplet_rates();
 }
 
 

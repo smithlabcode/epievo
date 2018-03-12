@@ -62,7 +62,7 @@ struct EpiEvoModel {
   std::string root_name() const {return node_names[0];}
 
 private:
-  void get_rates(std::vector<double> &rates) const;
+  void compute_triplet_rates();
 };
 
 std::ostream &
