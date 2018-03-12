@@ -102,9 +102,11 @@ read_model(const string &param_file, EpiEvoModel &m) {
   if (!in)
     throw std::runtime_error("Could not open file" + param_file);
 
+  /* read the phylogenetic tree */
   string dummy_label;
   in >> dummy_label >> m.t;
 
+  /* read the stationary distribution */
   in >> dummy_label;
   assert(dummy_label == "stationary");
   m.stationary_logfac.resize(2, vector<double>(2, 0.0));
@@ -113,6 +115,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
      >> m.stationary_logfac[1][1];
   m.stationary_logfac[1][0] = m.stationary_logfac[0][1];
 
+  /* read the baseline */
   in >> dummy_label;
   assert(dummy_label == "baseline");
   m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
@@ -121,6 +124,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
      >> m.stationary_logbaseline[1][1];
   m.stationary_logbaseline[1][0] = m.stationary_logbaseline[0][1];
 
+  /* read the initial distribution (at root) */
   in >> dummy_label;
   assert(dummy_label == "init");
   m.init_logfac.resize(2, vector<double>(2, 0.0));
