@@ -274,14 +274,17 @@ estimate_rates(const double param_tol,
  * the branch lengths is 1.
  */
 static void
-scale_treesize(vector<double> &rates, vector<double> &branches) {
+scale_treesize(vector<double> &rates, vector<double> &branches,
+               vector<double> &D) {
 
   // get the total sum of branch lengths in the tree
   const double treesize = accumulate(branches.begin(), branches.end(), 0.0);
 
   // scale the rates by the sum of the tree branches
-  for (size_t i = 0; i < rates.size(); ++i)
+  for (size_t i = 0; i < rates.size(); ++i) {
     rates[i] *= treesize;
+    D[i] *= treesize;
+  }
 
   // scale the tree branch lengths so they have unit sum
   for (size_t i = 0; i < branches.size(); ++i)
@@ -415,8 +418,8 @@ int main(int argc, const char **argv) {
     /* scale rates and branches to have unit branch length
        corresponding to one expected transition per site */
     vector<double> updated_branches(the_model.branches);
-    scale_by_rate_factor(updated_rates, updated_branches, D);
-    // scale_treesize(updated_rates, updated_branches);
+    // scale_by_rate_factor(updated_rates, updated_branches, D);
+    scale_treesize(updated_rates, updated_branches, D);
 
     if (VERBOSE) {
       cerr << "scaled branches:\t" << endl;
