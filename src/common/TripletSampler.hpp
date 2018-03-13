@@ -39,6 +39,7 @@ public:
   // mutate: the second argument can be computed using the first, but
   // passing it as parameter skips having to compute it again
   void mutate(const size_t pos, const size_t context);
+  void mutate(const size_t pos) {mutate(pos, get_context(pos));}
 
   // get_sequence: extracts the sequences corresponding to the current
   // state of the calling TripletSampler object, which is obtained by
