@@ -19,7 +19,7 @@
 # 02110-1301 USA
 
 PROGS = evosim estparam epievo_sim global_jumps_to_paths \
-	extract_state_sequences
+	extract_state_sequences test_sampling
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
 OPTFLAGS = -O2
