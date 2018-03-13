@@ -18,7 +18,8 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = evosim estparam epievo_sim global_jumps_to_paths
+PROGS = evosim estparam epievo_sim global_jumps_to_paths \
+	extract_state_sequences
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
 OPTFLAGS = -O2
@@ -52,7 +53,11 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
 	EpiEvoModel.o GlobalJump.o)
 
-global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o)
+global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)
+
+extract_state_sequences: $(addprefix $(COMMON_DIR)/, TripletSampler.o \
+	StateSeq.o GlobalJump.o)
+
 
 install: all
 	@mkdir -p ../../bin
