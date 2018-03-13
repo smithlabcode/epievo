@@ -42,46 +42,6 @@ using std::runtime_error;
 
 
 static void
-read_states_file(const string &statesfile,
-                 vector<string> &node_names,
-                 vector<StateSeq> &the_states) {
-
-  std::ifstream in(statesfile.c_str());
-  if (!in)
-    throw runtime_error("cannot read states file: " + statesfile);
-
-  string buffer;
-  getline(in, buffer);
-  if (buffer[0] == '#') // ADS: probably should adopt some convention
-    buffer = buffer.substr(1);
-
-  std::istringstream iss(buffer);
-  string tmp_name;
-  while (iss >> tmp_name)
-    node_names.push_back(tmp_name);
-
-  const size_t n_nodes = node_names.size();
-
-  size_t the_site = 0; // dummy
-  the_states.resize(n_nodes);
-  while (getline(in, buffer)) {
-    iss.clear();
-    iss.str(std::move(buffer));
-
-    iss >> the_site;
-
-    size_t val_count = 0;
-    char tmp_value = 0;
-    while (val_count < n_nodes && iss >> tmp_value)
-      the_states[val_count++].seq.push_back(tmp_value == '1');
-
-    if (val_count != n_nodes)
-      throw runtime_error("bad line in states file");
-  }
-}
-
-
-static void
 assign_changes_to_sites(const vector<GlobalJump> &global_path,
                         vector<Path> &by_site) {
 
@@ -142,8 +102,7 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
-      cerr << "[reading paths: " << pathsfile << "]" << endl;
-
+      cerr << "[reading tree: " << treefile << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
     std::ifstream tree_in(treefile.c_str());
     if (!tree_in || !(tree_in >> the_tree))
@@ -160,6 +119,8 @@ int main(int argc, const char **argv) {
 
     const size_t n_nodes = node_names.size();
 
+    if (VERBOSE)
+      cerr << "[reading paths: " << pathsfile << "]" << endl;
     StateSeq root;
     vector<string> node_names_from_pathsfile;
     vector<vector<GlobalJump> > the_paths; // along multiple branches
@@ -167,6 +128,8 @@ int main(int argc, const char **argv) {
 
     write_root_to_pathfile_local(outfile, node_names.front());
 
+    if (VERBOSE)
+      cerr << "[reading states: " << statesfile << "]" << endl;
     vector<StateSeq> the_states;
     vector<string> node_names_from_statesfile;
     read_states_file(statesfile, node_names_from_statesfile, the_states);
