@@ -16,6 +16,8 @@ struct Path {
   bool init_state;
   double tot_time;
   vector<double> jumps;
+
+  bool state_at_time(const double t) const;
 };
 
 std::ostream &
@@ -23,7 +25,6 @@ operator<<(std::ostream &os, const Path &p);
 
 void to_path(const bool s, const string jumps, Path &p);
 
-bool state_at_time(const Path &p, const double t);
 
 void initialize_paths(const std::vector<bool> &seq, const double tot_time,
                       std::vector<Path> &paths);
@@ -49,10 +50,10 @@ struct Environment {
   vector<bool> right;  // states on the right
   vector<double> breaks; // time points of environment state changes
   double tot_time;
+  Environment(const Path &pa, const Path &pb);
 };
 
 
-void intersect_paths(const Path &pa, const Path &pb, Environment &env);
 
 ////////////////////////////////////////////////////////////////////////////////
 struct TriplePath {
@@ -62,6 +63,14 @@ struct TriplePath {
 
   TriplePath(const Path &l, const Path &m, const Path &r);
   void time_by_context(vector<double> &tbc) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+struct PathContextStat {
+  vector<double> jumps_in_context;
+  vector<double> time_in_context;
+
+  PathContextStat(const Path &l, const Path &m, const Path &r);
 };
 
 #endif

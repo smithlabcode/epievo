@@ -52,11 +52,12 @@ void end_sequence(const vector<Path> &paths,
   }
 }
 
-bool state_at_time(const Path &p, const double t) {
+bool
+Path::state_at_time(const double t) const {
   vector<double>::const_iterator low;
-  low = std::lower_bound(p.jumps.begin(), p.jumps.end(), t);
-  size_t idx = (size_t)(low- p.jumps.begin());
-  bool s = (idx%2 == 0)?  p.init_state: !p.init_state;
+  low = std::lower_bound(jumps.begin(), jumps.end(), t);
+  size_t idx = (size_t)(low - jumps.begin());
+  bool s = (idx%2 == 0)?  init_state: !init_state;
   // bool s = p.init_state;
   // for (size_t i = 0; i < p.jumps.size() && p.jumps[i] < t; ++i)
   //   s = !s;
@@ -67,7 +68,7 @@ void sequence_at_time(const vector<Path> &paths, const double t,
                       vector<bool> &seq) {
   seq.resize(paths.size());
   for (size_t i = 0; i < paths.size(); ++i) {
-    seq[i] = state_at_time(paths[i], t);
+    seq[i] = paths[i].state_at_time(t);
   }
 }
 
@@ -142,47 +143,47 @@ void get_initial_seq(const vector<Path> &paths, vector<bool> &seq) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void intersect_paths(const Path &pa, const Path &pb, Environment &env) {
+Environment::Environment(const Path &pa, const Path &pb) {
   assert(pa.tot_time == pb.tot_time);
   bool sa = pa.init_state;
   bool sb = pb.init_state;
   size_t i = 0;
   size_t j = 0;
-  env.tot_time = pa.tot_time;
+  tot_time = pa.tot_time;
   while (i < pa.jumps.size() || j < pb.jumps.size()) {
-    env.left.push_back(sa);
-    env.right.push_back(sb);
+    left.push_back(sa);
+    right.push_back(sb);
     if (i < pa.jumps.size() && j < pb.jumps.size()) {
       if (pa.jumps[i] < pb.jumps[j]) {
-        env.breaks.push_back(pa.jumps[i]);
+        breaks.push_back(pa.jumps[i]);
         ++i;
         sa = !sa;
       } else if (pa.jumps[i] > pb.jumps[j]) {
-        env.breaks.push_back(pb.jumps[j]);
+        breaks.push_back(pb.jumps[j]);
         ++j;
         sb = !sb;
       } else {
-        env.breaks.push_back(pb.jumps[j]);
+        breaks.push_back(pb.jumps[j]);
         ++j;
         ++i;
         sa = !sa;
         sb = !sb;
       }
     } else if (i < pa.jumps.size()) {
-      env.breaks.push_back(pa.jumps[i]);
+      breaks.push_back(pa.jumps[i]);
       ++i;
       sa = !sa;
     } else {
-      env.breaks.push_back(pb.jumps[j]);
+      breaks.push_back(pb.jumps[j]);
       ++j;
       sb = !sb;
     }
   }
 
-  if (env.breaks.size() == 0 ||
-      env.breaks.back() < env.tot_time) {
-    env.left.push_back(sa);
-    env.right.push_back(sb);
+  if (breaks.size() == 0 ||
+      breaks.back() < tot_time) {
+    left.push_back(sa);
+    right.push_back(sb);
   }
 }
 
@@ -205,9 +206,9 @@ TriplePath::TriplePath(const Path &l, const Path &m, const Path &r) {
 
   for (size_t i = 1; i < breaks.size(); ++i) {
     const double t = breaks[i-1] + (breaks[i] - breaks[i-1])/2;
-    const size_t state_l = (size_t)(state_at_time(l, t));
-    const size_t state_m = (size_t)(state_at_time(m, t));
-    const size_t state_r = (size_t)(state_at_time(r, t));
+    const size_t state_l = (size_t)(l.state_at_time(t));
+    const size_t state_m = (size_t)(m.state_at_time(t));
+    const size_t state_r = (size_t)(r.state_at_time(t));
     states.push_back(state_l * 4 + state_m * 2 + state_r);
   }
 
@@ -226,4 +227,27 @@ TriplePath::time_by_context(vector<double> &tbc) const {
   tbc[states[0]] += breaks[0];
   for (size_t i = 0; i < states.size(); ++i)
     tbc[states[i]] += breaks[i+1] - breaks[i];
+}
+
+
+PathContextStat::PathContextStat(const Path &l, const Path &m, const Path &r) {
+  jumps_in_context = vector<double>(8, 0.0);
+  time_in_context = vector<double>(8, 0.0);
+  size_t l_state = static_cast<size_t>(l.init_state);
+  size_t m_state = static_cast<size_t>(m.init_state);
+  size_t r_state = static_cast<size_t>(r.init_state);
+  size_t context = 4*l_state + 2*m_state + r_state;
+  vector<double> jumps = m.jumps;
+  jumps.insert(jumps.begin(), 0.0);
+  jumps.push_back(m.tot_time);
+  for (size_t i = 1; i < jumps.size(); ++i) {
+    const double t = 0.5*(jumps[i] + jumps[i-1]);
+    l_state = static_cast<size_t>(l.state_at_time(t));
+    m_state = static_cast<size_t>(m.state_at_time(t));
+    r_state = static_cast<size_t>(r.state_at_time(t));
+    context = 4*l_state + 2*m_state + r_state;
+    ++jumps_in_context[context];
+    time_in_context[context] += jumps[i]-jumps[i-1];
+  }
+  --jumps_in_context[context]; // last break point is not a jump
 }
