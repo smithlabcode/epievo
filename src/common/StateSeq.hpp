@@ -42,6 +42,14 @@ struct StateSeq {
   std::string summary_string() const;
 };
 
+std::ostream &
+operator<<(std::ostream &os, const StateSeq &s);
+
+void
+read_states_file(const std::string &statesfile,
+                 std::vector<std::string> &node_names,
+                 std::vector<StateSeq> &the_states);
+
 inline size_t
 triple2idx(const bool i, const bool j, const bool k) {
   return i*4 + j*2 + k;
