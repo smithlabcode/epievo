@@ -18,6 +18,9 @@ struct Path {
   vector<double> jumps;
 
   bool state_at_time(const double t) const;
+  bool end_state() const {
+    return (jumps.size() % 2 == 0) ? init_state : !init_state;
+  }
 };
 
 std::ostream &
