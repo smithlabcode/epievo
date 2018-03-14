@@ -19,7 +19,7 @@
 # 02110-1301 USA
 
 PROGS = evosim estparam epievo_sim global_jumps_to_paths \
-	extract_state_sequences test_sampling
+	extract_state_sequences test_sampling epievo_est_complete
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
 OPTFLAGS = -O2
@@ -50,7 +50,7 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TripletPattern.o param.o jump.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
+epievo_est_complete epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
 	EpiEvoModel.o GlobalJump.o)
 
 global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)
