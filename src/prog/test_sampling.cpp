@@ -1,18 +1,41 @@
+/* Copyright (C) 2018 University of Southern California
+ *                    Jianghan Qu and Andrew D Smith
+ *
+ * Author: Andrew D. Smith and Jianghan Qu
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
+ */
+
 #include <string>
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <algorithm>    // std::min
-
+#include <algorithm>
+#include <bitset>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"  /* related to Path */
-#include "param.hpp" /* model_param */
+
+#include "EpiEvoModel.hpp" /* model_param */
 #include "TripletPattern.hpp"
-#include "jump.hpp"
+// #include "jump.hpp"
+#include "StateSeq.hpp"
 
 using std::vector;
 using std::endl;
@@ -20,6 +43,8 @@ using std::cerr;
 using std::cout;
 using std::string;
 using std::min;
+using std::runtime_error;
+using std::bitset;
 
 void
 propose_new_path(const vector<double> &rates, const Path &l,
@@ -116,14 +141,67 @@ log_accept_rate(const vector<double> &rates,
   return lr;
 }
 
+
+static void
+propose_path(vector<std::exponential_distribution<double> > &distrs,
+             std::mt19937 &gen,
+             const EpiEvoModel &the_model,
+             const Path &left, const Path &right, Path &mid) {
+
+  size_t triplet = triple2idx(left.init_state, mid.init_state, right.init_state);
+  double current_time = 0.0;
+
+  auto i = left.jumps.begin();
+  auto k = right.jumps.begin();
+
+  mid.jumps.clear();
+
+  // assume left and right have their final jump set to the total
+  // time; we can fix this later
+  while (i != left.jumps.end() && k != right.jumps.end()) {
+    const double next_context_change = min(*i, *k);
+
+    // sample a holding time in the current state
+    const double holding = distrs[triplet](gen);
+
+    if (current_time + holding < next_context_change) {
+      current_time += holding;             // update the timepoint
+      mid.jumps.push_back(current_time);   // add the timepoint to mid jumps
+      triplet = flip_mid_bit(triplet);     // update the context
+    }
+    else {
+      current_time = next_context_change;
+      if (*i < *k) {
+        triplet = flip_left_bit(triplet);
+        ++i;
+      }
+      else {
+        triplet = flip_right_bit(triplet);
+        ++k;
+      }
+    }
+    cerr << endl;
+  }
+}
+
+
 int main(int argc, const char **argv) {
   try {
-    string param_file;
-    string out_file;
-    OptionParser opt_parse(strip_path(argv[0]), "test triple path",
-                           "<path-file>");
-    opt_parse.add_opt("param", 'p', "params file", true, param_file);
 
+    bool VERBOSE = false;
+
+    size_t the_site = 0;
+    string node_name;
+
+    ////////////////////////////////////////////////////////////////////////
+    OptionParser opt_parse(strip_path(argv[0]), "test triple path",
+                           "<model-file> <paths-file> <outfile>");
+    opt_parse.add_opt("verbose", 'v', "print more run info",
+                      false, VERBOSE);
+    opt_parse.add_opt("site", 's', "site to simulate",
+                      true, the_site);
+    opt_parse.add_opt("note", 'n', "name of node below edge to sample",
+                      true, node_name);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -139,70 +217,79 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() < 1) {
+    if (leftover_args.size() != 3) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string path_file(leftover_args.back());
+    const string model_file(leftover_args[0]);
+    const string pathsfile(leftover_args[1]);
+    const string outfile(leftover_args[2]);
+    ////////////////////////////////////////////////////////////////////////
 
-    cerr << "Reading parameters" << endl;
-    model_param p;
-    p.read_param(param_file);
-    vector<double> rates;
-    p.get_rates(rates);
+    if (VERBOSE)
+      cerr << "[READING PATHS: " << pathsfile << "]" << endl;
+    vector<vector<Path> > all_paths; // along multiple branches
+    vector<string> node_names;
+    read_paths(pathsfile, node_names, all_paths);
 
-    cerr << "Reading paths " << path_file << endl;
-    vector<vector<Path> > paths; // along multiple branches
-    read_paths(path_file, paths);
+    const size_t n_nodes = node_names.size();
+    /* below: 1st element of all_paths empty at root; use last */
+    const size_t n_sites = all_paths.back().size();
 
-    ////////////////////////////////////////////////////////////
-    // - paths to jumps
-    // - collect suff_stats
-    //
-    vector<vector<Jump> > jumps;
-    vector<Hold> holds;
+    if (VERBOSE)
+      cerr << "n_nodes=" << n_nodes << endl
+           << "n_sites=" << n_sites << endl;
 
-    for (size_t b = 0; b < paths.size(); ++b) {
-      vector<Jump> j;
-      Hold h;
-      get_jumps(paths[b], j, h);
-      jumps.push_back(j);
-      holds.push_back(h);
-    }
+    if (VERBOSE)
+      cerr << "[READING PARAMETER FILE: " << model_file << "]" << endl;
+    EpiEvoModel the_model;
+    read_model(model_file, the_model);
+    if (VERBOSE)
+      cerr << the_model << endl;
 
-    ////////////////////////////////////////////////////////////
-    cerr << "Propose new path" << endl;
     /* standard mersenne_twister_engine seeded with rd()*/
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    for (size_t i = 0; i < paths.size(); ++i) {
-      size_t tot_acc = 0;
-      size_t diff = 0;
-      for (size_t k = 1; k < paths[0].size()-3; ++k) {
-        Path new_path;
-        propose_new_path(rates, paths[0][k], paths[0][k+1], paths[0][k+2],
-                         new_path, gen);
+    // get the id for the desired node
+    vector<string>::const_iterator name_idx =
+      find(begin(node_names), end(node_names), node_name);
+    if (name_idx == node_names.end())
+      throw runtime_error("invalid node name: " + node_name);
 
-        double lar = log_accept_rate(rates, paths[0][k-1], paths[0][k],
-                                     paths[0][k+1], paths[0][k+2],
-                                     paths[0][k+3], new_path);
+    const size_t node_id = name_idx - node_names.begin();
+    const size_t parent_id = the_model.parent_ids[node_id];
+    const double branch_length = the_model.branches[node_id];
 
-        std::uniform_real_distribution<double> unif(0.0,1.0);
-        if (lar != 0) ++diff;
-        if (lar != 0 && unif(gen) < min(1.0, exp(lar))) { //accept
-          if (lar!= 0) ++tot_acc;
-          paths[0][k+1] = new_path;
-        }
-      }
-      cerr <<"branch-" << i << ":\tProposed "
-           << diff << " new paths\tAccepted " << tot_acc << " paths \t"
-           << "out of total "  << paths[0].size()-5 << " paths"<< endl;
+    if (VERBOSE) {
+      cerr << "node name: " << node_name << endl
+           << "node id: " << node_id << endl
+           << "parent name: " << node_names[parent_id] << endl
+           << "parent id: " << parent_id << endl
+           << "branch length: " << branch_length << endl
+           << "site: " << the_site << endl
+           << "total jumps: " << all_paths[node_id][the_site].jumps.size() << endl;
     }
-  }
-  catch (std::bad_alloc &ba) {
-    cerr << "ERROR: could not allocate memory" << endl;
-    return EXIT_FAILURE;
+
+    vector<std::exponential_distribution<double> > distrs;
+    for (size_t i = 0; i < the_model.triplet_rates.size(); ++i) {
+      auto ed = std::exponential_distribution<double>(the_model.triplet_rates[i]);
+      cout << bitset<3>(i) << '\t' << ed << endl;
+      distrs.push_back(ed);
+    }
+
+    Path left_path(all_paths[node_id][the_site - 1]);
+    left_path.jumps.push_back(left_path.tot_time);
+
+    Path right_path(all_paths[node_id][the_site + 1]);
+    right_path.jumps.push_back(right_path.tot_time);
+
+    Path the_path(all_paths[node_id][the_site]);
+    propose_path(distrs, gen, the_model, left_path, right_path, the_path);
+
+    cout << all_paths[node_id][the_site].end_state() << endl;
+    cout << the_path.end_state() << endl;
+
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
