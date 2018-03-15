@@ -562,68 +562,6 @@ So the log-likelihood function \eqref{eqn:loglik1} becomes
 where $c'$ is the symmetric context pattern of $c$, \textit{i.e.} if
 $c$ is $001$, then $c'$ is $100$.
 
-\subsection{Estimates when evolutionary time is a parameter}
-%%% ADS: I feel this is stated backwards. The paramters are not
-%%% identifiable until we make the assumption about unit branch
-%%% lengths.
-When the total time span of this complete evolutionary history is
-unknown, the value of $t$ is also a model parameter to be
-estimated. We assume that all the jumping times are observed as a
-fraction of the unknown $t$. Suppose the jumping times are
-$\{t_m\}_{m=0}^M$, which are monotonic strictly increasing values
-between $(0,1]$, and $t_0 = 0, t_M = 1$ represent the start
-and end of observation and do not correspond to a jump.
-
-The observed data likelihood becomes
-\begin{equation}
-L = \Bigg(\prod\limits_{m=1}^{M-1} \lambda_{c_m}\exp(-\lambda_{(m)}(t_m - t_{m-1})t) \Bigg) \times \exp(-\lambda_{(M)}(t_M - t_{M-1})t)
-\end{equation}
-and the log likelihood is
-\begin{equation}
-\begin{aligned}
-l = & \sum\limits_{m=1}^{M-1} \log\lambda_{c_m} - \sum\limits_{m=1}^{M} \lambda_{(m)}(t_m - t_{m-1})t \\
-= & \sum_{c} J_c\log\lambda_c  - \sum_{c} D_c\lambda_c t,
-\end{aligned}
-\end{equation}
-where $J_c = \sum_{m=1}^{M-1}I_{\{c_m = c\}}$, and $D_c = \sum_{m=1}^{M}I_{\{c_m = c\}}(t_m - t_{m-1})$.
-
-The rate parameters and the evolutionary time are not identifiable in
-the optimization problem. The data likelihood is unbounded: for any
-values of the parameters, we can always increase the likelihood by
-multiplying all $\lambda_c$ by some constant $x > 1$, and scale $t$ by
-a factor of $1/x$. The rate parameters become identifiable when we fix
-$t$ at a constant value.
-
-When we consider evolutionary processes on a tree, we have multiple
-branches of unknown lengths. Suppose we observe all jumps with holding
-times observed as a fraction of the unknown total tree size. The
-transition rates are identifiable when the total tree size is
-fixed. For example, we can set the total tree size to 1, \textit{i.e.}
-$\sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b}(t_{b,m} - t_{b,m-1})
-= 1$.
-
-\begin{equation}
-L = \prod\limits_{b=1}^B\Bigg(\prod\limits_{m=1}^{M_b-1} \lambda_{c_{b,m}}\exp(-\lambda_{(b,m)}(t_{b,m} - t_{b,m-1}))  \times \exp(-\lambda_{(M_b)}(t_{M_b} - t_{M_b-1})) \Bigg)
-\end{equation}
-and the log likelihood is
-\begin{equation}
-  \begin{aligned}
-    l = ~ & \sum\limits_{b=1}^B\Bigg(
-    \sum\limits_{m=1}^{M_b-1} \log\lambda_{c_{b,m}}
-    - \sum\limits_{m=1}^{M_b} \lambda_{(b,m)}(t_{b,m} - t_{b,m-1}) \Bigg)
-    = ~ \sum_{c} J_c\log\lambda_c  - \sum_{c} D_{c}\lambda_c
-    % \\
-    % = ~ & \sum\limits_{c=0,2,5}\bigg(J_c\log\lambda_c - D_{c}\lambda_c\bigg) ~ +
-    % ~ \sum\limits_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c ~ -
-    % (D_{c} + D_{c'})\lambda_c\bigg) ~ + \\
-    % ~ & \bigg(J_7\log(\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2})
-    % - D_{7}\cdot\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2} \bigg)
-  \end{aligned}
-\end{equation}
-where $J_c = \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b-1}I_{\{c_{b,m}
-= c\}}$, $D_{c} = \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b}I_{\{c_{b,m} =
-c\}}(t_{b,m} - t_{b,m-1})$, and $c_{b,m}$ is the context of the $m$-th jump on branch $b$.
-
 \subsubsection{Gradients of log-likelihood}
 We treat $\{\log\lambda_c: c = 0,1,2,3,5\}$ as free parameters as they can take any real value.
 \begin{equation}
@@ -660,6 +598,63 @@ t_b &\leftarrow \sum\limits_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \frac{1}{\m
 \end{aligned}
 \end{equation}
 %%
+
+\subsubsection{Estimates when evolutionary time is a parameter}
+%%% ADS: I feel this is stated backwards. The paramters are not
+%%% identifiable until we make the assumption about unit branch
+%%% lengths.
+In the context of phylogenetic inference, we are given the
+observations at extant species, \textit{i.e.} leaf nodes of the
+phylogenetic tree, and will rely on EM procedures to both estimate
+model parameters (M-step) and making inferences about evolutionary
+paths form the common ancestor (E-step).  In the E-step, we compute
+the expected values of the complete-data sufficient statistics $J$s
+and $D$s along individual branches conditional on the observed leaf
+data and our current model parameters (branch lengths and transition
+rates). In M-step, we find the set of parameters that give the best
+likelihood with the expected values of sufficient
+statistics. For an Exponential random variable
+$X$:
+\[ X \sim \text{Exp}(\lambda) \Leftrightarrow X/t \sim
+\text{Exp}(\lambda t), ~~\text{for any constant $t>0$.}
+\]
+Let our current estimates of branch lengths be $\{\ell_b\}$, the new branch lengths be $\{\ell'_b\}$, and the new rates be $\{\lambda'_c\}$. Then for a jumping
+interval $\Delta_{bm}$ on branch $b$ observed when the branch length is $\ell_b$, the scaled
+interval length is $\Delta_{bm}\times \frac{\ell'_b}{\ell_b}$ under the new branch length. Therefore, under the new model parameter set $\{ell'_b\}$ and $\{\lambda'_c\}$, we have
+\[
+\Delta_{mb}\times \frac{\ell'_b}{\ell_b} \sim \text{Exp}(\lambda'_{(bm)}) \Rightarrow
+\Delta_{mb} \sim \text{Exp}(\lambda'_{(bm)} \times \frac{\ell'_b}{\ell_b}).
+\]
+%%%%%
+Let $\tau_b = \frac{\ell'_b}{\ell_b}$ be the scaling factor for the new branch lengths relative to the old branch lengths. Now we can write the likelihood of observing all of the given jumping
+intervals $\{\Delta_{b,m}\}$ under the new parameter set as :
+\begin{equation}\label{eqn:liknew}
+\begin{aligned}
+L(\{\Delta_{b,m}\}; \{\ell'_b\}, \{\lambda'_c\})
+= & \prod\limits_{b=1}^B\Bigg(\prod\limits_{m=1}^{M_b-1}
+   \lambda'_{(b,m)}\tau_b
+   \exp(-\lambda'_{(b,m)}\tau_b\Delta_m) \times \frac{\lambda'_{\context{}_m}}{\lambda'_{(m)}}
+\Bigg) \times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b})\\
+= & \prod\limits_{b=1}^B\Bigg(
+\prod\limits_{m=1}^{M_b-1}\lambda'_{\context{}_m}\tau_b\exp(-\lambda'_{(m)}\tau_b\Delta_m)
+\Bigg)\times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b}).
+\end{aligned}
+\end{equation}
+%%%%%
+The log likelihood becomes
+\begin{equation}\label{eqn:logliknew}
+\begin{aligned}
+l = & \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b-1} \log(\lambda'_{c_m}\tau_b) -  \sum\limits_{b=1}^B\sum\limits_{m=1}^{M} \lambda'_{(m)}\Delta_{bm}\tau_b \\
+= & \sum\limits_{b=1}^B\sum_{c} J_{bc}\log(\lambda'_c\tau_b)  - \sum\limits_{b=1}^B\sum_{c} D_{b,c}\lambda'_c\tau_b ,
+\end{aligned}
+\end{equation}
+where
+$J_{b,c} = \sum\limits_{m=1}^{M_b-1}I_{\{c_{b,m}= c\}}$,
+$D_{bc} = \sum\limits_{m=1}^{M_b}I_{\{c_{b,m} =c\}}\Delta_{b,m}$,
+$c_{b,m}$ is the context of the $m$-th jump on branch $b$,
+and $\Delta_{bm}$ is the holding time before the $m$-th jump on branch
+$b$ of length $\ell_b$. Then, we can optimize \eqref{eqn:logliknew} over $\{\tau_b\}$
+and $\{\lambda'_c\}$, and set new branch lengths $\{\ell'_b = \tau_b\ell_b\}$.
 
 \subsection{Posterior distribution of a path given two neighboring paths}
 
