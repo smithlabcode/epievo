@@ -656,7 +656,10 @@ and $\Delta_{bm}$ is the holding time before the $m$-th jump on branch
 $b$ of length $\ell_b$. Then, we can optimize \eqref{eqn:logliknew} over $\{\tau_b\}$
 and $\{\lambda'_c\}$, and set new branch lengths $\{\ell'_b = \tau_b\ell_b\}$.
 
+
+
 \subsection{Posterior distribution of a path given two neighboring paths}
+
 
 Here we consider inference on the path for an single position in an
 epigenome that is evolving for some specified time. We assume the
@@ -829,6 +832,54 @@ A couple of performance statistics should be measured for this
 proposed sampling method. These include (1) the success rate for
 generating valid paths that satisfy the end conditions; (2) the
 acceptance rate of proposed valid paths in MCMC sampling.
+
+\subsection{Posterior sampling of a path on the entire phylogenetic tree}
+For a phylogenetic tree with known branch lengths and known
+evolutionary context-dependent transition rates, how can we sample the
+evolutionary path (on the entire tree) for one site from its posterior
+distribution given observed evolutionary paths at all other sites and the
+observed states at all leaf nodes for this site?
+
+The evolution process for this site is not homogeneous along the tree,
+its transition rate matrix depends on the concurrent states of
+neighboring sites. We can, however, partition each branch into
+intervals, within each of which the states at the two neighboring
+sites stay unchanged. Thus the evolutionary process for the site of
+interest is homogeneous within each interval, and can be characterized
+with a $2\times2$ transition rate matrix $Q_{bm}$ for the $m$-th
+interval on branch $b$. The states of this site of interest at the
+start and the end of a single interval, $s_{b,m-1}$ and $s_{b,m}$ are
+connected through a transition probability matrix $P_{bm} =
+\exp(Q_{bm}t_{bm})$.
+
+Felsenstein's algorithm can be used to compute the likelihood of
+observing leaf node states at this site $\{s_n(v)\}$, given the
+evolutionary paths at other sites:
+\[
+\Pr(\{s_n(v)\} | L_{-n}) = \sum\limits_{\{s_{bm}\}} \prod\limits_{b} \prod\limits_{m} P_{bm}(s_{b,m-1}, s_{b, m})
+\]
+
+Next, we consider inference on the path of the single position in
+a time interval, during which its neighbors have unchanged states,
+given the initial and final states for this site and the evolutionary
+path at all other sites during this time interval. Let an instance of
+the path be $L_n = \{t_m\}_{m=0}^{M}$, which is a set of jumping times
+and the start and end time points ($t_0$ and $t_M$) of this time
+interval. Let $\Delta_m = t_m - t_{m-1}$ be the holding time between
+jumps. Let the homogeneous transition rate matrix be $Q$ for this site
+in this time interval. Then the posterior probability for $L_n$ is
+\[
+\Pr(L_n|L_{-n}, s_{start}, s_{end}) \propto \prod\limits_{m=1}^{M-1} f_m(\Delta_m) \times (1-F_M(\Delta_M)),
+\]
+where $f_m$ is the exponential probability density function with the
+rate being the corresponding context-dependent transition rate before
+the $m$-th jump, and $F_M$ is the cumulative distribution function for
+exponential distribution with the rate parameter being the
+corresponding context-dependent transition rate after the last
+($(M-1)$-th) jump in that interval. This is just
+end-points-conditioned path sampling for continuous time Markov chain
+as discussed in the previous section.
+
 
 \section{Discussion}
 
