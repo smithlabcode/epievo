@@ -51,6 +51,10 @@ struct EpiEvoModel {
 
   std::vector<double> triplet_rates; // rates for triples
 
+  double substitutions_per_site(const std::vector<double> &triplet_props) const;
+  void get_stationary_state_proportions(std::vector<double> &pi) const;
+  void get_stationary_triplet_proportions(std::vector<double> &props) const;
+
   void initialize();
   void sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
                                   std::vector<char> &sequence) const;
@@ -60,6 +64,8 @@ struct EpiEvoModel {
   std::string tostring() const;
 
   std::string root_name() const {return node_names[0];}
+
+  static const size_t n_triplets = 8;
 
 private:
   void compute_triplet_rates();
