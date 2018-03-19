@@ -158,6 +158,39 @@ potential_to_transition_prob(const two_by_two &Q, two_by_two &T) {
 
 
 void
+compute_stationary_state_proportions(const two_by_two &T, vector<double> &pi) {
+  pi.resize(2);
+  pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
+  pi[0] = (1.0 - pi[1]);
+}
+
+void
+EpiEvoModel::get_stationary_state_proportions(vector<double> &pi) const {
+  compute_stationary_state_proportions(T, pi);
+}
+
+void
+compute_stationary_triplet_proportions(const two_by_two &T,
+                                       vector<double> &props) {
+  vector<double> pi;
+  compute_stationary_state_proportions(T, pi);
+  props.resize(EpiEvoModel::n_triplets);
+  for (size_t i = 0; i < EpiEvoModel::n_triplets; ++i) {
+    const size_t left = get_left_bit(i);
+    const size_t mid = get_mid_bit(i);
+    const size_t right = get_right_bit(i);
+    props[i] = pi[left]*T[left][mid]*T[mid][right]; // T is member variable
+  }
+}
+
+
+void
+EpiEvoModel::get_stationary_triplet_proportions(vector<double> &props) const {
+  compute_stationary_triplet_proportions(T, props);
+}
+
+
+void
 scale_rates(const vector<double> &rates, const vector<double> &branches,
             vector<double> &scaled_rates, vector<double> &scaled_branches) {
 
@@ -170,21 +203,13 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
   two_by_two trans_mat;
   potential_to_transition_prob(rate_mat, trans_mat);
 
-  vector<double> pi(2, 0);
-  pi[1] = (1.0 - trans_mat[0][0])/(2.0 - trans_mat[0][0] - trans_mat[1][1]);
-  pi[0] = (1.0 - pi[1]);
-  vector<double> stationary_prob(rates.size(), 0.0);
+  // proportions of triplets at stationarity
+  vector<double> stationary_triplet_props;
+  compute_stationary_triplet_proportions(trans_mat, stationary_triplet_props);
 
   double unit = 0.0;
-  for (size_t i = 0; i < rates.size(); ++i) {
-    const size_t left = get_left_bit(i);
-    const size_t mid = get_mid_bit(i);
-    const size_t right = get_right_bit(i);
-
-    stationary_prob[i] = pi[left]*trans_mat[left][mid]*trans_mat[mid][right];
-
-    unit += stationary_prob[i]*rates[i];
-  }
+  for (size_t i = 0; i < stationary_triplet_props.size(); ++i)
+    unit += stationary_triplet_props[i]*rates[i];
 
   scaled_rates = rates;
   transform(scaled_rates.begin(), scaled_rates.end(),
@@ -196,10 +221,8 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
             std::bind2nd(std::multiplies<double>(), unit));
 }
 
-
 void
 EpiEvoModel::compute_triplet_rates() {
-  static const size_t n_triplets = 8;
   triplet_rates.resize(n_triplets, 0.0);
   for (size_t i = 0; i < 2; ++i)
     for (size_t j = 0; j < 2; ++j)
@@ -281,6 +304,16 @@ EpiEvoModel::sample_state_sequence_stationary(const size_t n_sites,
                                               vector<char> &sequence) const {
   sample_state_sequence(n_sites, T, gen, sequence);
 }
+
+double
+EpiEvoModel::substitutions_per_site(const vector<double> &triplet_props) const {
+  assert(triplet_props.size() == n_triplets);
+  double total_rate = 0;
+  for (size_t i = 0; i < n_triplets; ++i)
+    total_rate += triplet_rates[i]*triplet_props[i];
+  return total_rate;
+}
+
 
 void
 pairwise_potentials_from_triplet_rates(const vector<double> &triplet_rates,
