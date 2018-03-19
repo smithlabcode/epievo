@@ -22,16 +22,17 @@
 \newcommand{\contraction}{\ensuremath{\mathcal{C}}}
 \newcommand{\merging}{\ensuremath{\mathcal{M}}}
 \newcommand{\separating}{\ensuremath{\mathcal{S}}}
+\newcommand{\child}[1]{\ensuremath{\mathrm{child}(#1)}}
 
 
 \title{A model of epigenome evolution}
 \author{Jianghan Qu \and Andrew D. Smith}
 
 %%% ADS Notes:
-%%
+%% 
 %%% (1) We need to define operationally an epigenome as a binary
 %%% sequence, and in the introduction we need to explain this.
-%%
+%% 
 %%% (2) We need to make sure that we use the terms ``position'' and
 %%% ``site'' consistently.
 
@@ -171,13 +172,13 @@ neighboring relations are preserved.
 
 Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
 denoting the state at position $i$.
-%%%
+%%% 
 As a graphical model, neighboring sites are connected with undirected
 edges. An epigenome $s$ evolves over time, but we assume the
 stationary distribution for the epigenome has a Gibbs distribution
 that factorize over pairs of neighboring sites:
 \begin{equation}\label{eqn:stationary}
-\Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}
+  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}
 \end{equation}
 
 As the epigenome evolves the state at each position may
@@ -217,7 +218,7 @@ evolutionary path is consecutive time intervals with alternating
 states. In other words, an observation of the evolutionary path at site $n$
 can be summarized as
 \[
-  L_n = \big\{s_n(0), J_n=\{t_1,\ldots,t_{m_n}\}, \tau \big\},
+L_n = \big\{s_n(0), J_n=\{t_1,\ldots,t_{m_n}\}, \tau \big\},
 \]
 where $s_n(t)\in\{0,1\}$ is the state of site $n$ at time $t$, $\tau$
 is the total length of the time interval, and $J_n$ is an ordered
@@ -233,11 +234,11 @@ $s_{n+1}=j$. The instantaneous rate for a transition from state $j$ to
 its alternative state $\bar{j}$ at site $n$ is $\gamma(i, j, k)$. In
 other words, the instantaneous rates $\gamma(i, j, k)$ is a function
 of the states at the site of interest and its two immediate neighbors.
-%%%
+%%% 
 In addition, since we assume the evolutionary process is symmetric
 with respect to the two directions along the genome, we require
 $\gamma(i, j, k) = \gamma(k, j, i)$.
-%%%
+%%% 
 When the states at all positions except for site $n$ stay constant for
 a time interval $[0,\tau)$, the state at site $n$, $s_n$, follows a
 two-state continuous-time Markov process within this time interval.
@@ -245,7 +246,7 @@ two-state continuous-time Markov process within this time interval.
 % Suppose $L_l$ and $L_r$ are paths for distinct sites. The union of
 % their jump times
 % \[
-%   \{0, t\} \cup \{t_{li}\}_{i=1}^{k_l} \cup \{t_{ri}\}_{i=1}^{k_r}
+% \{0, t\} \cup \{t_{li}\}_{i=1}^{k_l} \cup \{t_{ri}\}_{i=1}^{k_r}
 % \]
 % gives a set of time points such that when ordered, any pair
 % of consecutive times in this union defines an interval during
@@ -273,7 +274,7 @@ Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
 \]
 Then we have the Markov chain transition matrix:
 \[
-  T(i, j) = \frac{Q_{ij}h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
+T(i, j) = \frac{Q_{ij}h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
 \]
 More specifically,
 \begin{equation} \label{eqn:gibbs2markov}
@@ -309,7 +310,7 @@ specifying $\gamma$ from $\phi$: substitution rates $\gamma$ satisfy
 the relation \eqref{eqn:prop1} if and only if they can be written in
 the form
 \begin{equation}\label{eqn:prop1}
- \log(\gamma(i, j, k)) = -\psi(i, j, k) + \ell(i, k).
+  \log(\gamma(i, j, k)) = -\psi(i, j, k) + \ell(i, k).
 \end{equation}
 This criteria was introduced in the context of an arbitrary number of
 states, and the $\ell$ function can be understood as $\ell(j, j'; i,
@@ -319,7 +320,7 @@ are binary and $\ell$ is only a function of the two neighboring states
 $(i,k)$.  Moreover, we can directly verify that if we define
 substitution rates as
 \begin{equation}
-\log (\gamma(i, j, k)) =  \ell(i, k) + (\phi(i, \bar{j}) +\phi(\bar{j}, k)),
+  \log (\gamma(i, j, k)) =  \ell(i, k) + (\phi(i, \bar{j}) +\phi(\bar{j}, k)),
 \end{equation}
 then they satisfy the condition of \eqref{eqn:prop1}.
 
@@ -328,10 +329,10 @@ then they satisfy the condition of \eqref{eqn:prop1}.
 We can organize the neighbor-dependent transition rates of defined
 above according to an $8\times8$ matrix:
 \begin{equation}\label{eqn:Gamma}
-\renewcommand{\kbldelim}{(}% Left delimiter
-\renewcommand{\kbrdelim}{)}% Right delimiter
+  \renewcommand{\kbldelim}{(}% Left delimiter
+  \renewcommand{\kbrdelim}{)}% Right delimiter
   \Gamma = \kbordermatrix{
-        & 000 & 010 & 001 & 011 & 100 & 110 & 101 & 111 \\
+    & 000 & 010 & 001 & 011 & 100 & 110 & 101 & 111 \\
     000 & \cdot & \mathcal{B} & 0 & 0 & 0 & 0 & 0 & 0 \\
     010 & \mathcal{D} & \cdot & 0 & 0 & 0 & 0 & 0 & 0 \\
     001 & 0 & 0 & \cdot & \mathcal{E} & 0 & 0 & 0 & 0 \\
@@ -406,13 +407,13 @@ is
 If the current epigenome is denoted $x$ then the holding time
 is an exponential variable:
 \[
-  X_x\sim \mathit{Exp}(-M_{xx}).
+X_x\sim \mathit{Exp}(-M_{xx}).
 \]
 The rate parameter $-M_{xx}$ is the sum of instantaneous rates for
 jumps from $x$ to any other epigenome that only differs from $x$ at
 one position:
 \[
-  -M_{xx} =  \sum\limits_{i,j,k}c_{ijk}(x)\lambda_{ijk},
+-M_{xx} =  \sum\limits_{i,j,k}c_{ijk}(x)\lambda_{ijk},
 \]
 where $c_{ijk}(x) = \sum_{n=1}^{N-2}I(x_{n}=i, x_{n+1}=j, x_{n+2}=k)$
 is the total number of times the pattern $ijk$ appears as consecutive
@@ -424,35 +425,35 @@ $c_{ijk}(x)\lambda_{ijk}$. Further, given that a jump happend with
 context $ijk$, we assume the jump is equally likely to have changed
 any position in $x$ having state $j$ with left and right neighbors
 having states $i$ and $k$.
-%%
+%% 
 The expected number of changes per site, per unit time, is
 $\sum_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
 stationary distribution for the pattern $ijk$ in the epigenome.
-%%
+%% 
 These assumptions suggest a simulation procedure for the evolutionary
 process followed by an epigenome of $N$ sites over a time interval
 $[0, T]$, starting from an initial sequence $x(0)$.
 
 \begin{algorithm}[t]
-\begin{algorithmic}[1]
-  \caption{Simulating epigenome evolution}
-  \STATE $t \leftarrow 0$
-  \STATE Initialize paths $L_n = \{x_n(0), k_n=0, T_n=\emptyset, t\}$, for $n=1,\ldots, N$
-  \WHILE {$t < T$}
-  \STATE Generate $y\sim \mathit{Exp}(-M_{x(t)x(t)})$, where
-  $-M_{x(t)x(t)} = \sum_{i,j,k}c_{ijk}(x(t))\lambda_{ijk}$.
-  \IF {$t+y < T$}
-  \STATE Choose triple $ijk \in \{0,1\}^3$ with probability proportional to $c_{ijk}(x(t))\lambda_{ijk}$.
-  \STATE Sample position $n$ uniformly from the $c_{ijk}(x(t))$ positions having pattern $ijk$
-  \STATE $x(t+y) \leftarrow x(t)[1..n-1]\overline{x(t)_n}x(t)[n+1..N]$.
-  \STATE $k_n \leftarrow k_n + 1$ %% Add jump time to the path of position $n$:
-  \STATE $T_n \leftarrow T_n\cup \{t+y\}$
-  \ELSE
-  \STATE $x(T) \leftarrow x(t)$
-  \ENDIF
-  \STATE $t \leftarrow t+y$
-  \ENDWHILE
-\end{algorithmic}
+  \begin{algorithmic}[1]
+    \caption{Simulating epigenome evolution}
+    \STATE $t \leftarrow 0$
+    \STATE Initialize paths $L_n = \{x_n(0), k_n=0, T_n=\emptyset, t\}$, for $n=1,\ldots, N$
+    \WHILE {$t < T$}
+    \STATE Generate $y\sim \mathit{Exp}(-M_{x(t)x(t)})$, where
+    $-M_{x(t)x(t)} = \sum_{i,j,k}c_{ijk}(x(t))\lambda_{ijk}$.
+    \IF {$t+y < T$}
+    \STATE Choose triple $ijk \in \{0,1\}^3$ with probability proportional to $c_{ijk}(x(t))\lambda_{ijk}$.
+    \STATE Sample position $n$ uniformly from the $c_{ijk}(x(t))$ positions having pattern $ijk$
+    \STATE $x(t+y) \leftarrow x(t)[1..n-1]\overline{x(t)_n}x(t)[n+1..N]$.
+    \STATE $k_n \leftarrow k_n + 1$ %% Add jump time to the path of position $n$:
+    \STATE $T_n \leftarrow T_n\cup \{t+y\}$
+    \ELSE
+    \STATE $x(T) \leftarrow x(t)$
+    \ENDIF
+    \STATE $t \leftarrow t+y$
+    \ENDWHILE
+  \end{algorithmic}
 \end{algorithm}
 
 To implement this simulation scheme requires maintaining the variables
@@ -509,27 +510,27 @@ the $(m-1)$-th jump and the $m$-th jump.
 
 The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
 \begin{equation}\label{eqn:lik}
-L = \prod\limits_{m=1}^{M} \lambda_{(m)} \exp(-\lambda_{(m)}\Delta_m) \times \frac{\lambda_{\context{}_m}}{\lambda_{(m)}}
-=\prod\limits_{m=1}^{M}\lambda_{\context{}_m}\exp(-\lambda_{(m)}\Delta_m).
+  L = \prod\limits_{m=1}^{M} \lambda_{(m)} \exp(-\lambda_{(m)}\Delta_m) \times \frac{\lambda_{\context{}_m}}{\lambda_{(m)}}
+  =\prod\limits_{m=1}^{M}\lambda_{\context{}_m}\exp(-\lambda_{(m)}\Delta_m).
 \end{equation}
-%%
+%% 
 And the log-likelihood function is
 \begin{equation}\label{eqn:loglik1}
-\begin{aligned}
-l & = \sum_{i,j,k} \left(~
-\sum_{m=1}^M\log\lambda_{ijk}\times I_{\{\context{}_m = ijk\}} - c_{ijk}(t_m^-)\lambda_{ijk}\Delta_m\right) \\
-& = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
-\end{aligned}
+  \begin{aligned}
+    l & = \sum_{i,j,k} \left(~
+      \sum_{m=1}^M\log\lambda_{ijk}\times I_{\{\context{}_m = ijk\}} - c_{ijk}(t_m^-)\lambda_{ijk}\Delta_m\right) \\
+    & = \sum\limits_{ijk} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
+  \end{aligned}
 \end{equation}
 where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and
 
 \begin{equation}\label{eqn:Dijk}
-\begin{aligned}
-D_{ijk} &= \sum_{m=1}^Mc_{ijk}(t_m^-)\Delta_m \\
-& = \sum_{m=1}^M \bigg(\sum_{n=1}^{N} I_{\{\text{con}(n; t_m^-) = ijk\}}\bigg)\times(t_m - t_{m-1}) \\
-& = \sum_{n=1}^{N}\int_{0}^{t_M} I_{\{\text{con}(n;t) = ijk\}} dt\\
-& = \text{Total time in context $ijk$ aggregated over all sites}
-\end{aligned}
+  \begin{aligned}
+    D_{ijk} &= \sum_{m=1}^Mc_{ijk}(t_m^-)\Delta_m \\
+    & = \sum_{m=1}^M \bigg(\sum_{n=1}^{N} I_{\{\text{con}(n; t_m^-) = ijk\}}\bigg)\times(t_m - t_{m-1}) \\
+    & = \sum_{n=1}^{N}\int_{0}^{t_M} I_{\{\text{con}(n;t) = ijk\}} dt\\
+    & = \text{Total time in context $ijk$ aggregated over all sites}
+  \end{aligned}
 \end{equation}
 where $\text{con}(n; t)$ is the sequence context of site $n$ at time $t$.
 
@@ -542,7 +543,7 @@ the matrix \eqref{eqn:Gamma} and equation \eqref{eqn:constraint} are:
     \lambda_{011} = \lambda_{110}\\
     \lambda_{000}\lambda_{110}^2\lambda_{101} = \lambda_{010}\lambda_{100}^2\lambda_{111}
   \end{array}
-%% \right.
+  %% \right.
 \end{equation}
 So the log-likelihood function \eqref{eqn:loglik1} becomes
 \begin{equation}\label{eqn:loglik2}
@@ -565,13 +566,13 @@ $c$ is $001$, then $c'$ is $100$.
 \subsubsection{Gradients of log-likelihood}
 We treat $\{\log\lambda_c: c = 0,1,2,3,5\}$ as free parameters as they can take any real value.
 \begin{equation}
-\begin{aligned}
-\frac{\partial l}{\partial \log\lambda_0} &= J_0 - D_0\lambda_0 + J_7 - D_7\lambda_7\\
-\frac{\partial l}{\partial \log\lambda_2} &= J_2 - D_2\lambda_2 - J_7 + D_7\lambda_7 \\
-\frac{\partial l}{\partial \log\lambda_5} &= J_5 - D_5\lambda_5 + J_7 - D_7\lambda_7\\
-\frac{\partial l}{\partial \log\lambda_1} &= J_1 + J_4 - (D_1 + D_4)\lambda_1 - 2J_7 + 2D_7\lambda_7\\
-\frac{\partial l}{\partial \log\lambda_3} &= J_3 + J_6 - (D_3 + D_6)\lambda_3 + 2J_7 - 2D_7\lambda_7
-\end{aligned}
+  \begin{aligned}
+    \frac{\partial l}{\partial \log\lambda_0} &= J_0 - D_0\lambda_0 + J_7 - D_7\lambda_7\\
+    \frac{\partial l}{\partial \log\lambda_2} &= J_2 - D_2\lambda_2 - J_7 + D_7\lambda_7 \\
+    \frac{\partial l}{\partial \log\lambda_5} &= J_5 - D_5\lambda_5 + J_7 - D_7\lambda_7\\
+    \frac{\partial l}{\partial \log\lambda_1} &= J_1 + J_4 - (D_1 + D_4)\lambda_1 - 2J_7 + 2D_7\lambda_7\\
+    \frac{\partial l}{\partial \log\lambda_3} &= J_3 + J_6 - (D_3 + D_6)\lambda_3 + 2J_7 - 2D_7\lambda_7
+  \end{aligned}
 \end{equation}
 
 \subsubsection{Scaling parameters}
@@ -592,12 +593,12 @@ Then the expected number of changes per position per
 unit time is $\mu = \sum_{ijk}p_{ijk}\lambda_{ijk}$. We can scale transition
 rates and branch lengths as follows:
 \begin{equation}\label{eqn:tidentifiable}
-\begin{aligned}
-\lambda_{ijk} &\leftarrow \lambda_{ijk}\times \mu \\
-t_b &\leftarrow \sum\limits_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \frac{1}{\mu}.
-\end{aligned}
+  \begin{aligned}
+    \lambda_{ijk} &\leftarrow \lambda_{ijk}\times \mu \\
+    t_b &\leftarrow \sum\limits_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \frac{1}{\mu}.
+  \end{aligned}
 \end{equation}
-%%
+%% 
 
 \subsubsection{Estimates when evolutionary time is a parameter}
 %%% ADS: I feel this is stated backwards. The paramters are not
@@ -615,38 +616,38 @@ rates). In M-step, we find the set of parameters that give the best
 likelihood with the expected values of sufficient
 statistics. For an Exponential random variable
 $X$:
-\[ X \sim \text{Exp}(\lambda) \Leftrightarrow X/t \sim
-\text{Exp}(\lambda t), ~~\text{for any constant $t>0$.}
+\[ X \sim \mathit{Exp}(\lambda) \Leftrightarrow X/t \sim
+\mathit{Exp}(\lambda t), ~~\text{for any constant $t>0$.}
 \]
 Let our current estimates of branch lengths be $\{\ell_b\}$, the new branch lengths be $\{\ell'_b\}$, and the new rates be $\{\lambda'_c\}$. Then for a jumping
 interval $\Delta_{bm}$ on branch $b$ observed when the branch length is $\ell_b$, the scaled
 interval length is $\Delta_{bm}\times \frac{\ell'_b}{\ell_b}$ under the new branch length. Therefore, under the new model parameter set $\{\ell'_b\}$ and $\{\lambda'_c\}$, we have
 \[
-\Delta_{mb}\times \frac{\ell'_b}{\ell_b} \sim \text{Exp}(\lambda'_{(bm)}) \Rightarrow
-\Delta_{mb} \sim \text{Exp}(\lambda'_{(bm)} \times \frac{\ell'_b}{\ell_b}).
+\Delta_{mb}\times \frac{\ell'_b}{\ell_b} \sim \mathit{Exp}(\lambda'_{(bm)}) \Rightarrow
+\Delta_{mb} \sim \mathit{Exp}(\lambda'_{(bm)} \times \frac{\ell'_b}{\ell_b}).
 \]
-%%%%%
+%%%%% 
 Let $\tau_b = \frac{\ell'_b}{\ell_b}$ be the scaling factor for the new branch lengths relative to the old branch lengths. Now we can write the likelihood of observing all of the given jumping
 intervals $\{\Delta_{b,m}\}$ under the new parameter set as :
 \begin{equation}\label{eqn:liknew}
-\begin{aligned}
-L(\{\Delta_{b,m}\}; \{\ell'_b\}, \{\lambda'_c\})
-= & \prod\limits_{b=1}^B\Bigg(\prod\limits_{m=1}^{M_b-1}
-   \lambda'_{(b,m)}\tau_b
-   \exp(-\lambda'_{(b,m)}\tau_b\Delta_m) \times \frac{\lambda'_{\context{}_m}}{\lambda'_{(m)}}
-\Bigg) \times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b})\\
-= & \prod\limits_{b=1}^B\Bigg(
-\prod\limits_{m=1}^{M_b-1}\lambda'_{\context{}_m}\tau_b\exp(-\lambda'_{(m)}\tau_b\Delta_m)
-\Bigg)\times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b}).
-\end{aligned}
+  \begin{aligned}
+    L(\{\Delta_{b,m}\}; \{\ell'_b\}, \{\lambda'_c\})
+    = & \prod\limits_{b=1}^B\Bigg(\prod\limits_{m=1}^{M_b-1}
+    \lambda'_{(b,m)}\tau_b
+    \exp(-\lambda'_{(b,m)}\tau_b\Delta_m) \times \frac{\lambda'_{\context{}_m}}{\lambda'_{(m)}}
+    \Bigg) \times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b})\\
+    = & \prod\limits_{b=1}^B\Bigg(
+    \prod\limits_{m=1}^{M_b-1}\lambda'_{\context{}_m}\tau_b\exp(-\lambda'_{(m)}\tau_b\Delta_m)
+    \Bigg)\times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b}).
+  \end{aligned}
 \end{equation}
-%%%%%
+%%%%% 
 The log likelihood becomes
 \begin{equation}\label{eqn:logliknew}
-\begin{aligned}
-l = & \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b-1} \log(\lambda'_{c_m}\tau_b) -  \sum\limits_{b=1}^B\sum\limits_{m=1}^{M} \lambda'_{(m)}\Delta_{bm}\tau_b \\
-= & \sum\limits_{b=1}^B\sum_{c} J_{bc}\log(\lambda'_c\tau_b)  - \sum\limits_{b=1}^B\sum_{c} D_{b,c}\lambda'_c\tau_b ,
-\end{aligned}
+  \begin{aligned}
+    l = & \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b-1} \log(\lambda'_{c_m}\tau_b) -  \sum\limits_{b=1}^B\sum\limits_{m=1}^{M} \lambda'_{(m)}\Delta_{bm}\tau_b \\
+    = & \sum\limits_{b=1}^B\sum_{c} J_{bc}\log(\lambda'_c\tau_b)  - \sum\limits_{b=1}^B\sum_{c} D_{b,c}\lambda'_c\tau_b ,
+  \end{aligned}
 \end{equation}
 where
 $J_{b,c} = \sum\limits_{m=1}^{M_b-1}I_{\{c_{b,m}= c\}}$,
@@ -667,7 +668,7 @@ paths for all other positions are known for the entire evolutionary
 time span. In particular, we will make inferences about site $n$ and
 have access to the jump times $J = \{(t_m, \psn{}_m, \context{}_m)
 \}_{m=1}^{M}$ are known for all positions except position $n$.
-%%
+%% 
 We also assume that the model parameters $\{\lambda_{ijk}\}$ and total
 evolutionary time $t$ are known, along with the the initial state of
 the epigenome. We seek inferences related to the posterior
@@ -695,7 +696,7 @@ This is known as an \textit{independence sampler}\cite{}. If the
 current path at position $n$ is $L_n$, then we accept the proposed
 path $L'$ with probability
 \begin{equation}\label{eqn:rejection}
-\alpha(L') = \min\left\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\right\},
+  \alpha(L') = \min\left\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\right\},
 \end{equation}
 where $\pi$ is the complete data likelihood function \eqref{eqn:lik}.
 
@@ -721,10 +722,10 @@ and $n+1$ do not change.
     representing the jumping time of the middle site given that the states
     of its two neighbors are constant.  For a time interval $[t_{m-1},
     t_m]$ during which the neighboring sites' states are unchanged,
-    suppose $X \sim \text{Exp}(\lambda_{ijk})$, where $i$ and $k$ are the
+    suppose $X \sim \mathit{Exp}(\lambda_{ijk})$, where $i$ and $k$ are the
     states of the two neighboring sites in this time interval, and $j$ is
     the starting state of position $n$. Let $f_{\lambda}$ be the p.d.f. of
-    Exponential distribution $\text{Exp}(\lambda)$.
+    Exponential distribution $\mathit{Exp}(\lambda)$.
   \item Let $t = t_{m-1}$, and a sample value of $X=x$.
   \item While $t + x < t_m$:
     \begin{enumerate}[label={(\arabic*)}]
@@ -733,7 +734,7 @@ and $n+1$ do not change.
     \item Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
     \item Update $T_n \leftarrow T_n\cup\{t+x\}$.
     \item Update $t \leftarrow  t+x$,
-    \item Sample another value of $X=x$ from $\text{Exp}(\lambda_{ijk})$.
+    \item Sample another value of $X=x$ from $\mathit{Exp}(\lambda_{ijk})$.
     \end{enumerate}
   \item Update proposal probability $p \leftarrow p\times \Pr_{\lambda_{ijk}}(X > t_m - t )$.
   \end{itemize}
@@ -765,7 +766,7 @@ computed as
 \]
 
 %% JQU: current goal of coding is to make sure after one pass of updates,
-%%  the parameters can be recovered from the updated paths.
+%% the parameters can be recovered from the updated paths.
 
 % \paragraph{Note:} A jump at time $\tau$ within the path $L_{n}$
 % will affect the probability of all jumps that occur after time $\tau$,
@@ -840,6 +841,7 @@ evolutionary path (on the entire tree) for one site from its posterior
 distribution given observed evolutionary paths at all other sites and the
 observed states at all leaf nodes for this site?
 
+\paragraph{States at break points.}
 The evolution process for this site is not homogeneous along the tree,
 its transition rate matrix depends on the concurrent states of
 neighboring sites. We can, however, partition each branch into
@@ -851,34 +853,185 @@ interval on branch $b$. The states of this site of interest at the
 start and the end of a single interval, $s_{b,m-1}$ and $s_{b,m}$ are
 connected through a transition probability matrix $P_{bm} =
 \exp(Q_{bm}t_{bm})$.
-
-Felsenstein's algorithm can be used to compute the likelihood of
-observing leaf node states at this site $\{s_n(v)\}$, given the
-evolutionary paths at other sites:
+The likelihood of observing leaf node states at this site
+$\{s_n(v)\}$, given the evolutionary paths at other sites is
 \[
 \Pr(\{s_n(v)\} | L_{-n}) = \sum\limits_{\{s_{bm}\}} \prod\limits_{b} \prod\limits_{m} P_{bm}(s_{b,m-1}, s_{b, m})
 \]
 
-Next, we consider inference on the path of the single position in
-a time interval, during which its neighbors have unchanged states,
-given the initial and final states for this site and the evolutionary
-path at all other sites during this time interval. Let an instance of
-the path be $L_n = \{t_m\}_{m=0}^{M}$, which is a set of jumping times
-and the start and end time points ($t_0$ and $t_M$) of this time
-interval. Let $\Delta_m = t_m - t_{m-1}$ be the holding time between
-jumps. Let the homogeneous transition rate matrix be $Q$ for this site
-in this time interval. Then the posterior probability for $L_n$ is
+\begin{figure}\label{fig:treebreak}
+  \pgfimage{tree.pdf}\caption{Tree with break points as nodes}
+\end{figure}
+
+\paragraph{Bottom-up pruning algorithm.}
+We can use Felsenstein's pruning algorithm to compute this
+probability.  Let the phylogenetic tree be $\tau$ consisting of all
+leaf nodes, internal nodes, and all break points between intervals on
+individual branches as nodes.  Let $v$ be a node in the phylogenetic
+tree, and $X_n(v)$ be the states of all leaf nodes that are
+descendants of $v$ (Figure~\ref{fig:treebreak}) at site $n$ in the
+genome. Let $u$ be the parent of $v$, and $w, z$ be the children of
+$v$. Since the sequence contexts are known for the current site at all
+intervals, the transition rate matrix for the state of the current
+site is known and denoted with $Q_{\context{}(v)}$. Thus the
+transition probability matrix between any parent-child pair $(u,v)$ is
+known, which we denote with
 \[
-\Pr(L_n|L_{-n}, s_{start}, s_{end}) \propto \prod\limits_{m=1}^{M-1} f_m(\Delta_m) \times (1-F_M(\Delta_M)),
+P_v = \exp(Q_{\context{}(v)}\ell_v).
+\] 
+For node $v$, given that its parent $u$ has state $j$, let the
+conditional probability of observing states $X_n(v)$ at
+terminal descendants of node $v$ be $p_j(v)$, \textit{i.e.}
+\[
+p_j(v) = \Pr(X_n(v) | s_u=j).
 \]
-where $f_m$ is the exponential probability density function with the
-rate being the corresponding context-dependent transition rate before
-the $m$-th jump, and $F_M$ is the cumulative distribution function for
-exponential distribution with the rate parameter being the
-corresponding context-dependent transition rate after the last
-($(M-1)$-th) jump in that interval. This is just
-end-points-conditioned path sampling for continuous time Markov chain
-as discussed in the previous section.
+For notational convenience we define
+\[
+q_k(v) = \left\{
+  \begin{array}{ll}
+    \Pr(s_v = k) & \mbox{if $v$ is a leaf node,} \\
+    \prod_{c\in \child{v}}  p_{k}(c) & \mbox{otherwise,} \\
+  \end{array}\right.
+\]
+where $\Pr(s_v = k) \in \{0, 1\}$ when a state is observed, and
+$\Pr(s_v = k) \in (0,1)$ when the observed data are continuous levels
+representing a probability distribution over the state space. Then, we
+can use Felsenstein's pruning algorithm to iteratively compute this probability
+from bottom of the tree upwards to the root node:
+\begin{equation}
+  p_j(v) = \sum\limits_{k} \bigg(P_v[j,k] \times q_k(v)\bigg).
+\end{equation}
+In this way, we can compute the marginal posterior probability of observing the
+states $X_n(v)$ at leaf nodes at site $n$, given the evolutionary
+paths at all other sites:
+\begin{equation}\label{eqn:leafmarginal}
+\Pr(X_n(r) | L_{-n}) = \sum_j\Pr(s_r=j |L_{-n}) q_j(r)
+\end{equation}
+%%%
+At the root node, the marginal posterior distribution of the state is 
+\begin{equation} \label{eqn:rootposterior}
+\begin{aligned}
+\Pr(s_r| L_{-n}, X_n(r)) = & \frac{\Pr(s_r, X_n(r)|L_{-n})}{\Pr(X_n(r)| L_{-n})} = \frac{\Pr(X_n(r)|s_r, L_{-n}) \Pr(s_r|L_{-n})}{\Pr(X_n(r)| L_{-n}) }  \\
+= & \frac{ \big(\prod_{c\in \child{r}}  p_{s_r}(c)\big) \Pr(s_r|L_{-n})}{\Pr(X_n(r)| L_{-n}) },
+\end{aligned}
+\end{equation}
+where $\Pr(s_r|L_{-n})$ is the initial distribution of the root node
+state given its sequence context, which we can compute from the
+stationary distribution of the root epigenomic sequence characterized
+by either a Gibbs measure, or a Markov chain.
+
+In summary, during the bottom-up Pruning algorithm \ref{alg:bottomup}, we compute
+$p_j(v), q_k(v)$, and ultimately the marginal probabilities
+ $\Pr(X_n(r) | L_{-n})$ and $\Pr(s_r|L_{-n}, X_n(r))$.
+
+\begin{algorithm}[t] 
+  \begin{algorithmic}[1]
+    \caption{Pruning algorithm with observed leaf states $X_n(r)$}\label{alg:bottomup}
+    \FOR {node $v$ in post-order traversal} 
+    \IF {$v\neq r$}
+    \IF {$v$ is a leaf node} 
+    \STATE Assign $q_k(v) \leftarrow I\{\Pr(s_v = k)\}$ for $k = 0, 1$.
+    \ELSE 
+    \STATE Compute $q_k(v) \leftarrow \prod_{c\in \child{v}}  p_{k}(c)$
+    \ENDIF
+    \STATE Compute $p_j(v) \leftarrow \sum\limits_{k} \bigg(P_v[j,k] \times q_k(v)\bigg)$, for $j = 0, 1$.
+    \ELSE
+    \STATE Compute $\Pr(X_n(r) | L_{-n})$ as in
+    \eqref{eqn:leafmarginal}, and $\Pr(s_r| L_{-n}, X_n(r))$ as in
+    \eqref{eqn:rootposterior}
+    \ENDIF
+    \ENDFOR
+  \end{algorithmic}
+\end{algorithm}
+
+
+\paragraph{Top-down posterior sampling at breakpoints.}
+Let $S$ be the states at all internal nodes. The posterior probability
+of all internal nodes taking the states $S$, given the leaf node
+states $X_n(r)$ and the evolutionary paths at all other sites, is
+\[
+\Pr(S | X_n(r), L_{-n}) = \frac{\Pr(S, X_n(r) | L_{-n}) }{\Pr(X_n(r) | L_{-n})},
+\]
+where $\Pr(S, X_n(r) | L_{-n}) $ is the forward sampling probability
+under the given transition probability matrices in individual
+intervals determined by $L_{-n}$.
+Therefore, we can do exact posterior sampling of the joint states at
+the break points between the intervals on the phylogenetic tree through
+direct sampling following Algorithm~\ref{alg:topdown}.
+
+\begin{algorithm}[t] 
+  \begin{algorithmic}[1]
+    \caption{Posterior sampling at breakpoints}\label{alg:topdown}
+    \STATE Sample the root state from distribution $\Pr(s_r|L_{-n}, X_n(r))$ as in \eqref{eqn:rootposterior}.
+    \FOR {internal node $v$ in pre-order traversal} 
+    \STATE Suppose its parent node $u$ has state $j$
+    \STATE Sample state $k$ from the distribution 
+    \[k \sim \frac{1}{p_j(v)}\times P_v[j,k] \times q_k(v) \]
+    \STATE Update the direct sampling probability with factor  $\frac{P_v[j,k]q_k(v)}{p_j(v)}$
+    \ENDFOR
+    \STATE The result is an sample $S$ of states at all internal states,
+  which is sampled from their joint marginal posterior probability
+  distribution $\Pr(S| X_n(r), L_{-n}) $.
+  \end{algorithmic}
+\end{algorithm}
+
+
+%%%%%% 
+%%%%%% 
+\paragraph{Direct sampling of path between breakpoints with fixed states.}
+Next, we sample the state transitions at this position within each
+single time interval, during which its two neighbors have unchanged
+states, and the initial and final states for this time interval are
+fixed.  Focusing on one interval, let $0$ and $\tau$ be the end time
+points.  Let an instance of the path within this interval be $L_n =
+\{t_m\}_{m=0}^{M}$, which is a set of jumping times and the start and
+end time points ($t_0 = 0$ and $t_M=\tau$). Let $\Delta_m = t_m -
+t_{m-1}$ be the holding time between jumps. Let the homogeneous
+transition rate matrix be $Q$ for this site in this time interval, and
+$P(t)$ be the transition probability matrix for states at two time
+points separated by time $t$. We use the direct sampling procedure
+\cite{hobolth2009simulation} for endpoint-conditioned path sampling.
+
+If the endpoints have the same state $i$, the probability that there
+are no change during this time interval is 
+\begin{equation} \label{eqn:pnojump}
+p_i = \frac{exp(Q_{ii}\tau)}{P(\tau)_{ii}}.
+\end{equation}
+Then with probability $1-p_i$, at least one (actually two) state change occurs. 
+
+Let $W$ be the waiting time until the first jump. 
+\begin{equation}
+\begin{aligned}
+& \Pr(W < \tau | s(0) = i, s(\tau) = j)  \\
+& =  \Pr(W < \tau, s(W) = \bar{i} | s(0) = i, s(\tau) = j)\\
+& = \frac{\Pr(W < \tau, s(W) = \bar{i},s(\tau) = j | s(0) = i) } {\Pr(s(\tau) = j | s(0) = i)}  \\
+& = \int_{0}^{\tau} Q_{i\bar{i}} exp(Q_{ii}w) \frac{P(\tau-w)_{\bar{i}j}}{P(\tau)_{ij}} dw \\
+& = \int_{0}^{\tau} f_{ij\tau}(w) dw, \text{~where~} 
+f_{ij\tau}(t) = Q_{i\bar{i}} exp(Q_{ii}t) \frac{P(\tau-t)_{\bar{i}j}}{P(\tau)_{ij}}. 
+\end{aligned}
+\end{equation}
+The direct sampling procedure for a homogeneous continuous-time Markov path within an end-conditioned interval is detailed in Algorithm~\ref{alg:samplepath}.
+
+\begin{algorithm}[t] 
+  \begin{algorithmic}[1]
+    \caption{Direct sampling of end-conditioned path}\label{alg:samplepath}
+    \STATE Suppose interval has length $\tau$, and start and end states $i, j$:
+    \WHILE {$\tau > 0$}
+    \IF {$i = j$}
+    \STATE Sample $Z\sim \text{Bernoulli}(p_i)$, where
+    $p_i$ is given in \eqref{eqn:pnojump}. 
+    \IF {$Z = 1$}
+    \STATE Set $s(t) = i$ for all $0 < t < \tau$, and update $\tau \leftarrow 0$. 
+    \ENDIF
+    \ENDIF
+    \IF {$i \neq j$ or $Z = 0$}
+    \STATE Sample the waiting time $W$ in state $i$ according to the continuous
+    density $f_{ij\tau}(w)$, $0< w < \tau$, set $s(t) = i$ for $0 < t < W$
+    \STATE Update $i \leftarrow \bar{i}$, $\tau \leftarrow \tau - W$.
+    \ENDIF
+    \ENDWHILE
+  \end{algorithmic}
+\end{algorithm}
 
 
 \section{Discussion}
@@ -950,22 +1103,22 @@ time-dependent graphical models.
 %     array $\{t_0, t_1, \cdots, t_M\}$.
 %   \item For $m = 1, \ldots, M$:
 %     \begin{itemize}
-%       \item Let $X$ be a random variable from an exponential
-%         distribution, representing the jumping time of the middle site given
-%         that the states of its two neighbors are constant.  For a time
-%         interval $[t_{m-1}, t_m]$ during which the neighboring sites' states
-%         are unchanged, suppose $X\sim \text{Exp}(\lambda)$. The parameter
-%         $\lambda$ is a function of current state and the states of the two
-%         neighboring sites.
-%       \item Let $t = t_{m-1}$, and a sample value of $X=x$.
-%       \item While $t +x < t_m$:
-%         \begin{enumerate}
-%         \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
-%         \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
-%         \item[(3)] Update $t \leftarrow  t+x$,
-%         \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda)$.
-%         \end{enumerate}
-%       \end{itemize}
+%     \item Let $X$ be a random variable from an exponential
+%       distribution, representing the jumping time of the middle site given
+%       that the states of its two neighbors are constant.  For a time
+%       interval $[t_{m-1}, t_m]$ during which the neighboring sites' states
+%       are unchanged, suppose $X\sim \text{Exp}(\lambda)$. The parameter
+%       $\lambda$ is a function of current state and the states of the two
+%       neighboring sites.
+%     \item Let $t = t_{m-1}$, and a sample value of $X=x$.
+%     \item While $t +x < t_m$:
+%       \begin{enumerate}
+%       \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
+%       \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
+%       \item[(3)] Update $t \leftarrow  t+x$,
+%       \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda)$.
+%       \end{enumerate}
+%     \end{itemize}
 %   \end{itemize}
 % \item Repeat step 3, until the epigenome summary statistics converge to
 %   a stable distribution.
