@@ -150,7 +150,7 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("n-sites", 'n', "length of sequence to simulate"
                       "(default: " + to_string(n_sites) + ")", false, n_sites);
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths"
-                      "(default: stdout)", false, pathfile);
+                      "as sorted jump times (default: stdout)", false, pathfile);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
