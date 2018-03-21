@@ -55,7 +55,7 @@ epievo_est_complete epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o Sta
 	EpiEvoModel.o GlobalJump.o)
 
 test_sampling: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
-	EpiEvoModel.o)
+	EpiEvoModel.o SingleSampler.o)
 
 global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)
 
