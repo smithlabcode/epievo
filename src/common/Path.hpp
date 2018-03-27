@@ -49,10 +49,14 @@ void sequence_at_time(const vector<Path> &paths, const double t,
 ////////////////////////////////////////////////////////////////////////////////
 
 struct Environment {
-  vector<bool> left; // states on the left
-  vector<bool> right;  // states on the right
-  vector<double> breaks; // time points of environment state changes
+  // states on the left
+  vector<bool> left;
+  // states on the right
+  vector<bool> right;
+  // time points of environment state changes, including tot_time
+  vector<double> breaks;
   double tot_time;
+
   Environment(const Path &pa, const Path &pb);
 };
 
