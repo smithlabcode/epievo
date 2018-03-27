@@ -28,6 +28,7 @@
 #include <random>
 
 #include "SingleSampler.hpp"
+#include "Path.hpp"
 
 using std::vector;
 using std::endl;
@@ -169,6 +170,7 @@ end_cond_sample_first_jump(const vector<vector<double> > &Q,
   return w;
 }
 
+
 /* Endpoint-conditioned sampling of path witin time interval T*/
 void
 end_cond_sample(const std::vector<std::vector<double> > &Q,
@@ -184,4 +186,111 @@ end_cond_sample(const std::vector<std::vector<double> > &Q,
     start_state = 1 - start_state;
     tot -= wait;
   }
+}
+
+
+////////// Below maybe very buggy /////////////////////
+
+
+// rates are two muation rates for pattern x0y, and x1y
+void
+upward(const vector<double> &rates, const double T,
+       const vector<double> &q, // auxiliary values
+       vector<double> &p) {
+  p = vector<double>(2, 0.0);
+  vector<vector<double> > P; // transition matrix
+  trans_prob_mat(rates[0], rates[1], T, P);
+  for (size_t j = 0; j < 2; ++j) {
+    for (size_t k = 0; k < 2; ++k) {
+      p[j] += P[j][k]*q[k];
+    }
+  }
+}
+
+
+// collect rates and interval lengths
+void
+rates_on_branch(const vector<double> &triplet_rates,
+                const Path &l, const Path &r,
+                vector<vector<double> > &interval_rates,
+                vector<double> &interval_lengths) {
+  Environment env(l, r);
+  const size_t n_intervals = env.left.size();
+  interval_rates = vector<vector<double> > (n_intervals, vector<double>(2, 0.0));
+  interval_lengths = vector<double>(n_intervals, 0.0);
+  for (size_t i = 0; i < n_intervals; ++i) {
+    const size_t pattern0 = 4*(size_t)(env.left[i]) + (size_t)(env.right[i]);
+    const size_t pattern1 = pattern0 + 2;
+    interval_rates[i][0]= triplet_rates[pattern0];
+    interval_rates[i][1] = triplet_rates[pattern1];
+    interval_lengths[i] = (i==0)? env.breaks[0] : env.breaks[i] - env.breaks[i-1];
+  }
+}
+
+
+// for a single branch
+void
+pruning(const vector<double> &triplet_rates,
+        const vector<size_t> &subtree_sizes,
+        const size_t site,
+        const size_t node_id,
+        const vector<vector<Path> > &all_paths,
+        vector<vector<vector<double> > > &all_p) {
+
+  // collect relevant transition rates for each interval
+  vector<vector<double> > interval_rates;
+  vector<double> interval_lengths;
+  rates_on_branch(triplet_rates, all_paths[node_id][site-1],
+                  all_paths[node_id][site+1], interval_rates, interval_lengths);
+
+  // excluding the top end, i.e. including only the lower end of each time interval
+  const size_t n_intervals = interval_lengths.size();
+  vector<vector<double> > p(n_intervals, vector<double>(2, 0.0));
+
+  for (size_t i = 0; i < n_intervals; ++i) {
+    // fill p from back to front
+    const size_t interval = n_intervals - 1 - i;
+
+    // compute auxiliary values q from bottom up
+    vector<double> q(2, 0.0);
+    if (i == 0 && subtree_sizes[node_id] == 1) { //last interval of a leaf branch
+      const bool leaf_state = all_paths[node_id][site].end_state();
+
+      for (size_t k = 0; k < 2; ++k)
+        q[k] = ((size_t)(leaf_state) == k)? 1.0 : 0.0;
+
+    } else if (i == 0) { // last interval of an internal branch
+      vector<size_t> children;
+      get_children(node_id, subtree_sizes, children);
+      for (size_t k = 0; k < 2; ++k) {
+        q = vector<double>(2, 1.0);
+        for (size_t child = 0; child < children.size(); ++child) {
+          q[k] *= all_p[child][k];
+        }
+      }
+    } else { // internal interval
+      for (size_t k = 0; k < 2; ++k)
+        q[k] = p[interval + 1][k];
+    }
+
+    // now compute p
+    upward(interval_rates[interval], interval_lengths[interval],
+           p[interval + 1], p[interval]);
+  }
+  all_p[node_id].swap(p);
+}
+
+// all_p: branch x interval x state
+void
+pruning(const vector<size_t> &subtree_sizes,
+        const size_t site,
+        const vector<vector<Path> > &all_paths,
+        vector<vector<vector<double> > > &all_p) {
+  for (size_t n = 0; n < subtree_sizes.size(); ++n) { // post-order through nodes
+    //////
+    // deal with all children branch first
+    // deal with the current junction node (compute the auxiliary q here, and call upward)
+
+  }
+
 }

@@ -25,3 +25,18 @@ void
 end_cond_sample(const std::vector<std::vector<double> > &Q,
                 const size_t a, const size_t b, const double T,
                 std::mt19937 &gen, std::vector<double> &jump_times);
+
+
+
+/* Pruning
+  - post-order traversal of nodes
+  ---- at node v:
+  ---- (1) get break points and context, create transition rate matrices
+  ---- (2) from bottom up for each break point:
+  ------- compute q_k(v), p_j(v)
+  ------- (i) if v is a leaf: observed data
+  ------- (ii) if v is an internal branching node: two children
+  ------- (ii) otherwise: single child
+
+
+*/
