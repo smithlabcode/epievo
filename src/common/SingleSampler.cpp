@@ -251,17 +251,12 @@ pruning_branch(const vector<double> &triplet_rates,
                const size_t site,
                const size_t node_id,
                const vector<vector<Path> > &all_paths,
+               const vector<vector<vector<double> > > &all_interval_rates,
+               const vector<vector<double> > & all_interval_lengths,
                vector<vector<vector<double> > > &all_p) {
 
-  // collect relevant transition rates for each interval
-  vector<vector<double> > interval_rates;
-  vector<double> interval_lengths;
-  rates_on_branch(triplet_rates, all_paths[node_id][site-1],
-                  all_paths[node_id][site+1],
-                  interval_rates, interval_lengths);
-
   // excluding the top end, i.e. including only the lower end of each time interval
-  const size_t n_intervals = interval_lengths.size();
+  const size_t n_intervals = all_interval_lengths[node_id].size();
   vector<vector<double> > p(n_intervals, vector<double>(2, 0.0));
 
   vector<double> q(2, 0.0);
@@ -275,11 +270,13 @@ pruning_branch(const vector<double> &triplet_rates,
         for (size_t k = 0; k < 2; ++k) {
           q[k] = ((size_t)(leaf_state) == k)? 1.0 : 0.0;
         }
-        upward(interval_rates[interval], interval_lengths[interval],
+        upward(all_interval_rates[node_id][interval],
+               all_interval_lengths[node_id][interval],
                q, p[interval]);
       } else {
         // at break points within a branch: q = p[interval + 1]
-        upward(interval_rates[interval], interval_lengths[interval],
+        upward(all_interval_rates[node_id][interval],
+               all_interval_lengths[node_id][interval],
                p[interval + 1], p[interval]);
       }
     }
@@ -294,7 +291,9 @@ pruning_branch(const vector<double> &triplet_rates,
     // fill in all_p at children nodes
     for (size_t idx = 0; idx < children.size(); ++idx) {
       pruning_branch(triplet_rates, subtree_sizes, site,
-                     children[idx], all_paths, all_p);
+                     children[idx], all_paths,
+                     all_interval_rates, all_interval_lengths,
+                     all_p);
     }
 
     if (node_id > 0) { // non-root internal node
@@ -308,11 +307,13 @@ pruning_branch(const vector<double> &triplet_rates,
             for (size_t idx = 0; idx < children.size(); ++idx)
               q[k] *= all_p[children[idx]][0][k];
           }
-          upward(interval_rates[interval], interval_lengths[interval],
+          upward(all_interval_rates[node_id][interval],
+                 all_interval_lengths[node_id][interval],
                  q, p[interval]);
         } else {
           // at break points within a branch: q = p[interval + 1]
-          upward(interval_rates[interval], interval_lengths[interval],
+          upward(all_interval_rates[node_id][interval],
+                 all_interval_lengths[node_id][interval],
                  p[interval + 1], p[interval]);
         }
       }
@@ -327,14 +328,16 @@ pruning(const vector<double> &triplet_rates,
         const vector<size_t> &subtree_sizes,
         const size_t site,
         const vector<vector<Path> > &all_paths,
+        const vector<vector<vector<double> > > &all_interval_rates,
+        const vector<vector<double> > & all_interval_lengths,
         vector<vector<vector<double> > > &all_p) {
 
   all_p.resize(subtree_sizes.size());
 
   size_t child = 1;
   while(child < subtree_sizes.size()) {
-    pruning_branch(triplet_rates, subtree_sizes, site,
-                   child, all_paths, all_p);
+    pruning_branch(triplet_rates, subtree_sizes, site, child, all_paths,
+                   all_interval_rates, all_interval_lengths, all_p);
     child += subtree_sizes[child];
   }
 }
@@ -343,7 +346,8 @@ pruning(const vector<double> &triplet_rates,
 ///////////////            DOWNWARD SAMPLING        ////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void
-downward_sampling_branch(const vector<double> &triplet_rates,
+downward_sampling_branch(const vector<vector<double> > &interval_rates,
+                         const vector<double> &interval_lengths,
                          const vector<size_t> &subtree_sizes,
                          const size_t site,
                          const size_t node_id,
@@ -352,12 +356,6 @@ downward_sampling_branch(const vector<double> &triplet_rates,
                          std::mt19937 &gen,
                          vector<Path> &new_path) {
 
-  // collect relevant transition rates for each interval
-  vector<vector<double> > interval_rates;
-  vector<double> interval_lengths;
-  rates_on_branch(triplet_rates, all_paths[node_id][site-1],
-                  all_paths[node_id][site+1],
-                  interval_rates, interval_lengths);
   const size_t n_intervals = interval_rates.size();
 
   size_t par_state = new_path[node_id].init_state;
@@ -480,8 +478,47 @@ downward_sampling(const vector<double> &triplet_rates,
   }
 
   // preorder traversal of the tree
-  for (size_t node_id = 1; node_id < subtree_sizes.size(); ++node_id)
-    downward_sampling_branch(triplet_rates, subtree_sizes,
+  for (size_t node_id = 1; node_id < subtree_sizes.size(); ++node_id) {
+    // collect relevant transition rates for each interval
+    vector<vector<double> > interval_rates;
+    vector<double> interval_lengths;
+    rates_on_branch(triplet_rates, all_paths[node_id][site-1],
+                    all_paths[node_id][site+1],
+                    interval_rates, interval_lengths);
+    downward_sampling_branch(interval_rates, interval_lengths, subtree_sizes,
                              site, node_id, all_paths, all_p,
                              gen, new_path);
+  }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+///////////////            ACCEPTANCE RATE          ////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+void
+gibbs_site( const EpiEvoModel &the_model,
+            const size_t site,
+            vector<vector<Path> > &all_paths,
+            std::mt19937 &gen,
+            vector<Path> &new_path) {
+
+  // collect relevant transition rates for each interval
+  const size_t n_nodes = the_model.subtree_sizes.size();
+  vector<vector<vector<double> > > all_interval_rates(n_nodes);
+  vector<vector<double> > all_interval_lengths(n_nodes);
+  for (size_t node_id = 1; node_id < n_nodes; ++node_id)
+    rates_on_branch(the_model.triplet_rates,
+                    all_paths[node_id][site-1],
+                    all_paths[node_id][site+1],
+                    all_interval_rates[node_id],
+                    all_interval_lengths[node_id]);
+
+  vector<vector<vector<double> > > all_p;
+  pruning(the_model.triplet_rates, the_model.subtree_sizes, site, all_paths,
+          all_interval_rates, all_interval_lengths, all_p);
+
+  //  vector<Path> new_path;
+  downward_sampling(the_model.triplet_rates, the_model.subtree_sizes, site,
+                    all_paths, the_model.init_T, all_p, gen, new_path);
 }

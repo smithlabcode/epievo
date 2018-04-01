@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "Path.hpp"
+#include "EpiEvoModel.hpp" /* model_param */
 
 void
 end_cond_sample(const double rate0, const double rate1,
@@ -34,6 +35,8 @@ pruning(const std::vector<double> &triplet_rates,
         const std::vector<size_t> &subtree_sizes,
         const size_t site,
         const std::vector<std::vector<Path> > &all_paths,
+        const std::vector<std::vector<std::vector<double> > > &all_interval_rates,
+        const std::vector<std::vector<double> > & all_interval_lengths,
         std::vector<std::vector<std::vector<double> > > &all_p);
 
 void
@@ -45,6 +48,14 @@ downward_sampling(const std::vector<double> &triplet_rates,
                   const std::vector<std::vector<std::vector<double> > > &all_p,
                   std::mt19937 &gen,
                   std::vector<Path> &new_path);
+
+
+void
+gibbs_site(const EpiEvoModel &the_model,
+           const size_t site,
+           std::vector<std::vector<Path> > &all_paths,
+           std::mt19937 &gen,
+           std::vector<Path> &new_path);
 
 /* Pruning
   - post-order traversal of nodes

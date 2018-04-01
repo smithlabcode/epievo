@@ -320,15 +320,8 @@ int main(int argc, const char **argv) {
     cerr << "------------ TEST upward downward sampling BELOW -------------" << endl;
 
 
-    vector<vector<vector<double> > > all_p;
-    pruning(the_model.triplet_rates, the_model.subtree_sizes,
-            the_site, all_paths, all_p);
-
     vector<Path> new_path;
-    downward_sampling(the_model.triplet_rates,
-                      the_model.subtree_sizes, the_site,
-                      all_paths, the_model.init_T,
-                      all_p, gen, new_path);
+    gibbs_site(the_model, the_site, all_paths, gen, new_path);
 
     cerr << "[old_path]" << endl;
     for (size_t i = 1; i < new_path.size(); ++i)
