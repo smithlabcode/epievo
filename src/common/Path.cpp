@@ -184,6 +184,7 @@ Environment::Environment(const Path &pa, const Path &pb) {
       breaks.back() < tot_time) {
     left.push_back(sa);
     right.push_back(sb);
+    breaks.push_back(tot_time);
   }
 }
 
