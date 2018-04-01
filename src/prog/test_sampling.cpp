@@ -297,11 +297,6 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////
     cerr << "------------ TEST homogeneous interval end-conditioned sampling BELOW -------------" << endl;
     double T = 0.5;
-    vector<vector<double> > Q(2, vector<double>(2, 0.0));
-    Q[0][1] = the_model.triplet_rates[0]; // 000
-    Q[0][0] = - Q[0][1];
-    Q[1][0] = the_model.triplet_rates[2]; // 010
-    Q[1][1] = - Q[1][0];
     size_t a = 1;
     size_t b = 1;
     cerr << "Setup: interval of time\t " << T << endl
@@ -309,17 +304,39 @@ int main(int argc, const char **argv) {
          << "       start state     \t " << a << endl
          << "       end state       \t " << b << endl;
 
-
     vector<double> jump_times;
-    end_cond_sample(Q, a,  b, T, gen, jump_times);
+    end_cond_sample(the_model.triplet_rates[0],
+                    the_model.triplet_rates[2],
+                    a,  b, T, gen, jump_times);
 
     cerr << " sampled jump times: " << endl;
     for (size_t i = 0; i < jump_times.size(); ++i)
       cerr << jump_times[i] << ",\t" ;
-    cerr << endl << "total " << jump_times.size()-2 << " jumps" << endl;;
+    cerr << endl << "total " << jump_times.size()-2 << " jumps" << endl;
 
 
+    ////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    cerr << "------------ TEST upward downward sampling BELOW -------------" << endl;
 
+
+    vector<vector<vector<double> > > all_p;
+    pruning(the_model.triplet_rates, the_model.subtree_sizes,
+            the_site, all_paths, all_p);
+
+    vector<Path> new_path;
+    downward_sampling(the_model.triplet_rates,
+                      the_model.subtree_sizes, the_site,
+                      all_paths, the_model.init_T,
+                      all_p, gen, new_path);
+
+    cerr << "[old_path]" << endl;
+    for (size_t i = 1; i < new_path.size(); ++i)
+      cerr << "node_"<< i << ":\t" << all_paths[i][the_site] << endl;
+
+    cerr << "[new_path]" << endl;
+    for (size_t i = 1; i < new_path.size(); ++i)
+      cerr << "node_"<< i << ":\t" << new_path[i] << endl;
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
