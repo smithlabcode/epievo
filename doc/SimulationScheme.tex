@@ -594,8 +594,8 @@ unit time is $\mu = \sum_{ijk}p_{ijk}\lambda_{ijk}$. We can scale transition
 rates and branch lengths as follows:
 \begin{equation}\label{eqn:tidentifiable}
   \begin{aligned}
-    \lambda_{ijk} &\leftarrow \lambda_{ijk}\times \mu \\
-    t_b &\leftarrow \sum\limits_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \frac{1}{\mu}.
+    \lambda_{ijk} &\leftarrow \lambda_{ijk}\times \frac{1}{\mu} \\
+    t_b &\leftarrow \sum\limits_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \mu.
   \end{aligned}
 \end{equation}
 %% 
