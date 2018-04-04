@@ -8,7 +8,7 @@ if (length(args)<4) {
   which_node <- as.numeric(args[2])
   xrange <- as.numeric(c(args[3], args[4]))
   pathplot <- paste(args[1], ".paths", which_node, ".",
-                    args[3], "-", args[3], ".pdf", sep="")
+                    args[3], "-", args[4], ".pdf", sep="")
 }
 
 print(paste("Reading from file", paths))
