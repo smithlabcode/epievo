@@ -16,7 +16,7 @@
 
 \newcommand{\myroot}{\ensuremath{\mathrm{root}}}
 
-\newcommand{\context}{\ensuremath{\mathrm{con}}}
+\newcommand{\context}[1]{\ensuremath{\mathrm{con}(#1)}}
 \newcommand{\psn}{\ensuremath{\mathrm{pos}}}
 
 \newcommand{\birth}{\ensuremath{\mathcal{B}}}
@@ -27,6 +27,7 @@
 \newcommand{\separating}{\ensuremath{\mathcal{S}}}
 \newcommand{\child}[1]{\ensuremath{\mathrm{child}(#1)}}
 
+\newcommand\halfopen[2]{\ensuremath{[#1,#2)}}
 
 \title{A model of epigenome evolution}
 \author{Jianghan Qu \and Andrew D. Smith}
@@ -36,8 +37,14 @@
 %%% (1) We need to define operationally an epigenome as a binary
 %%% sequence, and in the introduction we need to explain this.
 %%
-%%% (2) We need to make sure that we use the terms ``position'' and
-%%% ``site'' consistently.
+%%% (2) We need to make sure that we use the terms "position" and
+%%% "site" consistently. Same for coordinate?
+%%
+%%% (3) The term "jump" is not defined
+%%
+%%% (4) The term "context" is not defined
+%%
+%%% (5) The symbol "Delta" is used in two places in two ways
 
 \begin{document}
 
@@ -225,15 +232,18 @@ continuous time Markov process. The state space for $s$ has size
 $2^N$, but we constrain instantaneous transition rates such that each
 change to $s$ only involves a single site (coordinate) within $s$. We
 can summarize the process as a {\it global path} over time interval
-$[0,\tau)$ as follows:
-\[
-\begin{array}{lll}
+$\halfopen{0}{\tau}$ as follows:
+\begin{equation}\label{globalJumps}
+\begin{array}{llll}
 H = (s, Y, V), ~\mbox{ where} & s \in \{0,1\}^N,\\
-                             & Y = (y_1, \ldots, y_w),\\
-                             & 0\leq y_i < y_{j} < \tau, & \mbox{ for } i < j,\\
-                             & V = (v_1,\ldots, v_w), & \mbox{ for } 1\leq v_i\leq n.
+                              & Y = (y_1, \ldots, y_w), & \mbox{ with } 0 \leq y_i < y_{j} < \tau, & \mbox{ for } 1\leq i < j \leq w,\\
+                              & V = (v_1,\ldots, v_w), & \mbox{ with } 1\leq v_i\leq N, & \mbox{ for } 1\leq i \leq w.
 \end{array}
-\]
+\end{equation}
+Times $Y$ and positions $V$ are in direct correspondence, but we adopt
+the notational convention $y_0 = 0$, allowing us to refer to any time
+$y_i-1$, without any position corresponding to time $0$.
+%%%
 For any time $0 \leq t < \tau$, we let $s(t)$ denote the state
 sequence after having applied changes to $s = s(0)$ at positions given
 by $v_1,v_2,\ldots,v_k$ such that $y_k$ is maximal satisfying $y_k
@@ -241,16 +251,15 @@ by $v_1,v_2,\ldots,v_k$ such that $y_k$ is maximal satisfying $y_k
 tracing changes made to $s$.
 %%%
 
-We can organize the same information differently and describe the
-process in terms of {\it site-specific paths}. In particular, for site
-$1\leq n \leq N$,
-\[
-\begin{array}{lll}
+We can reorganize the same information to describe the process in
+terms of {\it site-specific paths}. In particular, for site $1\leq n
+\leq N$,
+\begin{equation}\label{localJumps}
+\begin{array}{llll}
 H_n = (s_n, Y_n), ~\mbox{ where} & s_n \in \{0,1\},\\
-                                & Y_n = (y_1, \ldots, y_{w_n}),\\
-                                & 0\leq y_i < y_{j} < \tau, & \mbox{ for } i < j.
+                                & Y_n = (y_1, \ldots, y_{w_n}), & \mbox{ with } 0\leq y_i < y_{j} < \tau, & \mbox{ for } 1\leq i < j \leq w.
 \end{array}
-\]
+\end{equation}
 Our assumption that instantaneous rates are non-zero only for
 transitions that modify a single position in $s$ defines bijection
 between the global jump times $Y$ and the union of the site-specific
@@ -419,42 +428,43 @@ of the left and right neighboring positions. We assume for convenience
 that the states of the first and last sites are fixed throughout
 evolution.
 
-Consider the $2^N \times 2^N$ transition rate matrix $R$ for any pair
-of epigenomes $x$ and $x'$ that differ at exactly one position. The
-state at that position is $j$ in epigenome $x$ and $\bar{j}$ in
-epigenome $x'$. Neighboring positions in both $x$ and $x'$ have states
-$i$ and $k$. The instantaneous rate of a jump between $x$ and $x'$ is
-$\lambda_{ijk}$. The holding time in a state sequence $x$ is
-exponentially distributed with rate $-R_{xx}$ equal to the sum of
-instantaneous rates for jumps from $x$ to any state sequence $x'$ that
-differs from $x$ at exactly one position. This rate for $x$ can be
-expressed in terms of rates on triplets:
+Consider two epigenomes $x$ and $x'$ that differ by exactly one
+position, and further suppose the state at that position in $x$ is
+$j$, and $\bar{j}$ in epigenome $x'$. Neighboring positions in both
+$x$ and $x'$ have states $i$ and $k$. The instantaneous rate of a jump
+between $x$ and $x'$ is $\lambda_{ijk}$. These entries can be
+organized as a transition matrix $R$ with $2^N\times 2^N$ entries, but
+all positive values corresponding to some $\lambda_{ijk}$. The holding
+time in a state sequence $x$ is exponentially distributed with rate
+$-R_{xx}$ equal to the sum of instantaneous rates for jumps from $x$
+to any state sequence $x'$ that differs from $x$ at exactly one
+position. Expressed in terms of the triplet rates, for a state
+sequence $x$ this parameter is
 \[
 -R_{xx} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk},
 \]
 where $c_{ijk}(x) = \sum_{n=1}^{N-2}I(x_{n}=i, x_{n+1}=j, x_{n+2}=k)$
-counts instances of the triplet pattern $ijk$ in $x$.
+are the {\it ``triplet counts''} counting patterns $ijk$ in $x$.
 
-Given that a jump has occurred, the probability that the jump changed
-$x$ at the middle position of triplet $ijk$ is proportional to
-$c_{ijk}(x)\lambda_{ijk}$. Further, given that a jump occurred with
-context $ijk$, our model assumes the jump is equally likely to have
-changed any position in $x$ having state $j$ with left and right
-neighbors having states $i$ and $k$.
+Given that a jump has occurred at some fixed time, the probability
+that the jump changed $x$ at the middle position of triplet $ijk$ is
+proportional to $c_{ijk}(x)\lambda_{ijk}$. Further, given that a jump
+occurred with context $ijk$, our model assumes the jump is equally
+likely to have changed any position in $x$ having state $j$ with left
+and right neighbors having states $i$ and $k$.
 %%
-The expected number of changes per site, per unit time, is
-%%% ADS: use of pi
+If the process is stationary, the expected number of changes per site
+per unit time is
+%%% ADS: use of pi might not be consistent (root vs. stationary??)
 $\sum_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
 stationary distribution for the pattern $ijk$ in the epigenome.
 %%% ADS: above, can we generalize away from epigenome here?
-%%
-These assumptions suggest a simulation procedure in Algorithmfor the evolutionary
-process followed by an epigenome of $N$ sites over a time interval
-$[0, \tau)$, starting from an initial sequence $s$.
+These assumptions suggest a simulation procedure, detailed in
+Algorithm \ref{alg:simulation}.
 
 \begin{algorithm}[t]
   \begin{algorithmic}[1]
-    \caption{Simulating epigenome evolution}
+    \caption{Simulating epigenome evolution}\label{alg:simulation}
     \REQUIRE Binary state sequence $s$ of length $N$, time $\tau$ and rates $\Lambda$.
     \ENSURE Simulated global path $H = (s, Y, V)$ for change times $Y$ and positions $V$.
     \STATE $t \gets 0$, $V\gets\emptyset$, $Y\gets\emptyset$ and $x \gets s$
@@ -482,175 +492,82 @@ $[0, \tau)$, starting from an initial sequence $s$.
 
 \section{Parameter estimation}
 
-If we are given the complete epigenome evolution path from time $0$ to
-time $t$, can we effectively recover the initial distribution and
-mutation parameters and evolutionary time? We are interested in the
-parameters describing the evolutionary process, which are the
-transition rates $\{\lambda_{ijk}\}$. These parameters will be
-inferred from the state changes in the evolutionary path for the
-entire epigenome. Meanwhile, we do not require the process to be
-stationary, so we may also interested in the properties of the
-epigenome at time 0, which are characterized by the Markov chain
-transition probabilities $T_{0}$. These transition probabilities are
-easy to infer given the complete observations at the time-0 epigenome.
+\subsection{Complete data}
 
-Let $c_{ij} = \sum_{n=1}^{N-1}I\{s_n(0) =i, s_{n+1}(0)=j\}$. Then
+First, given a global path $H$ for the evolution of an epigenome over
+time $\halfopen{0}{\tau}$ with $\tau = 1$, we are interested in
+estimating the transition rate parameters $\Lambda$. We assume a
+stationary process here, but this assumption is not necessary (see
+Appendix).
+
+Recall that for global path $H = (s, Y, V)$, the $m$-th jump occurs at
+time $y_m$ and position $v_m$. Let $\context{m}$ denote the
+\textit{context} of the $m$-th jump: the triplet $ijk$ of binary
+states such that
 \[
-\hat{T}_{00} = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~
-\hat{T}_{11} = \frac{c_{11}}{\sum_{n=1}^{N-1}I\{s_n(0) = 1\}}.
+\context{m} = ijk ~~ \Rightarrow ~~ s_{v_m-1}(y_{m-1}) = i, ~ s_{v_m}(y_{m-1}) = j, ~ \mbox{ and } s_{v_m+1}(y_{m-1}) = k.
 \]
+So $\context{m}$ indicates the triplet that was modified by the $m$-th
+jump. Note: $\context{m}$ is defined relative to a specific global
+path $H$ that we leave implicit in our notation.
 
-We first assume that the time span of this complete evolutionary
-history is known, \textit{i.e.} the value of $t$ is given.
-
-Recall that $L_n = \{s_n(0), K, \{t_k\}_{k=1}^K, t\}$ is a full path
-at position $n$ in the epigenome. We can pool all the jumping times at
-all positions as an ordered sequence of timepoints $J = \{(t_m,
-\psn{}_m, \context{}_m\}_{m=1}^{M}$, where $\psn{}_m$ is the position
-of the $m$-th jump in the entire evolutionary history of the
-epigenome, $\context{}_m$ is the 3-tuple context of the change that
-occurred at the $m$-th jump.
-
-Let $\Delta_m = t_{m} - t_{m-1}$ be the holding time just prior to the
-$m$-th jump for the evolving state sequence. Using $c_{ijk}(t_{m-1})$ to
-denote the triplet distribution for the state sequence at time
-$t_{m-1}$, the holding time $\Delta_m$ follows the exponential
+The holding time $\Delta_m = v_{m} - v_{m-1}$ just prior to the $m$-th
+jump in the evolving state sequence follows the exponential
 distribution
+%%% ADS: need to relate $\lambda_m$ to $R_{xx}$
 \[
 \Delta_m \sim \mathit{Exp}(\lambda_m), ~\text{ with }~
-\lambda_{m} = \sum_{i,j,k}c_{ijk}(t_{m-1})\lambda_{ijk}.
+\lambda_{m} = -R_{s(v_{m-1})s(v_{m-1})} = \sum_{i,j,k}c_{ijk}(v_{m-1})\lambda_{ijk}.
 \]
-
-The likelihood function for parameters $\{\lambda_{ijk}\}$ is thus
+The likelihood function for parameters $\Lambda$ involves holding times and
+identities of transitions:
 \begin{equation}\label{eqn:lik}
-  \prod_{m=1}^{M} \lambda_{m} \exp(-\lambda_{m}\Delta_m) \times \frac{\lambda_{\context{}_m}}{\lambda_m}
-  =\prod_{m=1}^{M}\lambda_{\context{}_m}\exp(-\lambda_m\Delta_m).
+  L(\Lambda | H) = \prod_{m=1}^{w} \lambda_{m} \exp(-\lambda_{m}\Delta_m) \times {\textstyle\left(\frac{\lambda_{\context{m}}}{\lambda_m}\right)}
+  =\prod_{m=1}^{w}\lambda_{\context{m}}\exp(-\lambda_m\Delta_m).
 \end{equation}
 %%
 And the log-likelihood function is
 \begin{equation}\label{eqn:loglik1}
-    l = \sum_{i,j,k} \left(\sum_{m=1}^M\log\lambda_{ijk}\times I_{\{\context{}_m = ijk\}} - c_{ijk}(t_m^-)\lambda_{ijk}\Delta_m\right)
-     = \sum_{i,j,k} \big(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \big)
+  \begin{array}{ll}
+    \log L(\Lambda | H) & = \sum_{i,j,k} \left(\sum_{m=1}^w\log\lambda_{ijk}\times I{\{\context{m} = ijk\}} - c_{ijk}(v_{m-1})\lambda_{ijk}\Delta_m\right)\\[.5em]
+    & = \sum_{i,j,k} \left(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \right),
+  \end{array}
 \end{equation}
 where
 \[
-J_{ijk} = \sum_{m=1}^M I\{\context{}_m = ijk\}
+J_{ijk} = \sum_{m=1}^w I\{\context{m} = ijk\}
 ~~\mbox{ and }~~
-D_{ijk} = \sum_{m=1}^Mc_{ijk}(t_{m-1})\Delta_m.
+D_{ijk} = \sum_{m=1}^w c_{ijk}(v_{m-1})\Delta_m.
 \]
-In other words, $J_{ijk}$ counts the number of jumps creating the
-triplet $ijk$ and $D_{ijk}$ is the time spent in context $ijk$
-aggregated over all sites.
+Here $J_{ijk}$ counts jumps that create a triplet $ijk$ and $D_{ijk}$
+measures the evolutionary time spent in context $ijk$, summed over all
+sites in the state sequence (see Appendix for gradients used in
+max-likelihood estimation).
 
-%% where $J_{ijk} = \sum_{m=1}^M I_{\{\context{}_m = ijk\}}$, and
-%% \begin{equation}\label{eqn:Dijk}
-%%   \begin{aligned}
-%%     D_{ijk} &= \sum_{m=1}^Mc_{ijk}(t_m^-)\Delta_m \\
-%%     & = \sum_{m=1}^M \bigg(\sum_{n=1}^{N} I_{\{\text{con}(n; t_m^-) = ijk\}}\bigg)\times(t_m - t_{m-1}) \\
-%%     & = \sum_{n=1}^{N}\int_{0}^{t_M} I_{\{\text{con}(n;t) = ijk\}} dt\\
-%%     & = \text{Total time in context $ijk$ aggregated over all sites}
-%%   \end{aligned}
-%% \end{equation}
-%% where $\text{con}(n; t)$ is the sequence context of site $n$ at time $t$.
+\subsection{Estimates when evolutionary time is a parameter}
 
-The constraints on the transition rates $\lambda_{ijk}$ as indicated
-in the matrix \eqref{eqn:Lambda} and equation \eqref{eqn:constraint}
-are:
-\begin{equation}\label{eqn:constraints}
-  %% \left\{
-  \begin{array}{c}
-    \lambda_{001} = \lambda_{100}\\
-    \lambda_{011} = \lambda_{110}\\
-    \lambda_{000}\lambda_{110}^2\lambda_{101} = \lambda_{010}\lambda_{100}^2\lambda_{111}
-  \end{array}
-  %% \right.
-\end{equation}
-So for the purpose of estimating parameters, we only require 5
-gradients (see Appendix).
-%%% ADS: above, this makes no sense if we use 4 independent parameters...?
-
-%% \begin{equation}\label{eqn:loglik2}
-%%   \begin{aligned}
-%%     l = ~ & (J_{000}\log\lambda_{000} - D_{000}\lambda_{000}) ~ +
-%%     (J_{010}\log\lambda_{010} - D_{010}\lambda_{010}) ~ +
-%%     (J_{101}\log\lambda_{101} - D_{101}\lambda_{101}) ~ + \\
-%%     & \big( (J_{100} + J_{001})\log\lambda_{001} - (D_{100}+D_{001})\lambda_{001}\big) + \\
-%%     & \big((J_{011} + J_{110})\log\lambda_{011} - (D_{011}+D_{110})\lambda_{011}\big) +  \\
-%%     & J_{111}\log\left(\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2}\right) - D_{111}\frac{\lambda_{000}\lambda_{011}^2\lambda_{101}}{\lambda_{010}\lambda_{001}^2} \\
-%%     = ~ & \sum_{c=0,2,5}\bigg(J_c\log\lambda_c - D_c\lambda_c\bigg) ~ +
-%%     \sum_{c=1,3} \bigg((J_c + J_{c'})\log\lambda_c - (D_c + D_{c'})\lambda_c\bigg) ~ + \\
-%%     ~ & \bigg(J_7\log(\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2})
-%%     - D_7\cdot\frac{\lambda_0\lambda_3^2\lambda_5}{\lambda_2\lambda_1^2} \bigg),
-%%   \end{aligned}
-%% \end{equation}
-%% where $c'$ is the symmetric context pattern of $c$, \textit{i.e.} if
-%% $c$ is $001$, then $c'$ is $100$.
-
-\subsubsection{Estimates when evolutionary time is a parameter}
-%%% ADS: I feel this is stated backwards. The paramters are not
-%%% identifiable until we make the assumption about unit branch
-%%% lengths.
-In the context of phylogenetic inference, we are given the
-observations at extant species, \textit{i.e.} leaf nodes of the
-phylogenetic tree, and will rely on EM procedures to both estimate
-model parameters (M-step) and making inferences about evolutionary
-paths form the common ancestor (E-step).  In the E-step, we compute
-the expected values of the complete-data sufficient statistics $J$s
-and $D$s along individual branches conditional on the observed leaf
-data and our current model parameters (branch lengths and transition
-rates). In M-step, we find the set of parameters that give the best
-likelihood with the expected values of sufficient
-statistics. For an Exponential random variable
-$X$:
-\[
-X \sim \mathit{Exp}(\lambda) \Leftrightarrow X/t \sim \mathit{Exp}(\lambda t),
-~~ \text{for any constant $t>0$.}
-\]
-Let our current estimates of branch lengths be $\{\ell_b\}$, the new
-branch lengths be $\{\ell'_b\}$, and the new rates be
-$\{\lambda'_c\}$. Then for a jumping interval $\Delta_{bm}$ on branch
-$b$ observed when the branch length is $\ell_b$, the scaled interval
-length is $\Delta_{bm}\times \frac{\ell'_b}{\ell_b}$ under the new
-branch length. Therefore, under the new model parameter set
-$\{\ell'_b\}$ and $\{\lambda'_c\}$, we have
-\[
-\Delta_{mb}\times \frac{\ell'_b}{\ell_b} \sim \mathit{Exp}(\lambda'_{(bm)}) \Rightarrow
-\Delta_{mb} \sim \mathit{Exp}(\lambda'_{(bm)} \times \frac{\ell'_b}{\ell_b}).
-\]
-%%%%%
-Let $\tau_b = \frac{\ell'_b}{\ell_b}$ be the scaling factor for the
-new branch lengths relative to the old branch lengths. Now we can
-write the likelihood of observing all of the given jumping intervals
-$\{\Delta_{b,m}\}$ under the new parameter set as :
+So far we have considered evolution along a single trajectory. In
+general we are interested in evolution over a tree, and in this
+setting the relative lengths of branches become important.  Let
+$\mathcal{L} = \{\tau_1,\ldots,\tau_B\}$ denote the lengths of
+branches in a tree with an assumed topology, with the additional
+constraint that $\sum_{b=1}^B\tau_b = B$. With this view, the branch
+lengths scale the transition rates. Let $H_b$ denote the global path
+of jumps along branch $b$. Then the likelihood is a product over
+likelihoods for the individual branches:
 \begin{equation}\label{eqn:liknew}
-  \begin{aligned}
-    L(\{\Delta_{b,m}\}; \{\ell'_b\}, \{\lambda'_c\})
-    = & \prod_{b=1}^B\Bigg(\prod_{m=1}^{M_b-1}
-    \lambda'_{(b,m)}\tau_b
-    \exp(-\lambda'_{(b,m)}\tau_b\Delta_m) \times \frac{\lambda'_{\context{}_m}}{\lambda'_{(m)}}
-    \Bigg) \times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b})\\
-    = & \prod_{b=1}^B\Bigg(
-    \prod_{m=1}^{M_b-1}\lambda'_{\context{}_m}\tau_b\exp(-\lambda'_{(m)}\tau_b\Delta_m)
-    \Bigg)\times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b}).
-  \end{aligned}
+  L(\Lambda, \mathcal{L} | \cup_{b} H(b)) = \prod_{b=1}^B L(\Lambda, \tau_b | H(b)) = \prod_{b=1}^B L(\tau_b \times \Lambda | H(b)),
 \end{equation}
-%%%%%
-The log likelihood becomes
+and
 \begin{equation}\label{eqn:logliknew}
-  \begin{aligned}
-    l = & \sum_{b=1}^B\sum_{m=1}^{M_b-1} \log(\lambda'_{c_m}\tau_b) -  \sum_{b=1}^B\sum_{m=1}^{M} \lambda'_{(m)}\Delta_{bm}\tau_b \\
-    = & \sum_{b=1}^B\sum_{c} J_{bc}\log(\lambda'_c\tau_b)  - \sum_{b=1}^B\sum_{c} D_{b,c}\lambda'_c\tau_b ,
-  \end{aligned}
+  \log L(\Lambda, \mathcal{L} | \cup_b H(b)) = \sum_{b=1}^B \log L(\Lambda, \mathcal{L} | \cup_b H(b)) = \sum_{b=1}^B \log L(\tau_b \times \Lambda | H(b)).
 \end{equation}
-where $J_{b,c} = \sum_{m=1}^{M_b-1}I_{\{c_{b,m}= c\}}$, $D_{bc}
-= \sum_{m=1}^{M_b}I_{\{c_{b,m} =c\}}\Delta_{b,m}$, $c_{b,m}$ is
-the context of the $m$-th jump on branch $b$, and $\Delta_{bm}$ is the
-holding time before the $m$-th jump on branch $b$ of length
-$\ell_b$. Then, we can optimize \eqref{eqn:logliknew} over
-$\{\tau_b\}$ and $\{\lambda'_c\}$, and set new branch lengths
-$\{\ell'_b = \tau_b\ell_b\}$.
+%%% ADS: should we say something about the likelihood being the same
+%%% if we partition the branches and histories into multi-branch
+%%% paths: one from the root to a leaf, another from the root to
+%%% another leaf, and then from internal nodes to leafs, etc.??
 
-\subsection{Posterior distribution of a path given two neighboring paths}
+\subsection{Latent data inference for an individual site}
 
 Here we consider inference on the path for an single position in an
 epigenome that is evolving for some specified time. We assume the
@@ -954,7 +871,36 @@ time-dependent graphical models.
 
 \clearpage
 
+If we do not assume a stationary process, we may also be interested in
+the properties of the epigenome at time 0, which are characterized by
+the Markov chain transition
+%%% ADS: not sure if we want to work directly with $T$ below
+probabilities $T_{0}$. These transition probabilities are easy to
+infer given the complete observations at the time-0 epigenome.  Define
+{\it pair counts} $c_{ij} = \sum_{n=1}^{N-1}I\{s_n(0) =i,
+s_{n+1}(0)=j\}$ with analogy to the triplet counts defined above. Then
+\[
+\hat{T}_{00} = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~
+\hat{T}_{11} = \frac{c_{11}}{\sum_{n=1}^{N-1}I\{s_n(0) = 1\}}.
+\]
+
+
 \section{Gradients of the log-likelihood}
+
+The constraints on the transition rates $\lambda_{ijk}$ as indicated
+in the matrix \eqref{eqn:Lambda} and equation \eqref{eqn:constraint}
+are:
+\begin{equation}\label{eqn:constraints}
+  %% \left\{
+  \begin{array}{c}
+    \lambda_{001} = \lambda_{100}\\
+    \lambda_{011} = \lambda_{110}\\
+    \lambda_{000}\lambda_{110}^2\lambda_{101} = \lambda_{010}\lambda_{100}^2\lambda_{111}
+  \end{array}
+  %% \right.
+\end{equation}
+So for the purpose of estimating parameters, we only require 5
+gradients.
 
 We treat $\{\log\lambda_c: c = 0,1,2,3,5\}$ as free parameters as they
 can take any real value.
