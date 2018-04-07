@@ -1,5 +1,64 @@
 #!/usr/bin/env Rscript
 args = commandArgs(trailingOnly=TRUE)
+if (length(args)<4) {
+  stop("Rscript plot.R <prefix> <nodeidx 0-based> <position_lo> <position_hi>" , call.=FALSE)
+} else if (length(args)==4) {
+  # default output file
+  paths <- paste(args[1], ".paths", sep="")
+  which_node <- as.numeric(args[2])
+  xrange <- as.numeric(c(args[3], args[4]))
+  pathplot <- paste(args[1], ".paths", which_node, ".",
+                    args[3], "-", args[3], ".pdf", sep="")
+}
+
+print(paste("Reading from file", paths))
+dat <- scan(paths, what="", sep="\n")
+name_lines <- grep("NODE", dat)
+n_nodes <- length(name_lines)
+
+if (which_node >= n_nodes)
+  stop("nodeidx outof range", call.=FALSE)
+
+begin <- name_lines[which_node+1] + 1
+if (which_node >=1 && which_node < n_nodes - 1 ) {
+  end <- name_lines[which_node+2] - 1
+} else {
+  end <- length(dat)
+}
+branch_path <- dat[begin:end]
+
+records <- strsplit(branch_path, "\t")
+
+nsites  <- length(records)
+
+pdf(pathplot, width=7, height=3, pointsize=8 )
+colors <- c("cadetblue", "black")
+# assuming first site has no state change
+tot <- as.numeric(records[[1]][3])
+plot(x=xrange, y=c(0,tot), pch="", xlab= "Position", ylab="Time",
+     main=dat[name_lines[which_node+1]])
+rect(xleft=xrange[1], ybottom=0, xright=xrange[2], ytop=tot)
+for (i in xrange[1]:xrange[2]) {
+  xval <- i
+  s <- as.numeric(records[[i]][2])
+  yvals <- c(0, as.numeric(records[[i]][-c(1:3)]), tot)
+  for (k in 1:(length(yvals) - 1)) {
+    if (s==0)
+      rect(xleft=xval, ybottom=yvals[k], xright=xval+1, ytop=yvals[k+1],
+           col = colors[s+1], border = NA)
+    s = 1-s
+  }
+}
+dev.off()
+
+
+
+
+
+
+### old code wrapped in unused function
+.f = function(){
+args = commandArgs(trailingOnly=TRUE)
 if (length(args)<1) {
   stop("Rscript plot.R <prefix>.n", call.=FALSE)
 } else if (length(args)==1) {
@@ -8,7 +67,6 @@ if (length(args)<1) {
   pathplot <- paste(args[1], "_path.pdf", sep="")
   hmrplot <- paste(args[1], "_hmrsizes.pdf", sep="")
 }
-
 
 dat <- read.table(paths, as.is=T)
 names(dat) <- c("node", "pos", "s0", "jumps")
@@ -28,7 +86,7 @@ for (node in unique(dat$node)) {
 
     for (k in 1:(length(yvals)-1)) {
       if (s==0)
-        rect(xleft=xval, ybottom=yvals[k], xright=xval+1, ytop=yvals[k+1], 
+        rect(xleft=xval, ybottom=yvals[k], xright=xval+1, ytop=yvals[k+1],
              col = colors[s+1], border = NA)
       s = 1-s
     }
@@ -160,4 +218,4 @@ for (node in unique(dat$node)) {
 
 }
 dev.off()
-
+}
