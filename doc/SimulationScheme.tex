@@ -257,7 +257,7 @@ terms of {\it site-specific paths}. In particular, for site $1\leq n
 \begin{equation}\label{localJumps}
 \begin{array}{llll}
 H_n = (s_n, Y_n), ~\mbox{ where} & s_n \in \{0,1\},\\
-                                & Y_n = (y_1, \ldots, y_{w_n}), & \mbox{ with } 0\leq y_i < y_{j} < \tau, & \mbox{ for } 1\leq i < j \leq w.
+                                & Y_n = (y_1, \ldots, y_{w_n}), & \mbox{ with } 0\leq y_i < y_{j} < \tau, & \mbox{ for } 1\leq i < j \leq w_n.
 \end{array}
 \end{equation}
 Our assumption that instantaneous rates are non-zero only for
@@ -522,7 +522,8 @@ distribution
 The likelihood function for parameters $\Lambda$ involves holding times and
 identities of transitions:
 \begin{equation}\label{eqn:lik}
-  L(\Lambda | H) = \prod_{m=1}^{w} \lambda_{m} \exp(-\lambda_{m}\Delta_m) \times {\textstyle\left(\frac{\lambda_{\context{m}}}{\lambda_m}\right)}
+  L(\Lambda | H) = \prod_{m=1}^{w} \lambda_{m} \exp(-\lambda_{m}\Delta_m)
+  \times {\textstyle\left(\frac{\lambda_{\context{m}}}{\lambda_m}\right)}
   =\prod_{m=1}^{w}\lambda_{\context{m}}\exp(-\lambda_m\Delta_m).
 \end{equation}
 %%
@@ -634,7 +635,7 @@ focusing on a single trajectory (single branch tree) with known
 site-specific paths for all sites except $n$. We can sample a path
 $H_n$ according to the distribution
 \[
-\Pr(H_n | H_1, \ldots, H_{n-1}, H_{n+1},\ldots, H_N)
+\Pr(H_n | H_1, \ldots, H_{n-1}, H_{n+1},\ldots, H_N) = \Pr(H_n | H_{\overline{n}})
 \]
 by using MCMC and the likelihood from equation~\eqref{}. When $H_n$ is
 known partially, for example if the starting state $s_n(0)$ and the
@@ -671,186 +672,158 @@ a common state at their common end-point.
 \citetext{hobolth2009simulation} reviewed and compared three
 approaches to sample paths of discrete-state continuous-time Markov
 chain conditional on end-point states, namely the rejection sampling,
-direct sampling and uniformization. Method 1 in the previous
-section is similar to uniformization, since the neighboring sites may
-have state changes, and the rate of jumps depends on the contemporary
+direct sampling and uniformization. Method 1 in the previous section
+is similar to uniformization, since the neighboring sites may have
+state changes, and the rate of jumps depends on the contemporary
 states of the neighboring sites. We proposed to use an averaged rate
 to for the Poisson distribution, and let the acceptance probability to
-do most of the work of correcting the proposal distribution towards the
-posterior distribution. Method 2 is forward sampling, which is the
+do most of the work of correcting the proposal distribution towards
+the posterior distribution. Method 2 is forward sampling, which is the
 basis of rejection sampling.
 
-\paragraph{Rejection sampling for the proposal:}
-This approach first does forward sampling as described in Method 2
-above for position $n$ along the branch $(u,v)$ and $(v, w_1)$, which
-can be viewed as a single path that proceeds along two consecutive
-edges. The sampled path provides a state $x$ corresponding to node
-$v$.  Next, a path is sampled for edge $(v, w_2)$ assuming state $x$
-at node $v$. If this path finishes with the known state at position
-$n$ in $w_2$, we retain the 3 paths $L_{n}^{(u,v)}$, $L_{n}^{(v,w_1)}$
-and $L_{n}^{(v,w_2)}$ as a proposal. The proposal is evaluated using
-the same acceptance rule given above in equation
-\eqref{eqn:rejection}.
+%% \paragraph{Rejection sampling for the proposal:}
+%% This approach first does forward sampling as described in Method 2
+%% above for position $n$ along the branch $(u,v)$ and $(v, w_1)$, which
+%% can be viewed as a single path that proceeds along two consecutive
+%% edges. The sampled path provides a state $x$ corresponding to node
+%% $v$.  Next, a path is sampled for edge $(v, w_2)$ assuming state $x$
+%% at node $v$. If this path finishes with the known state at position
+%% $n$ in $w_2$, we retain the 3 paths $L_{n}^{(u,v)}$, $L_{n}^{(v,w_1)}$
+%% and $L_{n}^{(v,w_2)}$ as a proposal. The proposal is evaluated using
+%% the same acceptance rule given above in equation
+%% \eqref{eqn:rejection}.
 
-%% Reject the path
-%% unless the end state agree with the given state at node $a$ at
-%% position $n$.  Then do forward sampling along the branch $(v, b)$,
-%% with the accepted simulated state of node $v$. If the end state does
-%% not agree with the given state at node $b$ at position $n$, start over
-%% the sampling from the beginning, \textit{i.e.} start over from node
-%% $u$. Because we are not taking site $n-2$ and $n+2$ into
-%% consideration, we are not directly sampling from the posterior
-%% distribution of the paths, therefore the rejection sampling procedure
-%% is a way to propose viable paths, then we use the MCMC acceptance rule
-%% \eqref{eqn:rejection} to reshape the proposal distribution to the
-%% posterior distribution.
+%% %% Reject the path
+%% %% unless the end state agree with the given state at node $a$ at
+%% %% position $n$.  Then do forward sampling along the branch $(v, b)$,
+%% %% with the accepted simulated state of node $v$. If the end state does
+%% %% not agree with the given state at node $b$ at position $n$, start over
+%% %% the sampling from the beginning, \textit{i.e.} start over from node
+%% %% $u$. Because we are not taking site $n-2$ and $n+2$ into
+%% %% consideration, we are not directly sampling from the posterior
+%% %% distribution of the paths, therefore the rejection sampling procedure
+%% %% is a way to propose viable paths, then we use the MCMC acceptance rule
+%% %% \eqref{eqn:rejection} to reshape the proposal distribution to the
+%% %% posterior distribution.
 
-A couple of performance statistics should be measured for this
-proposed sampling method. These include (1) the success rate for
-generating valid paths that satisfy the end conditions; (2) the
-acceptance rate of proposed valid paths in MCMC sampling.
+%% A couple of performance statistics should be measured for this
+%% proposed sampling method. These include (1) the success rate for
+%% generating valid paths that satisfy the end conditions; (2) the
+%% acceptance rate of proposed valid paths in MCMC sampling.
 
 \subsection{Posterior sampling of a path on the entire phylogenetic tree}
+
 For a phylogenetic tree with known branch lengths and known
 evolutionary context-dependent transition rates, how can we sample the
 evolutionary path (on the entire tree) for one site from its posterior
 distribution given observed evolutionary paths at all other sites and the
 observed states at all leaf nodes for this site?
 
-\paragraph{States at break points.}
-The evolution process for this site is not homogeneous along the tree,
-its transition rate matrix depends on the concurrent states of
-neighboring sites. We can, however, partition each branch into
-intervals, within each of which the states at the two neighboring
-sites stay unchanged. Thus the evolutionary process for the site of
-interest is homogeneous within each interval, and can be characterized
-with a $2\times2$ transition rate matrix $Q_{bm}$ for the $m$-th
-interval on branch $b$. The states of this site of interest at the
-start and the end of a single interval, $s_{b,m-1}$ and $s_{b,m}$ are
-connected through a transition probability matrix $P_{bm} =
-\exp(Q_{bm}t_{bm})$.
-The likelihood of observing leaf node states at this site
-$\{s_n(v)\}$, given the evolutionary paths at other sites is
+\paragraph{Tree branch partitions imposed by states at neighboring sites.}
+The process an individual site is not homogeneous along a branch, as
+its transition rates depend on states of neighboring sites at any
+instant. By partitioning each branch into maximal contiguous intervals
+with neighboring states unchanged, within each such interval the
+process is homogeneous. For a site $n$, define breaks $Z =
+(z_1\ldots,z_{w_{n-1} + w_{n+1}})$ as the ordered set of times from
+$Y_{n-1}$ and $Y_{n+1}$. During each time interval $(z_{i-1}, z_{i})$,
+the state at site $n-1$ and site $n+1$ remains unchanged.  For each
+branch $b$ in the tree, we can use the set of neighbor-induced breaks
+$Z(b)$ to define new nodes that each have only one child. Once this is
+done, we can apply Felsenstein's algorithm to compute the probability
+of states at each breakpoint on each branch of the tree.
+
+%%% ADS: need to define P and Q here...
+{\bf need to fix this paragraph to define P and Q properly.} and can
+be characterized using a $2\times2$ transition rate matrix $Q_{bm}$
+for the $m$-th interval on branch $b$. The states of this site of
+interest at the start and the end of a single interval, $s_{b,m-1}$
+and $s_{b,m}$ are connected through a transition probability matrix
+$P_{bm} = \exp(Q_{bm}t_{bm})$.  The likelihood of observing leaf node
+states at this site $\{s_n(v)\}$, given the evolutionary paths at
+other sites is
 \[
-\Pr(\{s_n(v)\} | L_{-n}) = \sum_{\{s_{bm}\}} \prod_{b} \prod_{m} P_{bm}(s_{b,m-1}, s_{b, m})
+\Pr(\{s_n(v)\} | H_{\overline{n}}) = \sum_{\{s_{bm}\}} \prod_{b} \prod_{m} P_{bm}(s_{b,m-1}, s_{b, m})
 \]
 
-\begin{figure}\label{fig:treebreak}
-  \pgfimage{tree.pdf}\caption{Tree with break points as nodes}
-\end{figure}
+%%% ADS: need to define $X$ such that it is a data structure that
+%%% associates states with a subset of nodes, and indicates which
+%%% nodes have assigned states
 
 \paragraph{Bottom-up pruning algorithm.}
 We can use Felsenstein's pruning algorithm to compute this
-probability.  Let the phylogenetic tree be $\tau$ consisting of all
-leaf nodes, internal nodes, and all break points between intervals on
-individual branches as nodes.  Let $v$ be a node in the phylogenetic
-tree, and $X_n(v)$ be the states of all leaf nodes that are
-descendants of $v$ (Figure~\ref{fig:treebreak}) at site $n$ in the
-genome. Let $u$ be the parent of $v$, and $w, z$ be the children of
-$v$. Since the sequence contexts are known for the current site at all
-intervals, the transition rate matrix for the state of the current
-site is known and denoted with $Q_{\context{v}}$. Thus the
-transition probability matrix between any parent-child pair $(u,v)$ is
-known, which we denote with
+probability. Let the phylogenetic tree be $G_n$ consisting of all leaf
+nodes and internal nodes from $G$, and all breakpoint nodes at times
+$Z_n(b)$ on each branch $b$ of $G$. For any node $u\in G_n$ let
+$X_n(u)$ be the states of all leaf nodes below $u$ at site $n$
+(Figure~\ref{fig:treebreak}). The state transition probabilities
+from the parent of node $u$ to node $u$ are
 \[
-P_v = \exp(Q_{\context{v}}\ell_v).
+P_u = \exp(Q_{\context{u}}\tau_u).
 \]
-For node $v$, given that its parent $u$ has state $j$, let the
-conditional probability of observing states $X_n(v)$ at
-terminal descendants of node $v$ be $p_j(v)$, \textit{i.e.}
-\[
-p_j(v) = \Pr(X_n(v) | s_u=j).
-\]
-For notational convenience we define
-\[
-q_k(v) = \left\{
-  \begin{array}{ll}
-    \Pr(s_v = k) & \mbox{if $v$ is a leaf node,} \\
-    \prod_{c\in \child{v}}  p_{k}(c) & \mbox{otherwise,} \\
-  \end{array}\right.
-\]
-where $\Pr(s_v = k) \in \{0, 1\}$ when a state is observed, and
-$\Pr(s_v = k) \in (0,1)$ when the observed data are continuous levels
-representing a probability distribution over the state space. Then, we
-can use Felsenstein's pruning algorithm to iteratively compute this probability
-from bottom of the tree upwards to the root node:
-\begin{equation}
-  p_j(v) = \textstyle{\sum_{k}} \big(P_v(j,k) \times q_k(v)\big).
+We use the following notation to describe the algorithm:
+%%% ADS: does X_n(v) include v if v is a leaf?
+\begin{equation}\label{def:pandq}
+\begin{array}{lll}
+p_j(v) & = \Pr(X_n(v) | s_n(u) = j), & \begin{array}{l}\mbox{where $u$ is the parent of $v$,}\end{array}\\[1em]
+q_j(u) & = \left\{
+\begin{array}{l}
+  \Pr(s_n(u) = j),\\
+  \prod_{v\in \child{u}} p_{j}(v),
+\end{array}\right.&%%
+\begin{array}{l}
+  \mbox{if $u$ is a leaf node},\\
+  \mbox{otherwise}.
+\end{array}
+\end{array}
 \end{equation}
-In this way, we can compute the marginal posterior probability of observing the
-states $X_n(v)$ at leaf nodes at site $n$, given the evolutionary
-paths at all other sites:
+If the state $s_n(u)$ is observed (e.g. at a leaf) then $\Pr(s_n(u) =
+j) \in \{0, 1\}$. If the data are contiuous or given as expected
+states or posterior probabilities, then $\Pr(s_n(u) = j) \in (0, 1)$.
+%%% ADS: above, not sure about generality needed???
+In the bottom-up pass of Felsenstein's pruning algorithm we compute
+\begin{equation}
+  p_j(u) = {\textstyle \sum_{k}} P_u(j, k) \times q_{k}(u).
+\end{equation}
+In this way, we can compute the marginal posterior probability of
+observing the states $X_n(v)$ at leaf nodes at site $n$, given the
+evolutionary paths at all other sites:
 \begin{equation}\label{eqn:leafmarginal}
-\Pr(X_n(r) | L_{-n}) = \sum_j\Pr(s_r=j |L_{-n}) q_j(r)
+  \Pr(X_n(r) | H_{\overline{n}}) = \sum_j\Pr(s_n(r) = j | H_{\overline{n}}) q_j(r).
 \end{equation}
 %%%
 At the root node, the marginal posterior distribution of the state is
 \begin{equation} \label{eqn:rootposterior}
-\begin{aligned}
-\Pr(s_r| L_{-n}, X_n(r)) = & \frac{\Pr(s_r, X_n(r)|L_{-n})}{\Pr(X_n(r)| L_{-n})} = \frac{\Pr(X_n(r)|s_r, L_{-n}) \Pr(s_r|L_{-n})}{\Pr(X_n(r)| L_{-n}) }  \\
-= & \frac{ \big(\prod_{c\in \child{r}}  p_{s_r}(c)\big) \Pr(s_r|L_{-n})}{\Pr(X_n(r)| L_{-n}) },
+  \begin{aligned}
+    \Pr(s_n(r)| H_{\overline{n}}, X_n(r)) = &
+    \frac{\Pr(s_n(r), X_n(r) | H_{\overline{n}})}{\Pr(X_n(r) | H_{\overline{n}})} =
+    \frac{\Pr(X_n(r) |s_n(r), H_{\overline{n}}) \Pr(s_n(r) | H_{\overline{n}})}{\Pr(X_n(r)| H_{\overline{n}}) }  \\
+= & \frac{\Pr(s_n(r)|H_{\overline{n}}) \prod_{v\in \child{r}} p_{s_n(r)}(v)}{\Pr(X_n(r)| H_{\overline{n}}) },
 \end{aligned}
 \end{equation}
-where $\Pr(s_r|L_{-n})$ is the initial distribution of the root node
+where $\Pr(s_n(r)|H_{\overline{n}})$ is the initial distribution of the root node
 state given its sequence context, which we can compute from the
 stationary distribution of the root epigenomic sequence characterized
 by either a Gibbs measure, or a Markov chain.
 
-In summary, during the bottom-up Pruning algorithm \ref{alg:bottomup}, we compute
-$p_j(v), q_k(v)$, and ultimately the marginal probabilities
- $\Pr(X_n(r) | L_{-n})$ and $\Pr(s_r|L_{-n}, X_n(r))$.
-
-\begin{algorithm}[t]
-  \begin{algorithmic}[1]
-    \caption{Pruning algorithm with observed leaf states $X_n(r)$}\label{alg:bottomup}
-    \FOR {node $v$ in post-order traversal}
-    \IF {$v\neq r$}
-    \IF {$v$ is a leaf node}
-    \STATE Assign $q_k(v) \leftarrow I\{\Pr(s_v = k)\}$ for $k = 0, 1$.
-    \ELSE
-    \STATE Compute $q_k(v) \leftarrow \prod_{c\in \child{v}}  p_{k}(c)$
-    \ENDIF
-    \STATE Compute $p_j(v) \leftarrow \sum\limits_{k} \bigg(P_v[j,k] \times q_k(v)\bigg)$, for $j = 0, 1$.
-    \ELSE
-    \STATE Compute $\Pr(X_n(r) | L_{-n})$ as in
-    \eqref{eqn:leafmarginal}, and $\Pr(s_r| L_{-n}, X_n(r))$ as in
-    \eqref{eqn:rootposterior}
-    \ENDIF
-    \ENDFOR
-  \end{algorithmic}
-\end{algorithm}
-
+In summary, during the bottom-up Pruning algorithm \ref{alg:bottomup},
+we compute $p_j(v), q_k(v)$, and ultimately the marginal probabilities
+$\Pr(X_n(r) | H_{\overline{n}})$ and $\Pr(s_n(r)|H_{\overline{n}},
+X_n(r))$.
 
 \paragraph{Top-down posterior sampling at breakpoints.}
 Let $S$ be the states at all internal nodes. The posterior probability
 of all internal nodes taking the states $S$, given the leaf node
 states $X_n(r)$ and the evolutionary paths at all other sites, is
 \[
-\Pr(S | X_n(r), L_{-n}) = \frac{\Pr(S, X_n(r) | L_{-n}) }{\Pr(X_n(r) | L_{-n})},
+\Pr(S | X_n(r), H_{\overline{n}}) = \frac{\Pr(S, X_n(r) | H_{\overline{n}}) }{\Pr(X_n(r) | H_{\overline{n}})},
 \]
-where $\Pr(S, X_n(r) | L_{-n}) $ is the forward sampling probability
+where $\Pr(S, X_n(r) | H_{\overline{n}}) $ is the forward sampling probability
 under the given transition probability matrices in individual
-intervals determined by $L_{-n}$.
+intervals determined by $H_{\overline{n}}$.
 Therefore, we can do exact posterior sampling of the joint states at
 the break points between the intervals on the phylogenetic tree through
 direct sampling following Algorithm~\ref{alg:topdown}.
-
-\begin{algorithm}[t]
-  \begin{algorithmic}[1]
-    \caption{Posterior sampling at breakpoints}\label{alg:topdown}
-    \STATE Sample the root state from distribution $\Pr(s_r|L_{-n}, X_n(r))$ as in \eqref{eqn:rootposterior}.
-    \FOR {internal node $v$ in pre-order traversal}
-    \STATE Suppose its parent node $u$ has state $j$
-    \STATE Sample state $k$ from the distribution
-    \[k \sim \frac{1}{p_j(v)}\times P_v[j,k] \times q_k(v) \]
-    \STATE Update the direct sampling probability with factor  $\frac{P_v[j,k]q_k(v)}{p_j(v)}$
-    \ENDFOR
-    \STATE The result is an sample $S$ of states at all internal states,
-  which is sampled from their joint marginal posterior probability
-  distribution $\Pr(S| X_n(r), L_{-n}) $.
-  \end{algorithmic}
-\end{algorithm}
-
 
 %%%%%%
 %%%%%%
@@ -888,28 +861,6 @@ f_{ij\tau}(t) = Q_{i\bar{i}} \exp(Q_{ii}t) \frac{P(\tau-t)_{\bar{i}j}}{P(\tau)_{
 \end{equation}
 The direct sampling procedure for a homogeneous continuous-time Markov path within an end-conditioned interval is detailed in Algorithm~\ref{alg:samplepath}.
 
-\begin{algorithm}[t]
-  \begin{algorithmic}[1]
-    \caption{Direct sampling of end-conditioned path}\label{alg:samplepath}
-    \STATE Suppose interval has length $\tau$, and start and end states $i, j$:
-    \WHILE {$\tau > 0$}
-    \IF {$i = j$}
-    \STATE Sample $Z\sim \text{Bernoulli}(p_i)$, where
-    $p_i$ is given in \eqref{eqn:pnojump}.
-    \IF {$Z = 1$}
-    \STATE Set $s(t) = i$ for all $0 < t < \tau$, and update $\tau \leftarrow 0$.
-    \ENDIF
-    \ENDIF
-    \IF {$i \neq j$ or $Z = 0$}
-    \STATE Sample the waiting time $W$ in state $i$ according to the continuous
-    density $f_{ij\tau}(w)$, $0< w < \tau$, set $s(t) = i$ for $0 < t < W$
-    \STATE Update $i \leftarrow \bar{i}$, $\tau \leftarrow \tau - W$.
-    \ENDIF
-    \ENDWHILE
-  \end{algorithmic}
-\end{algorithm}
-
-
 \section{Discussion}
 
 As noted earlier, the generalizations previously described for
@@ -936,6 +887,10 @@ time-dependent graphical models.
 
 \clearpage
 
+\appendix
+
+\section{Equations for maximum likelihood estimation}
+
 If we do not assume a stationary process, we may also be interested in
 the properties of the epigenome at time 0, which are characterized by
 the Markov chain transition
@@ -948,9 +903,6 @@ s_{n+1}(0)=j\}$ with analogy to the triplet counts defined above. Then
 \hat{T}_{00} = \frac{c_{00}}{\sum_{n=1}^{N-1}I\{s_n(0) = 0\}}, ~
 \hat{T}_{11} = \frac{c_{11}}{\sum_{n=1}^{N-1}I\{s_n(0) = 1\}}.
 \]
-
-
-\section{Gradients of the log-likelihood}
 
 The constraints on the transition rates $\lambda_{ijk}$ as indicated
 in the matrix \eqref{eqn:Lambda} and equation \eqref{eqn:constraint}
@@ -979,13 +931,99 @@ can take any real value.
   \end{aligned}
 \end{equation}
 
-\appendix
+\clearpage
 
+\section{Algorithms used for sampling at individual sites}
+
+\begin{algorithm}[h!]
+  \begin{algorithmic}[1]
+    \caption{Pruning$(u, X_n(u))$}\label{alg:bottomup}
+    \REQUIRE Phylogenetic tree $u$ with associated transition probabilities
+    \ENSURE Values $p_j(u)$ and $q_j(u)$ for $j\in \{0, 1\}$ as defined in equation~\eqref{def:pandq}
+    \STATE $q_j(u) \gets 1$ iff state $s_n(u) = j$ is compatible with $X_n(u)$, for $j\in \{0,1\}$
+    %% I\{s_n(u) = j\}$ for $j\in \{0,1\}$ %% \Pr(s_n(u) = j)$ for $j \in \{0,1\}$
+    \FOR {child $v$ of $u$}
+    \STATE $\{p_j(v), q_j(v)\} \gets$ Pruning$(v, X_n(v))$
+    \STATE $q_j(u) \gets q_j(u) \times p_{j}(v)$ for $j\in \{0,1\}$
+    \ENDFOR
+    \STATE $p_j(u) \gets \sum_{k\in\{0,1\}} P_u(j, k) \times q_k(u)$ for $j\in\{0,1\}$
+    \RETURN $p_j(u)$ and $q_j(u)$ for $j\in\{0,1\}$
+  \end{algorithmic}
+\end{algorithm}
+
+%% \begin{algorithm}[t]
+%%   \begin{algorithmic}[1]
+%%     \caption{Pruning algorithm with observed leaf states $X_n(r)$}\label{alg:bottomup}
+%%     \FOR {node $v$ in post-order traversal}
+%%     \IF {$v\neq r$}
+%%     \IF {$v$ is a leaf node}
+%%     \STATE $q_k(v) \gets \Pr(s_v = k)$ for $k \in \{0,1\}$.
+%%     \ELSE
+%%     \STATE $q_k(v) \gets \prod_{u\in \child{v}} p_{k}(u)$
+%%     \ENDIF
+%%     \STATE $p_j(v) \gets \sum_{k} P_v(j,k) \times q_k(v)$, for $j = 0, 1$.
+%%     \ELSE
+%%     \STATE Compute $\Pr(X_n(r) | H_{\overline{n}})$ as in
+%%     \eqref{eqn:leafmarginal}, and $\Pr(s_n(r)| H_{\overline{n}}, X_n(r))$ as in
+%%     \eqref{eqn:rootposterior}
+%%     \ENDIF
+%%     \ENDFOR
+%%   \end{algorithmic}
+%% \end{algorithm}
+
+\begin{algorithm}[h!]
+  \begin{algorithmic}[1]
+    \caption{DownwardStateSampling$(u, s(u), X(u))$}\label{alg:topdown}
+%%%
+    \REQUIRE Phylogenetic tree node $u$, binary state $s(u)$ and
+    states $X(u)$ for all leaves below $u$
+%%%
+    \ENSURE Sampled states for all internal nodes $v$ in the tree
+    rooted at $u$
+%%%
+    \FOR {each child node $v$ of $u$}
+    %% \STATE Sample state $s_n(v)$ conditional on $H_{\overline{n}}$ and $X_n(u)$
+    %% according to \eqref{eqn:rootposterior}.
+    \STATE Sample $s(v) \sim P_v(j, k) \times q_k(v)\slash p_j(v)$
+    %% \[k \sim \frac{1}{p_j(v)}\times P_v[j,k] \times q_k(v) \]
+    \STATE Update the direct sampling probability with factor $P_v(j,k)q_k(v)\slash p_j(v)$
+    \STATE DownwardStateSampling$(v, s(v), X(v))$
+    \ENDFOR
+    \STATE The result is an sample $S$ of states at all internal states,
+    which is sampled from their joint marginal posterior probability
+    distribution $\Pr(S| X_n(r), H_{\overline{n}}) $.
+  \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h!]
+  \begin{algorithmic}[1]
+    \caption{DirectEndConditionedPathSampling$()$}\label{alg:samplepath}
+%%%
+    \REQUIRE a
+%%%
+    \ENSURE b
+    \STATE Suppose interval has length $\tau$, and start and end states $i, j$:
+    \WHILE {$\tau > 0$}
+    \IF {$i = j$}
+    \STATE Sample $Z\sim \text{Bernoulli}(p_i)$, where
+    $p_i$ is given in \eqref{eqn:pnojump}.
+    \IF {$Z = 1$}
+    \STATE Set $s(t) = i$ for all $0 < t < \tau$, and update $\tau \gets 0$.
+    \ENDIF
+    \ENDIF
+    \IF {$i \neq j$ or $Z = 0$}
+    \STATE Sample the waiting time $W$ in state $i$ according to the continuous
+    density $f_{ij\tau}(w)$, $0< w < \tau$, set $s(t) = i$ for $0 < t < W$
+    \STATE Update $i \gets \bar{i}$, $\tau \gets \tau - W$.
+    \ENDIF
+    \ENDWHILE
+  \end{algorithmic}
+\end{algorithm}
 
 \end{document}
 
 %% \begin{enumerate}
-%% \item Let $t \leftarrow 0$, and initialize all paths $L_n = \{x_n(0),
+%% \item Let $t \gets 0$, and initialize all paths $L_n = \{x_n(0),
 %%   k_n=0, T_n=\emptyset, t\}$, for $n=1,\ldots, N.$
 %% \item While $t < T$:
 %%   \begin{enumerate}
@@ -997,15 +1035,15 @@ can take any real value.
 %%       \item Choose triple $ijk \in \{0,1\}^3$ with
 %%         probability proportional to $c_{ijk}(x(t))\lambda_{ijk}$.
 %%       \item Uniformly sample a position $n$ among the $c_{ijk}(x(t))$ positions having pattern $ijk$.
-%%       \item $x(t+y) \leftarrow x(t)[1..n-1]\overline{x(t)_n}x(t)[n+1..N]$.
+%%       \item $x(t+y) \gets x(t)[1..n-1]\overline{x(t)_n}x(t)[n+1..N]$.
 %%       \item Add jump time to the path of position $n$:
 %%         \[
-%%         k_n \leftarrow k_n + 1; ~ T_n \leftarrow T_n\cup \{t+x\}.
+%%         k_n \gets k_n + 1; ~ T_n \gets T_n\cup \{t+x\}.
 %%         \]
 %%       \end{itemize}
-%%     \item[Else:] $x(T) \leftarrow x(t)$.
+%%     \item[Else:] $x(T) \gets x(t)$.
 %%     \end{itemize}
-%%   \item $t \leftarrow t+y$
+%%   \item $t \gets t+y$
 %%   \end{enumerate}
 %% \end{enumerate}
 
@@ -1037,9 +1075,9 @@ can take any real value.
 %     \item Let $t = t_{m-1}$, and a sample value of $X=x$.
 %     \item While $t +x < t_m$:
 %       \begin{enumerate}
-%       \item[(1)] Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
-%       \item[(2)] Update $T_n \leftarrow T_n\cup\{t+x\}$.
-%       \item[(3)] Update $t \leftarrow  t+x$,
+%       \item[(1)] Add 1 to the number of jumps $k_n \gets k_n +1$.
+%       \item[(2)] Update $T_n \gets T_n\cup\{t+x\}$.
+%       \item[(3)] Update $t \gets  t+x$,
 %       \item[(4)] Sample another value of $X=x$ from $\text{Exp}(\lambda)$.
 %       \end{enumerate}
 %     \end{itemize}
@@ -1068,8 +1106,8 @@ can take any real value.
 %% rates and branch lengths as follows:
 %% \begin{equation}\label{eqn:tidentifiable}
 %%   \begin{aligned}
-%%     \lambda_{ijk} &\leftarrow \lambda_{ijk}\times \mu \\
-%%     t_b &\leftarrow \sum_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \frac{1}{\mu}.
+%%     \lambda_{ijk} &\gets \lambda_{ijk}\times \mu \\
+%%     t_b &\gets \sum_{m=1}^{M_b} (t_{b,m} - t_{b,m-1}) \times \frac{1}{\mu}.
 %%   \end{aligned}
 %% \end{equation}
 %% %%
@@ -1091,7 +1129,7 @@ can take any real value.
 %% current path at position $n$ is $L_n$, then we accept the proposed
 %% path $L'$ with probability
 %% \begin{equation}\label{eqn:rejection}
-%%   \alpha(L') = \min\left\{\frac{\pi(L', L_{-n})/q(L')}{\pi(L_n, L_{-n})/q(L_n)}, 1\right\},
+%%   \alpha(L') = \min\left\{\frac{\pi(L', H_{\overline{n}})/q(L')}{\pi(L_n, H_{\overline{n}})/q(L_n)}, 1\right\},
 %% \end{equation}
 %% where $\pi$ is the complete data likelihood function \eqref{eqn:lik}.
 
@@ -1110,7 +1148,7 @@ can take any real value.
 %%   that within each of the intervals the states of the neighboring
 %%   sites are unchanged. Let the intervals be represented by a sorted
 %%   array $\{t_0, t_1, \cdots, t_M\}$.
-%% \item Initialize proposal probability $p\leftarrow 1$.
+%% \item Initialize proposal probability $p\gets 1$.
 %% \item For $m = 1, \ldots, M$:
 %%   \begin{itemize}
 %%   \item Let $X$ be a random variable from an exponential distribution,
@@ -1124,14 +1162,14 @@ can take any real value.
 %%   \item Let $t = t_{m-1}$, and a sample value of $X=x$.
 %%   \item While $t + x < t_m$:
 %%     \begin{enumerate}[label={(\arabic*)}]
-%%     \item Update proposal probability $p \leftarrow p\times f_{\lambda_{ijk}}(x)$.
-%%     \item Update the state of the center site $j \leftarrow \bar{j}$.
-%%     \item Add 1 to the number of jumps $k_n \leftarrow k_n +1$.
-%%     \item Update $T_n \leftarrow T_n\cup\{t+x\}$.
-%%     \item Update $t \leftarrow  t+x$,
+%%     \item Update proposal probability $p \gets p\times f_{\lambda_{ijk}}(x)$.
+%%     \item Update the state of the center site $j \gets \bar{j}$.
+%%     \item Add 1 to the number of jumps $k_n \gets k_n +1$.
+%%     \item Update $T_n \gets T_n\cup\{t+x\}$.
+%%     \item Update $t \gets  t+x$,
 %%     \item Sample another value of $X=x$ from $\mathit{Exp}(\lambda_{ijk})$.
 %%     \end{enumerate}
-%%   \item Update proposal probability $p \leftarrow p\times \Pr_{\lambda_{ijk}}(X > t_m - t )$.
+%%   \item Update proposal probability $p \gets p\times \Pr_{\lambda_{ijk}}(X > t_m - t )$.
 %%   \end{itemize}
 %% \end{itemize}
 
@@ -1156,7 +1194,7 @@ can take any real value.
 %% likelihood in acceptance probability \eqref{eqn:rejection} can be
 %% computed as
 %% \[
-%% \frac{\pi(L', L_{-n})}{\pi(L_n, L_{-n})} = \prod_{c}\prod_{s=n-1}^{n+1}
+%% \frac{\pi(L', H_{\overline{n}})}{\pi(L_n, H_{\overline{n}})} = \prod_{c}\prod_{s=n-1}^{n+1}
 %% \lambda_c^{J'_{s,c} - J_{s,c}} \exp(-(D'_{s,c}-D_{s,c})\lambda_c).
 %% \]
 
