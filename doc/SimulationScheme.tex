@@ -527,18 +527,18 @@ identities of transitions:
 \end{equation}
 %%
 And the log-likelihood function is
-\begin{equation}\label{eqn:loglik1}
+\begin{equation}\label{eqn:loglik}
   \begin{array}{ll}
-    \log L(\Lambda | H) & = \sum_{i,j,k} \left(\sum_{m=1}^w\log\lambda_{ijk}\times I{\{\context{m} = ijk\}} - c_{ijk}(v_{m-1})\lambda_{ijk}\Delta_m\right)\\[.5em]
+    \log L(\Lambda | H) & = \sum_{i,j,k} \Big(\sum_{m=1}^w\log\lambda_{ijk}\times I{\{\context{m} = ijk\}} - c_{ijk}(v_{m-1})\lambda_{ijk}\Delta_m\Big)\\[1em]
     & = \sum_{i,j,k} \left(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \right),
   \end{array}
 \end{equation}
 where
-\[
+\begin{equation}\label{def:JD}
 J_{ijk} = \sum_{m=1}^w I\{\context{m} = ijk\}
 ~~\mbox{ and }~~
 D_{ijk} = \sum_{m=1}^w c_{ijk}(v_{m-1})\Delta_m.
-\]
+\end{equation}
 Here $J_{ijk}$ counts jumps that create a triplet $ijk$ and $D_{ijk}$
 measures the evolutionary time spent in context $ijk$, summed over all
 sites in the state sequence (see Appendix for gradients used in
@@ -566,6 +566,56 @@ and
 %%% if we partition the branches and histories into multi-branch
 %%% paths: one from the root to a leaf, another from the root to
 %%% another leaf, and then from internal nodes to leafs, etc.??
+Compared with equations \eqref{eqn:loglik}, the terms on the left above
+must be adjusted:
+\begin{equation}\label{eqn:loglik1new}
+  \log L(\tau_b \times \Lambda | H(b)) = \sum_{i,j,k} J(b)_{ijk}\log(\tau_b\lambda_{ijk}) - D(b)_{ijk}\times(\tau_b\lambda_{ijk}),
+\end{equation}
+with $J(b)$ and $D(b)$ defined by equation~\eqref{def:JD} but
+specifically in terms of global path $H(b)$ for branch $b$.
+
+%% interval $\Delta_{bm}$ on branch $b$ observed when the branch length
+%% is $\ell_b$, the scaled interval length is $\Delta_{bm}\times
+%% \frac{\ell'_b}{\ell_b}$ under the new branch length. Therefore, under
+%% the new model parameter set $\{\ell'_b\}$ and $\{\lambda'_c\}$, we
+%% have
+%% \[
+%% \Delta_{mb}\times \frac{\ell'_b}{\ell_b} \sim \mathit{Exp}(\lambda'_{(bm)}) \Rightarrow
+%% \Delta_{mb} \sim \mathit{Exp}(\lambda'_{(bm)} \times \frac{\ell'_b}{\ell_b}).
+%% \]
+%% %%%%%
+%% Let $\tau_b = \frac{\ell'_b}{\ell_b}$ be the scaling factor for the
+%% new branch lengths relative to the old branch lengths. Now we can
+%% write the likelihood of observing all of the given jumping intervals
+%% $\{\Delta_{b,m}\}$ under the new parameter set as :
+%% \begin{equation}\label{eqn:liknew}
+%%   \begin{aligned}
+%%     L(\{\Delta_{b,m}\}; \{\ell'_b\}, \{\lambda'_c\})
+%%     = & \prod\limits_{b=1}^B\Bigg(\prod\limits_{m=1}^{M_b-1}
+%%     \lambda'_{(b,m)}\tau_b
+%%     \exp(-\lambda'_{(b,m)}\tau_b\Delta_m) \times \frac{\lambda'_{\context{}_m}}{\lambda'_{(m)}}
+%%     \Bigg) \times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b})\\
+%%     = & \prod\limits_{b=1}^B\Bigg(
+%%     \prod\limits_{m=1}^{M_b-1}\lambda'_{\context{}_m}\tau_b\exp(-\lambda'_{(m)}\tau_b\Delta_m)
+%%     \Bigg)\times \exp(-\lambda'_{(b,M_b)}\tau_b\Delta_{M_b}).
+%%   \end{aligned}
+%% \end{equation}
+%% %%%%%
+%% The log likelihood becomes
+%% \begin{equation}\label{eqn:logliknew}
+%%   \begin{aligned}
+%%     l = & \sum\limits_{b=1}^B\sum\limits_{m=1}^{M_b-1} \log(\lambda'_{c_m}\tau_b) -  \sum\limits_{b=1}^B\sum\limits_{m=1}^{M} \lambda'_{(m)}\Delta_{bm}\tau_b \\
+%%     = & \sum\limits_{b=1}^B\sum_{c} J_{bc}\log(\lambda'_c\tau_b)  - \sum\limits_{b=1}^B\sum_{c} D_{b,c}\lambda'_c\tau_b ,
+%%   \end{aligned}
+%% \end{equation}
+%% where $J_{b,c} = \sum\limits_{m=1}^{M_b-1}I_{\{c_{b,m}= c\}}$, $D_{bc}
+%% = \sum\limits_{m=1}^{M_b}I_{\{c_{b,m} =c\}}\Delta_{b,m}$, $c_{b,m}$ is
+%% the context of the $m$-th jump on branch $b$, and $\Delta_{bm}$ is the
+%% holding time before the $m$-th jump on branch $b$ of length
+%% $\ell_b$. Then, we can optimize \eqref{eqn:logliknew} over
+%% $\{\tau_b\}$ and $\{\lambda'_c\}$, and set new branch lengths
+%% $\{\ell'_b = \tau_b\ell_b\}$.
+
 
 \subsection{Latent data inference for an individual site}
 
