@@ -544,7 +544,7 @@ measures the evolutionary time spent in context $ijk$, summed over all
 sites in the state sequence (see Appendix for gradients used in
 max-likelihood estimation).
 
-\subsection{Estimates when evolutionary time is a parameter}
+%%%% Estimates when evolutionary time is a parameter
 
 So far we have considered evolution along a single trajectory. In
 general we are interested in evolution over a tree, and in this
@@ -617,25 +617,40 @@ specifically in terms of global path $H(b)$ for branch $b$.
 %% $\{\ell'_b = \tau_b\ell_b\}$.
 
 
-\subsection{Latent data inference for an individual site}
+\subsection{Inference from incomplete data}
 
-Here we consider inference on the path for an single position in an
-epigenome that is evolving for some specified time. We assume the
-paths for all other positions are known for the entire evolutionary
-time span. In particular, we will make inferences about site $n$ and
-have access to known jump times $\{(t_m, \psn{}_m, \context{}_m)
-\}_{m=1}^{M}$ for all positions except $n$.
-%%
-We also assume that the model parameters $\Lambda$ and total
-evolutionary time $t$ are known, along with the the initial state of
-the epigenome (i.e. the root). We seek inferences related to the
-posterior distribution of the path $L_n$:
+In applications we have data, in the form of epigenomic state
+sequences, associated with leaf nodes. Even at leaf nodes our data may
+be incomplete. We do not have data corresponding to internal nodes,
+let alone the full paths of jumps and corresponding positions in
+continuous time. In addition to estimating model parameters from such
+incomplete data, we can learn much from estimating state sequences at
+internal tree nodes.
+
+The method we use follows that outlined by
+\citetext{jensen2000probabilistic} and \citetext{hobolth2008markov}.
+The basic machinery we borrow is most easily explained by first
+focusing on a single trajectory (single branch tree) with known
+site-specific paths for all sites except $n$. We can sample a path
+$H_n$ according to the distribution
 \[
-\Pr(L_n|L_{-n}, \{\lambda_{ijk}\}) \propto \Pr(L_n\cup L_{-n}),
+\Pr(H_n | H_1, \ldots, H_{n-1}, H_{n+1},\ldots, H_N)
 \]
-where $L_{-n}$ denotes all paths for sites other than $n$. The
-approach we adopt is using MCMC to sample from the posterior
-distribution of $L_n$.
+by using MCMC and the likelihood from equation~\eqref{}. When $H_n$ is
+known partially, for example if the starting state $s_n(0)$ and the
+ending state $s_n(1)$ are known, MCMC can be applied similarly to
+sample a path consistent with those end-points. If the data are state
+sequences at leaf nodes of a tree having known topology, the approach
+of \citetext{hobolth2008markov} can be used to sample site-specific
+paths for all sites and all branches in the tree. Summarizing these
+samples provides estimates of expected states at all sites for all
+ancestral nodes. Importantly, such estimates made by sampling
+site-specific paths are consistent with our distributional assumptions
+for the global state space. Although this general strategy allows much
+flexibility, efficient sampling is still a major challenge.
+
+%%% ADS: need summary of work here on end-point conditioned path
+%%% sampling
 
 \section{Inferences in the context of a tree structure with fixed leaf data}
 
