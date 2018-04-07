@@ -179,18 +179,17 @@ denoting the state at position $i$.
 As a graphical model, neighboring sites are connected with undirected
 edges. An epigenome $s$ evolves over time, but we assume the
 stationary distribution for the epigenome has a Gibbs distribution
-that factorize over pairs of neighboring sites:
+that factorizes over pairs of neighboring sites:
 \begin{equation}\label{eqn:stationary}
   \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}
 \end{equation}
 
-As the epigenome evolves the state at each position may
-change. Although we have operationally defined the epigenome by
-associating a state with each position along the genome, the types of
-changes we hope to model are more naturally interpreted in terms of
-sets of contiguous intervals. We use the term epigenomic ``feature''
-to refer to a consecutive interval having the ``1'' state. The
-main types of changes we are interested in are the following:
+As the epigenome evolves, the state associated with individual
+positions may change. The types of changes we are most interested in
+can be more naturally interpreted in terms of contiguous intervals. We
+use the term epigenomic ``feature'' to refer to a consecutive interval
+having the ``1'' state. The main types of changes we are interested in
+are the following:
 \begin{itemize}
 \item {\it Birth and death:} During evolution, some new epigenomic
   feature may appear, or a feature that existed in an ancestor may
@@ -207,21 +206,26 @@ We will describe a model that treats the expansion and contraction of
 features symmetrically in both directions along the genome.  This
 choice in modeling is often reasonable, but not always. For example,
 certain epigenomic modifications are frequently associated with parts
-of genes, which have directionality.
+of genes (e.g. promoters), and the genes themselves have
+directionality.
 %%% Need to give examples where we believe this is reasonable, like
 %%% enhancers that operate at a distance. But then cite CTCF
 %%% directionality.
 
 %%% Describe the paths for the full genome, and then the paths for
 %%% individual sites
-We are interested in modeling sequences that evolve in continuous
-time, so we require some means of summarizing a realization of the
-process. Let $s$ be a sequence of $N$ binary states that evolve
-according to a random continuous time Markov process. The state space
-for $s$ has size $2^N$, but we constrain instantaneous rates such that
-each change to $s$ only changes the state at one position within $s$.
-This allows us to summarise the process in terms of a {\it global
-  path} over an interval $[0,\tau)$ of evolutionary time:
+We are also interested in modeling sequences that evolve in continuous
+time, and we use two representations to describe a particular
+realization of the evolutionary process. These two representations
+have distinct advantages, both in explaining aspects of our model and
+in different computations.
+
+Let $s$ be a sequence of $N$ binary states that evolve according to a
+continuous time Markov process. The state space for $s$ has size
+$2^N$, but we constrain instantaneous transition rates such that each
+change to $s$ only involves a single site (coordinate) within $s$. We
+can summarize the process as a {\it global path} over time interval
+$[0,\tau)$ as follows:
 \[
 \begin{array}{lll}
 H = (s, Y, V), ~\mbox{ where} & s \in \{0,1\}^N,\\
@@ -230,10 +234,16 @@ H = (s, Y, V), ~\mbox{ where} & s \in \{0,1\}^N,\\
                              & V = (v_1,\ldots, v_w), & \mbox{ for } 1\leq v_i\leq n.
 \end{array}
 \]
-We say jump $i$ occurred at time $y_i$ and modified position $v_i$ of $s$.
+For any time $0 \leq t < \tau$, we let $s(t)$ denote the state
+sequence after having applied changes to $s = s(0)$ at positions given
+by $v_1,v_2,\ldots,v_k$ such that $y_k$ is maximal satisfying $y_k
+\leq t$. From $H$ we can obtain $s(t)$ for any $0\leq t < \tau$ by
+tracing changes made to $s$.
 %%%
-The same realization of our process can be described in terms of {\it
-  site-specific paths}. For site $n$ in $s$,
+
+We can organize the same information differently and describe the
+process in terms of {\it site-specific paths}. In particular, for site
+$1\leq n \leq N$,
 \[
 \begin{array}{lll}
 H_n = (s_n, Y_n), ~\mbox{ where} & s_n \in \{0,1\},\\
@@ -241,72 +251,50 @@ H_n = (s_n, Y_n), ~\mbox{ where} & s_n \in \{0,1\},\\
                                 & 0\leq y_i < y_{j} < \tau, & \mbox{ for } i < j.
 \end{array}
 \]
-
-%%% Describe complete evolutionary path at one site
-%% For a site $n$ and an evolutionary time interval $[0,\tau)$, the
-%% initial state and all the time points of state transitions within
-%% this time interval constitute a complete evolutionary history for
-%%   this site. This is because we have assumed binary states, and an
-%%   evolutionary path is consecutive time intervals with alternating
-%%   states. In other words, an observation of the evolutionary path at
-%%   site $n$ can be summarized as
-%% \[
-%% L_n = \big\{s_n(0), J_n=\{t_1,\ldots,t_{m_n}\}, \tau \big\},
-%% \]
-%% where $s_n(t)\in\{0,1\}$ is the state of site $n$ at time $t$, $\tau$
-%% is the total length of the time interval, and $J_n$ is an ordered
-%% sequence of $m_n$ jummping times at site $n$ within this time
-%% interval, \textit{i.e.} $0 < t_1 < \cdots < t_{m_n} < \tau$.
+Our assumption that instantaneous rates are non-zero only for
+transitions that modify a single position in $s$ defines bijection
+between the global jump times $Y$ and the union of the site-specific
+jump times $\cup_n Y_n$. Note that the sequences of site-specific
+paths $(H_1,\ldots,H_N)$ more concisely describes a realization of our
+process; obtaining the state sequence $s(t)$ for any time $t$ requires
+more effort.
 
 %%% Introduce transition rates
-The evolution of states at a given site depends on the states of its
-neighboring sites during evolution. Consider site $n$ and its two
-immediate neighbors $n-1$ and $n+1$, and let the contermporaneous
-states at these sites be $s_{n-1}(t) = i$, $s_n(t)=j$ and
-$s_{n+1}=j$. The instantaneous rate for a transition from state $j$ to
-its alternative state $\bar{j}$ at site $n$ is $\lambda(i, j, k)$. In
-other words, the instantaneous rates $\lambda(i, j, k)$ is a function
-of the states at the site of interest and its two immediate neighbors.
-%%%
-In addition, since we assume the evolutionary process is symmetric
-with respect to the two directions along the genome, we require
-$\lambda(i, j, k) = \lambda(k, j, i)$.
-%%%
-When the states at all positions except for site $n$ stay constant for
-%%%% ADS: use of \tau
-a time interval $[0,\tau)$, the state at site $n$, $s_n$, follows a
-two-state continuous-time Markov process within this time interval.
-
-% Suppose $L_l$ and $L_r$ are paths for distinct sites. The union of
-% their jump times
-% \[
-% \{0, t\} \cup \{t_{li}\}_{i=1}^{k_l} \cup \{t_{ri}\}_{i=1}^{k_r}
-% \]
-% gives a set of time points such that when ordered, any pair
-% of consecutive times in this union defines an interval during
-% which the joint state at sites $l$ and $r$ remains
-% constant.
+The evolution of states at a given site in the state sequence $s$
+depends on the states of its neighboring sites at all times during
+evolution. Consider site $n$ and its two immediate neighbors $n-1$ and
+$n+1$, and let the contemporaneous states for these sites at time $t$
+be $s_{n-1}(t) = i$, $s_n(t)=j$ and $s_{n+1}=j$. The instantaneous
+rate for a transition at site $n$ from state $j$ to the complementary
+binary state $\bar{j}$ is $\lambda(i, j, k)$. In other words, the
+instantaneous rate $\lambda(i, j, k)$ is a function of the states at
+the site of interest and its two immediate neighbors.  Since we assume
+the evolutionary process is symmetric with respect to the direction
+along the genome, we require $\lambda(i, j, k) = \lambda(k, j, i)$.
+%%% ADS: note sure what this means below:
+When the states at all positions except for site $n$ remain constant
+over time interval the state $s_n$ follows a two-state continuous-time
+Markov process within that time interval.
 
 \subsection{Stationary Gibbs measure as Markov chain}
 
 The stationary distribution in \eqref{eqn:stationary} is equivalent to
 the distribution of a Markov chain. Therefore, when the epigenome is
-modeled with a Gibbs measure, we can sample an instance of the
-sequence epigenomic states or evaluate its probability with the
-equivalent Markov chain. We can derive the relationship between the
-factors in \eqref{eqn:stationary} and the transition probabilities of
-a Markov chain. The pair-wise potentials are $Q(i,j)=\exp(\phi(i,
-j))$, where $i, j\in\{0,1\}$ are binary states. The largest eigenvalue
-of $Q$ is
+modeled with a Gibbs measure, we can sample an instance of the state
+sequence, or evaluate its probability, using the equivalent Markov
+chain. We can relate the factors in \eqref{eqn:stationary} and the
+transition probabilities of the Markov chain as follows. Define
+pair-wise potentials $Q(i,j)=\exp(\phi(i, j))$, where $i, j\in\{0,1\}$
+are binary states. The largest eigenvalue of $Q$ is
 \[
-q=\frac{1}{2}\left(Q(0,0)+Q(1,1) +\sqrt{\Delta}\right), \text{ where }
+q=\textstyle\frac{1}{2}\left(Q(0,0)+Q(1,1) +\sqrt{\Delta}\right), \text{ where }
 \Delta=(Q(0,0) - Q(1,1))^2 + 4Q(0,1)Q(1,0).
 \]
 Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
 \[
-\frac{h_0}{h_1} = \frac{Q(0,1)}{q-Q(0,0)} = \frac{q-Q(1,1)}{Q(1,0)}
+\frac{h_0}{h_1} = \frac{Q(0,1)}{q-Q(0,0)} = \frac{q-Q(1,1)}{Q(1,0)}.
 \]
-Then we have the Markov chain transition matrix:
+The Markov chain transition matrix is:
 \[
 T(i,j) = \frac{Q(i,j)h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
 \]
@@ -319,8 +307,8 @@ More specifically,
     T(1,0) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(1,1)+\sqrt{\Delta})^2 -Q(0,0)^2}.
   \end{array}
 \end{equation}
-The expected fraction of an epigenome residing within
-functional domains is thus:
+Accordingly, the expected fraction of an epigenome state sequence
+residing within functional domains (the ``features'') is:
 \[
 1- \frac{2Q(0,1)Q(1,0)}{(Q(0,0)-Q(1,1))^2 + 4Q(0,1)Q(1,0) +
   (Q(1,1)-Q(0,0))\sqrt{\Delta}}.
@@ -328,9 +316,10 @@ functional domains is thus:
 
 \subsection{Relating the substitution model and the stationary distribution}
 
-\citetext{jensen2000probabilistic} gave a sufficient condition for the
-continuous time evolutionary model $\lambda$ to have a stationary
-distribution determined by $\phi$. In particular, if
+\citetext{jensen2000probabilistic} gave a sufficient condition for a
+continuous time evolutionary model with the properties we outlined for
+$\lambda$ to have a stationary distribution of the form $\phi$. In
+particular, if
 %%% Prop 1 of J-P 2000
 \begin{equation}\label{eqn:prop1}
   \frac{\lambda_{ijk}}{\lambda_{i\bar{j}k}} =
@@ -338,22 +327,22 @@ distribution determined by $\phi$. In particular, if
   \frac{\exp(\phi(i, \bar{j})+ \phi(\bar{j}, k))}{\exp(\phi(i, j)+ \phi(j, k))},
 \end{equation}
 then \eqref{eqn:stationary} is the stationary distribution for the
-Markov process with intensities $\lambda_{ijk}$.
+Markov process with instantaneous rates $\lambda_{ijk}$.
 
-Proposition 2 of \citetext{jensen2000probabilistic} provides a way of
-specifying $\lambda$ from $\phi$: substitution rates $\lambda$ satisfy
-the relation \eqref{eqn:prop1} if and only if they can be written in
-the form
+\citetext{jensen2000probabilistic} also provide (Proposition 2) a way
+of specifying $\lambda$ from $\phi$: substitution rates $\lambda$
+satisfy the relation \eqref{eqn:prop1} if and only if they can be
+written in the form
 \begin{equation}\label{eqn:prop1}
   \log(\lambda_{ijk}) = -\psi(i, j, k) + \ell(i, k).
 \end{equation}
 This criteria was introduced in the context of an arbitrary number of
-states, and the $\ell$ function can be understood as $\ell(j, j'; i,
-k)$, for any two different states $j$ and $j'$, which is symmetric in
-$(j, j')$. In our setting of modeling epigenomic features, the states
-are binary and $\ell$ is only a function of the two neighboring states
-$(i,k)$.  Moreover, we can directly verify that if we define
-substitution rates as
+states for each position in the state sequence, and the $\ell$
+function can be understood as $\ell(j, j'; i, k)$, for any two
+different states $j$ and $j'$, which is symmetric in $(j, j')$. In our
+setting the states are binary and $\ell$ is only a function of the two
+neighboring states $(i,k)$. Moreover, we can directly verify that if
+we define substitution rates as
 \begin{equation}
   \log (\lambda_{ijk}) =  \ell(i, k) + (\phi(i, \bar{j}) +\phi(\bar{j}, k)),
 \end{equation}
@@ -431,19 +420,15 @@ that the states of the first and last sites are fixed throughout
 evolution.
 
 Consider the $2^N \times 2^N$ transition rate matrix $R$ for any pair
-of epigenomes $x$ and $y$ that differ at exactly one position. The
+of epigenomes $x$ and $x'$ that differ at exactly one position. The
 state at that position is $j$ in epigenome $x$ and $\bar{j}$ in
-epigenome $y$. Neighboring positions in both $x$ and $y$ have states
-$i$ and $k$. The instantaneous rate of a jump between $x$ and $y$
-is $\lambda_{ijk}$.
-%% \[
-%% \lambda_{ijk} = \Lambda(ijk, i\bar{j}k).
-%% \]
-The holding time in a state sequence $x$ is exponentially distributed
-with rate $-R_{xx}$ equal to the sum of instantaneous rates for jumps
-from $x$ to any state sequence $y$ that differs from $x$ at exactly
-one position. This rate for $x$ can be expressed in terms of rates on
-triplets:
+epigenome $x'$. Neighboring positions in both $x$ and $x'$ have states
+$i$ and $k$. The instantaneous rate of a jump between $x$ and $x'$ is
+$\lambda_{ijk}$. The holding time in a state sequence $x$ is
+exponentially distributed with rate $-R_{xx}$ equal to the sum of
+instantaneous rates for jumps from $x$ to any state sequence $x'$ that
+differs from $x$ at exactly one position. This rate for $x$ can be
+expressed in terms of rates on triplets:
 \[
 -R_{xx} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk},
 \]
@@ -463,28 +448,28 @@ $\sum_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
 stationary distribution for the pattern $ijk$ in the epigenome.
 %%% ADS: above, can we generalize away from epigenome here?
 %%
-These assumptions suggest a simulation procedure for the evolutionary
+These assumptions suggest a simulation procedure in Algorithmfor the evolutionary
 process followed by an epigenome of $N$ sites over a time interval
-$[0, \tau]$, starting from an initial sequence $x$.
+$[0, \tau)$, starting from an initial sequence $s$.
 
 \begin{algorithm}[t]
   \begin{algorithmic}[1]
     \caption{Simulating epigenome evolution}
-    \REQUIRE Binary state sequence $x$ of length $N$, time $\tau$ and rates $\Lambda$.
-    \ENSURE Ordered set $X$ of state sequences and jump times $Y$.
-    %% \STATE Initialize $X$ and $Y$ as empty ordered sets of state sequences and jump times
-    \STATE $t \gets 0$, $X\gets\emptyset$, $Y\gets\emptyset$
+    \REQUIRE Binary state sequence $s$ of length $N$, time $\tau$ and rates $\Lambda$.
+    \ENSURE Simulated global path $H = (s, Y, V)$ for change times $Y$ and positions $V$.
+    \STATE $t \gets 0$, $V\gets\emptyset$, $Y\gets\emptyset$ and $x \gets s$
     \WHILE {$t < \tau$}
-    \STATE Sample holding time $y\sim \mathit{Exp}(-R_{xx})$, where $-R_{xx} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk}$
+    \STATE Sample holding time $y\sim \mathit{Exp}(-R_{ss})$, where $-R_{ss} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk}$
     \STATE $t \gets t + y$
     \IF {$t < \tau$}
     \STATE Sample binary triplet $ijk$ with probability proportional to $c_{ijk}(x)\lambda_{ijk}$
     \STATE Sample position $n$ uniformly from the $c_{ijk}(x)$ at center of a $ijk$ triplet in $x$
     \STATE Modify state sequence $x$ to have state $\bar{j}$ at position $n$
-    \STATE Append a copy of current state sequence $x$ to $X$ and append time $t$ to $Y$
+    \STATE Append $n$ to $V$ and append $t$ to $Y$
     \ENDIF
     \ENDWHILE
-    \STATE Append a copy of current state sequence $x$ to $X$ and append time $\tau$ to $Y$
+    %% \STATE Append a copy of current state sequence $x$ to $X$ and append time $\tau$ to $Y$
+    \RETURN $H = (s, Y, V)$
   \end{algorithmic}
 \end{algorithm}
 
