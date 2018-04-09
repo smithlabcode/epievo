@@ -157,7 +157,7 @@ existing data set.
 
 %%% Need to cover the issues here of what it means for a methylome,
 %%% what it means for ATAC, what it means for histone mods.
-We assume that the epigenome is a sequence of binary states
+We assume that the epigenome is a sequence of binary states (``0'' and ``1'')
 super-imposed on the genome. This assumption is restrictive, but it
 allows us to consider the epigenome from either the perspective of an
 individual epigenomic modification, or as reflecting a particular type
@@ -188,8 +188,9 @@ edges. An epigenome $s$ evolves over time, but we assume the
 stationary distribution for the epigenome has a Gibbs distribution
 that factorizes over pairs of neighboring sites:
 \begin{equation}\label{eqn:stationary}
-  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}
+  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
 \end{equation}
+This is equivalent to a first-order Markov chain model (see Appendix).
 
 As the epigenome evolves, the state associated with individual
 positions may change. The types of changes we are most interested in
@@ -242,7 +243,7 @@ H = (s, Y, V), ~\mbox{ where} & s \in \{0,1\}^N,\\
 \end{equation}
 Times $Y$ and positions $V$ are in direct correspondence, but we adopt
 the notational convention $y_0 = 0$, allowing us to refer to any time
-$y_i-1$, without any position corresponding to time $0$.
+$y_{i-1}$, without any position corresponding to time $0$.
 %%%
 For any time $0 \leq t < \tau$, we let $s(t)$ denote the state
 sequence after having applied changes to $s = s(0)$ at positions given
@@ -265,7 +266,9 @@ transitions that modify a single position in $s$ defines bijection
 between the global jump times $Y$ and the union of the site-specific
 jump times $\cup_n Y_n$. Note that the sequences of site-specific
 paths $(H_1,\ldots,H_N)$ more concisely describes a realization of our
-process; obtaining the state sequence $s(t)$ for any time $t$ requires
+process; 
+%%% JQU: Is the below statement too strong/general? 
+obtaining the state sequence $s(t)$ for any time $t$ requires
 more effort.
 
 %%% Introduce transition rates
@@ -280,48 +283,8 @@ instantaneous rate $\lambda(i, j, k)$ is a function of the states at
 the site of interest and its two immediate neighbors.  Since we assume
 the evolutionary process is symmetric with respect to the direction
 along the genome, we require $\lambda(i, j, k) = \lambda(k, j, i)$.
-%%% ADS: note sure what this means below:
-When the states at all positions except for site $n$ remain constant
-over time interval the state $s_n$ follows a two-state continuous-time
-Markov process within that time interval.
 
-\subsection{Stationary Gibbs measure as Markov chain}
 
-The stationary distribution in \eqref{eqn:stationary} is equivalent to
-the distribution of a Markov chain. Therefore, when the epigenome is
-modeled with a Gibbs measure, we can sample an instance of the state
-sequence, or evaluate its probability, using the equivalent Markov
-chain. We can relate the factors in \eqref{eqn:stationary} and the
-transition probabilities of the Markov chain as follows. Define
-pair-wise potentials $Q(i,j)=\exp(\phi(i, j))$, where $i, j\in\{0,1\}$
-are binary states. The largest eigenvalue of $Q$ is
-\[
-q=\textstyle\frac{1}{2}\left(Q(0,0)+Q(1,1) +\sqrt{\Delta}\right), \text{ where }
-\Delta=(Q(0,0) - Q(1,1))^2 + 4Q(0,1)Q(1,0).
-\]
-Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
-\[
-\frac{h_0}{h_1} = \frac{Q(0,1)}{q-Q(0,0)} = \frac{q-Q(1,1)}{Q(1,0)}.
-\]
-The Markov chain transition matrix is:
-\[
-T(i,j) = \frac{Q(i,j)h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
-\]
-More specifically,
-\begin{equation} \label{eqn:gibbs2markov}
-  \begin{array}{ll}
-    T(1,1) = \displaystyle\frac{2Q(1,1)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, &
-    T(0,0) = \displaystyle\frac{2Q(0,0)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, \\[2em]
-    T(0,1) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(0,0)+\sqrt{\Delta})^2 -Q(1,1)^2}, &
-    T(1,0) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(1,1)+\sqrt{\Delta})^2 -Q(0,0)^2}.
-  \end{array}
-\end{equation}
-Accordingly, the expected fraction of an epigenome state sequence
-residing within functional domains (the ``features'') is:
-\[
-1- \frac{2Q(0,1)Q(1,0)}{(Q(0,0)-Q(1,1))^2 + 4Q(0,1)Q(1,0) +
-  (Q(1,1)-Q(0,0))\sqrt{\Delta}}.
-\]
 
 \subsection{Relating the substitution model and the stationary distribution}
 
@@ -342,7 +305,7 @@ Markov process with instantaneous rates $\lambda_{ijk}$.
 of specifying $\lambda$ from $\phi$: substitution rates $\lambda$
 satisfy the relation \eqref{eqn:prop1} if and only if they can be
 written in the form
-\begin{equation}\label{eqn:prop1}
+\begin{equation}\label{eqn:prop2}
   \log(\lambda_{ijk}) = -\psi(i, j, k) + \ell(i, k).
 \end{equation}
 This criteria was introduced in the context of an arbitrary number of
@@ -355,7 +318,7 @@ we define substitution rates as
 \begin{equation}
   \log (\lambda_{ijk}) =  \ell(i, k) + (\phi(i, \bar{j}) +\phi(\bar{j}, k)),
 \end{equation}
-then they satisfy the condition of \eqref{eqn:prop1}.
+then they satisfy the condition of \eqref{eqn:prop2}.
 
 \subsection{Parameterization and interpretation}
 
@@ -407,12 +370,13 @@ horizontal potentials:
 \end{equation}
 
 In summary, the transition rate matrix $\Lambda$ has 5 free
-parameters. If we add an additional constraint on the expected number
-of changes per unit time, then the model will have only 4 free
-parameters. The two ratios $\death{}/\birth{}$ and
-$\death{}\expansion{}^2/(\birth{}\contraction{}^2)$ then uniquely
+parameters; the two ratios $\death{}/\birth{}$ and
+$\death{}\expansion{}^2/(\birth{}\contraction{}^2)$ uniquely
 determine the stationary distribution \eqref{eqn:stationary} through
-equation \eqref{eqn:rel}.
+equation \eqref{eqn:rel}.  
+%%%
+% If we add an additional constraint on the expected number of changes
+% per unit time, then the model will have only 4 free parameters.
 
 \section{Simulate epigenomic changes during evolution}
 
@@ -428,33 +392,33 @@ of the left and right neighboring positions. We assume for convenience
 that the states of the first and last sites are fixed throughout
 evolution.
 
-Consider two epigenomes $x$ and $x'$ that differ by exactly one
+Consider two epigenomes $s$ and $s'$ that differ by exactly one
 position, and further suppose the state at that position in $x$ is
-$j$, and $\bar{j}$ in epigenome $x'$. Neighboring positions in both
-$x$ and $x'$ have states $i$ and $k$. The instantaneous rate of a jump
-between $x$ and $x'$ is $\lambda_{ijk}$. These entries can be
+$j$, and $\bar{j}$ in epigenome $s'$. Neighboring positions in both
+$s$ and $s'$ have states $i$ and $k$. The instantaneous rate of a jump
+between $s$ and $s'$ is $\lambda_{ijk}$. These entries can be
 organized as a transition matrix $R$ with $2^N\times 2^N$ entries, but
 all positive values corresponding to some $\lambda_{ijk}$. The holding
-time in a state sequence $x$ is exponentially distributed with rate
-$-R_{xx}$ equal to the sum of instantaneous rates for jumps from $x$
-to any state sequence $x'$ that differs from $x$ at exactly one
+time in a state sequence $s$ is exponentially distributed with rate
+$-R_{ss}$ equal to the sum of instantaneous rates for jumps from $s$
+to any state sequence $s'$ that differs from $s$ at exactly one
 position. Expressed in terms of the triplet rates, for a state
-sequence $x$ this parameter is
+sequence $s$ this parameter is
 \[
--R_{xx} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk},
+-R_{ss} = \sum_{i,j,k}c_{ijk}(s)\lambda_{ijk},
 \]
-where $c_{ijk}(x) = \sum_{n=1}^{N-2}I(x_{n}=i, x_{n+1}=j, x_{n+2}=k)$
-are the {\it ``triplet counts''} counting patterns $ijk$ in $x$.
+where $c_{ijk}(s) = \sum_{n=1}^{N-2}I(s_{n}=i, s_{n+1}=j, s_{n+2}=k)$
+are the {\it ``triplet counts''} counting patterns $ijk$ in $s$.
 
 Given that a jump has occurred at some fixed time, the probability
-that the jump changed $x$ at the middle position of triplet $ijk$ is
-proportional to $c_{ijk}(x)\lambda_{ijk}$. Further, given that a jump
+that the jump changed $s$ at the middle position of triplet $ijk$ is
+proportional to $c_{ijk}(s)\lambda_{ijk}$. Further, given that a jump
 occurred with context $ijk$, our model assumes the jump is equally
-likely to have changed any position in $x$ having state $j$ with left
+likely to have changed any position in $s$ having state $j$ with left
 and right neighbors having states $i$ and $k$.
 %%
-If the process is stationary, the expected number of changes per site
-per unit time is
+When the process reaches equilibrium, the expected number of changes
+per site per unit time is
 %%% ADS: use of pi might not be consistent (root vs. stationary??)
 $\sum_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
 stationary distribution for the pattern $ijk$ in the epigenome.
@@ -467,9 +431,9 @@ Algorithm \ref{alg:simulation}.
     \caption{Simulating epigenome evolution}\label{alg:simulation}
     \REQUIRE Binary state sequence $s$ of length $N$, time $\tau$ and rates $\Lambda$.
     \ENSURE Simulated global path $H = (s, Y, V)$ for change times $Y$ and positions $V$.
-    \STATE $t \gets 0$, $V\gets\emptyset$, $Y\gets\emptyset$ and $x \gets s$
-    \WHILE {$t < \tau$}
-    \STATE Sample holding time $y\sim \mathit{Exp}(-R_{ss})$, where $-R_{ss} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk}$
+    \STATE $t \gets 0$, $V\gets\emptyset$, $Y\gets\emptyset$
+    \WHILE {$t < \tau$, and $x \gets s(t)$}
+    \STATE Sample holding time $y\sim \mathit{Exp}(-R_{xx})$, where $-R_{xx} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk}$
     \STATE $t \gets t + y$
     \IF {$t < \tau$}
     \STATE Sample binary triplet $ijk$ with probability proportional to $c_{ijk}(x)\lambda_{ijk}$
@@ -496,9 +460,10 @@ Algorithm \ref{alg:simulation}.
 
 First, given a global path $H$ for the evolution of an epigenome over
 time $\halfopen{0}{\tau}$ with $\tau = 1$, we are interested in
-estimating the transition rate parameters $\Lambda$. We assume a
-stationary process here, but this assumption is not necessary (see
-Appendix).
+estimating the transition rate parameters $\Lambda$. 
+%%% JQU: why assume stationary? 
+We assume a stationary process here, but this assumption is not
+necessary (see Appendix).
 
 Recall that for global path $H = (s, Y, V)$, the $m$-th jump occurs at
 time $y_m$ and position $v_m$. Let $\context{m}$ denote the
@@ -511,13 +476,13 @@ So $\context{m}$ indicates the triplet that was modified by the $m$-th
 jump. Note: $\context{m}$ is defined relative to a specific global
 path $H$ that we leave implicit in our notation.
 
-The holding time $\Delta_m = v_{m} - v_{m-1}$ just prior to the $m$-th
+The holding time $\Delta_m = y_{m} - y_{m-1}$ just prior to the $m$-th
 jump in the evolving state sequence follows the exponential
 distribution
 %%% ADS: need to relate $\lambda_m$ to $R_{xx}$
 \[
 \Delta_m \sim \mathit{Exp}(\lambda_m), ~\text{ with }~
-\lambda_{m} = -R_{s(v_{m-1})s(v_{m-1})} = \sum_{i,j,k}c_{ijk}(v_{m-1})\lambda_{ijk}.
+\lambda_{m} = -R_{s(y_{m-1})s(y_{m-1})} = \sum_{i,j,k}c_{ijk}(s(y_{m-1}))\lambda_{ijk}.
 \]
 The likelihood function for parameters $\Lambda$ involves holding times and
 identities of transitions:
@@ -530,7 +495,7 @@ identities of transitions:
 And the log-likelihood function is
 \begin{equation}\label{eqn:loglik}
   \begin{array}{ll}
-    \log L(\Lambda | H) & = \sum_{i,j,k} \Big(\sum_{m=1}^w\log\lambda_{ijk}\times I{\{\context{m} = ijk\}} - c_{ijk}(v_{m-1})\lambda_{ijk}\Delta_m\Big)\\[1em]
+    \log L(\Lambda | H) & = \sum_{i,j,k} \Big(\sum_{m=1}^w\log\lambda_{ijk}\times I{\{\context{m} = ijk\}} - c_{ijk}(s(y_{m-1}))\lambda_{ijk}\Delta_m\Big)\\[1em]
     & = \sum_{i,j,k} \left(J_{ijk}\log\lambda_{ijk} - D_{ijk}\lambda_{ijk} \right),
   \end{array}
 \end{equation}
@@ -538,7 +503,7 @@ where
 \begin{equation}\label{def:JD}
 J_{ijk} = \sum_{m=1}^w I\{\context{m} = ijk\}
 ~~\mbox{ and }~~
-D_{ijk} = \sum_{m=1}^w c_{ijk}(v_{m-1})\Delta_m.
+D_{ijk} = \sum_{m=1}^w c_{ijk}(s(y_{m-1}))\Delta_m.
 \end{equation}
 Here $J_{ijk}$ counts jumps that create a triplet $ijk$ and $D_{ijk}$
 measures the evolutionary time spent in context $ijk$, summed over all
@@ -719,12 +684,13 @@ evolutionary path (on the entire tree) for one site from its posterior
 distribution given observed evolutionary paths at all other sites and the
 observed states at all leaf nodes for this site?
 
+%%% JQU: reuse of "Z"
 \paragraph{Tree branch partitions imposed by states at neighboring sites.}
-The process an individual site is not homogeneous along a branch, as
+The evolutionary process at an individual site is not homogeneous along a branch, as
 its transition rates depend on states of neighboring sites at any
 instant. By partitioning each branch into maximal contiguous intervals
 with neighboring states unchanged, within each such interval the
-process is homogeneous. For a site $n$, define breaks $Z =
+process is homogeneous. For site $n$, define breaks $Z =
 (z_1\ldots,z_{w_{n-1} + w_{n+1}})$ as the ordered set of times from
 $Y_{n-1}$ and $Y_{n+1}$. During each time interval $(z_{i-1}, z_{i})$,
 the state at site $n-1$ and site $n+1$ remains unchanged.  For each
@@ -733,26 +699,17 @@ $Z(b)$ to define new nodes that each have only one child. Once this is
 done, we can apply Felsenstein's algorithm to compute the probability
 of states at each breakpoint on each branch of the tree.
 
-<<<<<<< HEAD
-
-and can be characterized using a $2\times2$ transition rate matrix
-$Q_{bm}$ for the $m$-th interval on branch $b$. The states of this
-site of interest at the start and the end of a single interval,
-$s_{b,m-1}$ and $s_{b,m}$ are connected through a transition
-probability matrix $P_{bm} = \exp(Q_{bm}t_{bm})$.  The likelihood of
-observing leaf node states at this site $\{s_n(v)\}$, given the
-evolutionary paths at other sites is
-=======
 %%% ADS: need to define P and Q here...
-{\bf need to fix this paragraph to define P and Q properly.} and can
-be characterized using a $2\times2$ transition rate matrix $Q_{bm}$
-for the $m$-th interval on branch $b$. The states of this site of
+{\bf need to fix this paragraph to define P and Q properly.}
+
+The evolutionary process at site $n$ within the $m$-the interval on
+branch $b$ is thus a time-homogeneous continuous-time Markov chain
+with transition rate matrix $Q_{bm}$.  The states of this site of
 interest at the start and the end of a single interval, $s_{b,m-1}$
 and $s_{b,m}$ are connected through a transition probability matrix
 $P_{bm} = \exp(Q_{bm}t_{bm})$.  The likelihood of observing leaf node
 states at this site $\{s_n(v)\}$, given the evolutionary paths at
 other sites is
->>>>>>> afb3a2de37487ccf43ea4a191aa83ea0cd1aa75e
 \[
 \Pr(\{s_n(v)\} | H_{\overline{n}}) = \sum_{\{s_{bm}\}} \prod_{b} \prod_{m} P_{bm}(s_{b,m-1}, s_{b, m})
 \]
@@ -899,6 +856,43 @@ time-dependent graphical models.
 \clearpage
 
 \appendix
+\subsection{Stationary Gibbs measure as Markov chain}
+
+The stationary distribution in \eqref{eqn:stationary} is equivalent to
+the distribution of a Markov chain. Therefore, when the epigenome is
+modeled with a Gibbs measure, we can sample an instance of the state
+sequence, or evaluate its probability, using the equivalent Markov
+chain. We can relate the factors in \eqref{eqn:stationary} and the
+transition probabilities of the Markov chain as follows. Define
+pair-wise potentials $Q(i,j)=\exp(\phi(i, j))$, where $i, j\in\{0,1\}$
+are binary states. The largest eigenvalue of $Q$ is
+\[
+q=\textstyle\frac{1}{2}\left(Q(0,0)+Q(1,1) +\sqrt{\Delta}\right), \text{ where }
+\Delta=(Q(0,0) - Q(1,1))^2 + 4Q(0,1)Q(1,0).
+\]
+Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
+\[
+\frac{h_0}{h_1} = \frac{Q(0,1)}{q-Q(0,0)} = \frac{q-Q(1,1)}{Q(1,0)}.
+\]
+The Markov chain transition matrix is:
+\[
+T(i,j) = \frac{Q(i,j)h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
+\]
+More specifically,
+\begin{equation} \label{eqn:gibbs2markov}
+  \begin{array}{ll}
+    T(1,1) = \displaystyle\frac{2Q(1,1)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, &
+    T(0,0) = \displaystyle\frac{2Q(0,0)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, \\[2em]
+    T(0,1) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(0,0)+\sqrt{\Delta})^2 -Q(1,1)^2}, &
+    T(1,0) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(1,1)+\sqrt{\Delta})^2 -Q(0,0)^2}.
+  \end{array}
+\end{equation}
+Accordingly, the expected fraction of an epigenome state sequence
+residing within functional domains (the ``features'') is:
+\[
+1- \frac{2Q(0,1)Q(1,0)}{(Q(0,0)-Q(1,1))^2 + 4Q(0,1)Q(1,0) +
+  (Q(1,1)-Q(0,0))\sqrt{\Delta}}.
+\]
 
 \section{Equations for maximum likelihood estimation}
 
