@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
-#include <algorithm>
+#include <algorithm>   // std::lower_bound,
 #include <iostream>
 #include <cmath>
 #include <random>
@@ -40,9 +40,10 @@ using std::string;
 
 /* 2x2 rate matrix to transition prob. matrix */
 static void
-trans_prob_mat(double rate0, double rate1,
-               double interval,
+trans_prob_mat(const double rate0, const double rate1,
+               const double interval,
                vector<vector<double> > &transition_matrix) {
+
   assert(rate0 > 0 && rate1 > 0 && interval > 0);
   double h = 1.0/exp(interval*(rate0 + rate1));
 
@@ -55,83 +56,88 @@ trans_prob_mat(double rate0, double rate1,
   transition_matrix[1][0] = 1.0 - transition_matrix[1][1];
 }
 
+void
+decompose(const double rate0, const double rate1,
+          vector<double> &rates,
+          vector<double> &eigen_vals,
+          vector<vector<double> > &U,
+          vector<vector<double> > &Uinv) {
 
+  rates = vector<double>(2, 0.0);
+  rates[0] = rate0;
+  rates[1] = rate1;
 
-inline double
-pdf(const double coeff0, const double coeff1,
-    const double exp_coeff0, const double exp_coeff1,
-    const double scaler, const double x) {
+  // Q = U*D*Uinv
+  eigen_vals = vector<double>(2, 0.0);
+  eigen_vals[1] = -(rate0 + rate1);
+  U = vector<vector<double> >(2, vector<double>(2, 0.0));
+  U[0][0] = 1.0;
+  U[0][1] = rate0;
+  U[1][0] = 1;
+  U[1][1] = -rate1;
+  Uinv = vector<vector<double> >(2, vector<double>(2, 0.0));
+  Uinv[0][0] = rate1/(rate0 + rate1);
+  Uinv[0][1] = rate0/(rate0 + rate1);
+  Uinv[1][0] = 1.0/(rate0 + rate1);
+  Uinv[1][1] = -1.0/(rate0 + rate1);
+}
 
-  return (coeff0 / exp_coeff0 * (exp(exp_coeff0 * x) - 1) +
-          coeff1 / exp_coeff1 * (exp(exp_coeff1 * x) - 1))/scaler;
-};
+/* pdf function of end-conditioned time of first jump within the interval*/
+double
+pdf(const vector<double> &rates,
+    const vector<double> &eigen_vals,
+    const vector<vector<double> > &U,
+    const vector<vector<double> > &Uinv,
+    const vector<vector<double> > &PT,
+    const double T, const size_t a, const size_t b, const double x) {
+  double f = 0.0;
+  const size_t abar = 1 - a;
+  for (size_t i = 0; i < 2; ++i)
+    f += U[abar][i]*Uinv[i][b]*exp(T*eigen_vals[i])*exp(-x*(eigen_vals[i]+rates[a]));
 
-
-
+  f *= rates[a]/PT[a][b];
+  return f;
+}
 
 double
-sample_from_jump_time_pdf(const vector<vector<double> > &Q,
-                          const size_t a, const size_t b,
-                          const double T, std::mt19937 &gen) {
-  double coeff0 = 0;
-  double coeff1 = 0;
-  double exp_coeff0 = 0;
-  double exp_coeff1 = 0;
-
-  /* the pdf is: 1/scaler*[coeff0 * exp(exp_coeff0 * t) +  coeff1 * exp(exp_coeff1 * t)] */
-  const double q0 = Q[0][1];
-  const double q1 = Q[1][0];
-  if (a == 0 && b == 0) {
-    double denom = q1 + q0 * exp( - (q0 + q1) * T);
-    coeff0 = pow(q0, 2) / denom;
-    coeff1 = (-pow(q0, 2)) * exp(- (q0 + q1) * T) / denom;
-    exp_coeff0 = -q0;
-    exp_coeff1 = q1;
+cdf(const vector<double> &rates,
+    const vector<double> &eigen_vals,
+    const vector<vector<double> > &U,
+    const vector<vector<double> > &Uinv,
+    const vector<vector<double> > &PT,
+    const double T, const size_t a, const size_t b, const double x) {
+  double p = 0.0;
+  const size_t abar = 1 - a;
+  for (size_t i = 0; i < 2; ++i) {
+    const double scaler = U[abar][i]*Uinv[i][b]*exp(T*eigen_vals[i]);
+    const double coeff = -(eigen_vals[i] + rates[a]);
+    p += scaler*(1.0/coeff)*(exp(x*coeff) - 1.0);
   }
+  p *= rates[a]/PT[a][b];
+  return p;
+}
 
-  if (a == 0 && b == 1) {
-    double denom = 1.0 - exp(- (q0 + q1) * T);
-    coeff0 = q0/denom;
-    coeff1 = q1 * exp(- (q0 + q1) * T) / denom;
-    exp_coeff0 = -q0;
-    exp_coeff1 = q1;
-  }
-
-  if (a == 1 && b == 0) {
-    double denom = 1.0 - exp(- (q0 + q1) * T);
-    coeff0 = q1 / denom;
-    coeff1 = q0 * exp(- (q0 + q1) * T) / denom;
-    exp_coeff0 = -q1;
-    exp_coeff1 = q0;
-  }
-
-  if (a == 1 && b == 1) {
-    double denom = q0 + q1 * exp( - (q0 + q1) * T);
-    coeff0 = pow(q1, 2) / denom;
-    coeff1 = (-pow(q1, 2)) * exp(- (q0 + q1) * T) / denom;
-    exp_coeff0 = -q1;
-    exp_coeff1 = q0;
-  }
-
-  const double scaler = coeff0 / exp_coeff0 * (exp(exp_coeff0 * T) - 1) +
-    coeff1 / exp_coeff1 * (exp(exp_coeff1 * T) - 1);
-
-  /* x~pdf <=> CDF(x)~Unif(0,1)*/
-  std::uniform_real_distribution<double> unif(0.0,1.0);
-  double rn = unif(gen);
-  // now do line search to find x s.t. CDF(x) = rn
-  double lo = 0;
+double
+line_search_cdf(const vector<double> &rates,
+                const vector<double> &eigen_vals,
+                const vector<vector<double> > &U,
+                const vector<vector<double> > &Uinv,
+                const vector<vector<double> > &PT,
+                const double T, const size_t a, const size_t b,
+                const double target) {
+  double lo = 1e-10; // PRECISION
   double hi = T;
   double mi = 0.5 * (lo + hi);
-  while (hi-lo > 1e-5) {
-    double lo_val = pdf(coeff0, coeff1, exp_coeff0, exp_coeff1, scaler, lo);
-    double mi_val = pdf(coeff0, coeff1, exp_coeff0, exp_coeff1, scaler, mi);
-    double hi_val = pdf(coeff0, coeff1, exp_coeff0, exp_coeff1, scaler, hi);
-    assert(lo_val < rn && hi_val > rn);
-    if (mi_val > rn) {
+
+  while (hi-lo > 1e-5) {  // PRECISION
+    double lo_val = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, lo);
+    double mi_val = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, mi);
+    double hi_val = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, hi);
+    assert(lo_val < target && hi_val > target);
+    if (mi_val > target) {
       hi = mi;
       mi = 0.5 * (lo + hi);
-    } else if (mi_val < rn) {
+    } else if (mi_val < target) {
       lo = mi;
       mi = 0.5 * (lo + hi);
     } else {
@@ -141,56 +147,56 @@ sample_from_jump_time_pdf(const vector<vector<double> > &Q,
   return mi;
 }
 
-
-
 /* Continuous time Markov chian with rate matrix Q.
    Return the first jump time within (0,T) or T if no jumps,
    given state at time 0 being a, and state at T being b.
 */
 double
-end_cond_sample_first_jump(const vector<vector<double> > &Q,
+end_cond_sample_first_jump(const vector<double> rates,
+                           const vector<double> eigen_vals,
+                           const vector<vector<double> > U,
+                           const vector<vector<double> > Uinv,
                            const size_t a, const size_t b,
                            const double T, std::mt19937 &gen) {
 
-  assert(a <= 1 && b <= 1 && T > 0);
-
-  vector<vector<double> > PT;
-  const double rate0 = Q[0][1];
-  const double rate1 = Q[1][0];
-  trans_prob_mat(rate0, rate1, T, PT);
+  vector<vector<double> > PT;  // PT = exp(QT)
+  trans_prob_mat(rates[0], rates[1], T, PT);
 
   std::uniform_real_distribution<double> unif(0.0,1.0);
-  double w = 0;
+
+  double pr_no_jump  = 0.0;
   if (a == b) {
-    double pr_no_jump = exp(Q[a][a]*T - log(PT[a][a]));
+    pr_no_jump = exp(-rates[a]*T)/PT[a][a];
     if (unif(gen) < pr_no_jump) {
       return T;
     }
   }
 
-  w = sample_from_jump_time_pdf(Q, a, b, T, gen);
+  /* x~pdf <=> CDF(x)~Unif(0,1)*/
+  double rn = unif(gen) * (1.0 - pr_no_jump);
+
+  // now do line search to find x s.t. CDF(x) = rn
+  double w = line_search_cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, rn);
   return w;
 }
 
 
 /* Endpoint-conditioned sampling of path witin time interval T*/
 void
-end_cond_sample(const double rate0, const double rate1,
+end_cond_sample(const vector<double> rates,
+                const vector<double> eigen_vals,
+                const vector<vector<double> > U,
+                const vector<vector<double> > Uinv,
                 const size_t a, const size_t b, const double T,
                 std::mt19937 &gen, vector<double> &jump_times) {
-
-  vector<vector<double> > Q(2, vector<double>(2, 0.0));
-  Q[0][1] = rate0;
-  Q[0][0] = -rate0;
-  Q[1][0] = rate1;
-  Q[1][1] = -rate1;
 
   jump_times = vector<double>(0, 0.0);
   double tot = T;
   size_t start_state = a;
   double base_time = 0;
   while (tot > 0) {
-    double wait = end_cond_sample_first_jump(Q, start_state, b, tot, gen);
+    double wait = end_cond_sample_first_jump(rates, eigen_vals, U, Uinv,
+                                             start_state, b, tot, gen);
     assert(wait > 0);
     if (wait < tot) {
       jump_times.push_back(base_time + wait);
@@ -202,15 +208,19 @@ end_cond_sample(const double rate0, const double rate1,
 }
 
 
+
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////           UPWARD PRUNING           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 // rates are two muation rates for pattern x0y, and x1y
 void
-upward(const vector<double> &rates, const double T,
+upward(const vector<double> &rates,
+       const double T,
        const vector<double> &q, // auxiliary values
        vector<double> &p) {
+
+  assert(T > 0);
 
   p = vector<double>(2, 0.0);
   vector<vector<double> > P; // transition matrix
@@ -240,6 +250,7 @@ rates_on_branch(const vector<double> &triplet_rates,
     interval_rates[i][0]= triplet_rates[pattern0];
     interval_rates[i][1] = triplet_rates[pattern1];
     interval_lengths[i] = (i==0)? env.breaks[0] : env.breaks[i] - env.breaks[i-1];
+    assert(interval_lengths[i] > 0);
   }
 }
 
@@ -322,6 +333,8 @@ pruning_branch(const vector<double> &triplet_rates,
   }
 }
 
+
+
 // all_p: branch x interval x state
 void
 pruning(const vector<double> &triplet_rates,
@@ -373,9 +386,17 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
     std::uniform_real_distribution<double> unif(0.0,1.0);
     bool new_state = (unif(gen) > p0);
 
+    // prepare helper values
+    vector<double> rates;
+    vector<double> eigen_vals;
+    vector<vector<double> > U;
+    vector<vector<double> > Uinv;
+    decompose(interval_rates[m][0], interval_rates[m][1],
+              rates, eigen_vals, U, Uinv);
+
     // generate path
     vector<double> jump_times;
-    end_cond_sample(interval_rates[m][0], interval_rates[m][1],
+    end_cond_sample(rates, eigen_vals, U, Uinv,
                     par_state, (size_t)(new_state),
                     interval_lengths[m], gen, jump_times);
 
@@ -390,18 +411,26 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
   }
 
   if (is_leaf(subtree_sizes[node_id])) {
-    size_t leaf_state = all_paths[node_id][site].end_state();
+    const size_t leaf_state = all_paths[node_id][site].end_state();
     // generate path
     vector<double> jump_times;
     const size_t m = n_intervals - 1;
-    end_cond_sample(interval_rates[m][0],interval_rates[m][1],
-                    par_state, leaf_state,
-                    interval_lengths[m],
-                    gen, jump_times);
+    // prepare helper values
+    vector<double> rates;
+    vector<double> eigen_vals;
+    vector<vector<double> > U;
+    vector<vector<double> > Uinv;
+    decompose(interval_rates[m][0], interval_rates[m][1],
+              rates, eigen_vals, U, Uinv);
+    end_cond_sample(rates, eigen_vals, U, Uinv, par_state, leaf_state,
+                    interval_lengths[m], gen, jump_times);
     // append jump_times to new_path
     for (size_t i = 0; i < jump_times.size(); ++i) {
       new_path[node_id].jumps.push_back(time_passed + jump_times[i]) ;
     }
+
+    assert(new_path[node_id].end_state() == leaf_state);
+
   } else {
     // last interval requires information from children
     vector<size_t> children;
@@ -428,9 +457,16 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
         all_paths[children[idx]][site - 1].tot_time;
     }
 
+    // prepare helper values
+    vector<double> rates;
+    vector<double> eigen_vals;
+    vector<vector<double> > U;
+    vector<vector<double> > Uinv;
+    decompose(interval_rates[m][0], interval_rates[m][1],
+              rates, eigen_vals, U, Uinv);
     // generate path
     vector<double> jump_times;
-    end_cond_sample(interval_rates[m][0], interval_rates[m][1],
+    end_cond_sample(rates, eigen_vals, U, Uinv,
                     par_state, (size_t)(new_state),
                     interval_lengths[m], gen, jump_times);
     // append jump_times to new_path
@@ -440,6 +476,25 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
   }
 }
 
+double
+root_post_prob0(const vector<size_t> &children,
+                const size_t site,
+                const vector<vector<Path> > &all_paths,
+                const vector<vector<double> > &root_trans_prob,
+                const vector<vector<vector<double> > > &all_p) {
+  // compute posterior probability at root node
+  size_t lstate = all_paths[children[0]][site - 1].init_state;
+  size_t rstate = all_paths[children[0]][site + 1].init_state;
+  double p0 = root_trans_prob[lstate][0] * root_trans_prob[0][rstate];
+  double p1 = root_trans_prob[lstate][1] * root_trans_prob[1][rstate];
+  for (size_t idx = 0; idx < children.size(); ++idx) {
+    p0 *= all_p[children[idx]][0][0];
+    p1 *= all_p[children[idx]][0][1];
+  }
+
+  double root_p0 = p0/(p0+p1);
+  return root_p0;
+}
 
 void
 downward_sampling(const vector<double> &triplet_rates,
@@ -453,23 +508,15 @@ downward_sampling(const vector<double> &triplet_rates,
   Path empty_path;
   new_path = vector<Path>(subtree_sizes.size(), empty_path);
 
-  // compute posterior probability at root node
   const size_t root_id = 0; //all_paths[0] is empty
-  size_t lstate = all_paths[root_id + 1][site - 1].init_state;
-  size_t rstate = all_paths[root_id + 1][site + 1].init_state;
-
   vector<size_t> children;
   get_children(root_id, subtree_sizes, children);
 
+  // compute posterior probability at root node
+  const double root_p0 = root_post_prob0(children, site, all_paths,
+                                         root_trans_prob, all_p);
 
-  double p0 = root_trans_prob[lstate][0] * root_trans_prob[0][rstate];
-  double p1 = root_trans_prob[lstate][1] * root_trans_prob[1][rstate];
-  for (size_t idx = 0; idx < children.size(); ++idx) {
-    p0 *= all_p[children[idx]][0][0];
-    p1 *= all_p[children[idx]][0][1];
-  }
-
-  const double root_p0 = p0/(p0+p1);
+  // sample new root state
   std::uniform_real_distribution<double> unif(0.0,1.0);
   bool new_root_state = (unif(gen) > root_p0);
   for (size_t idx = 0; idx < children.size(); ++idx) {
@@ -493,32 +540,306 @@ downward_sampling(const vector<double> &triplet_rates,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-///////////////            ACCEPTANCE RATE          ////////////////////////////
+///////////////        Compute acceptance rate         /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+double
+end_cond_sample_prob(const vector<double> rates,
+                     const vector<double> eigen_vals,
+                     const vector<vector<double> > U,
+                     const vector<vector<double> > Uinv,
+                     size_t a, const size_t b, double T,
+                     vector<double> jump_times) {
+  double p = 1.0;
+
+  // jump_times are between 0 and T
+  assert(jump_times.size() == 0 || jump_times.back() < T);
+  assert(jump_times.size() > 0 || a == b);
+
+  while (jump_times.size()) {
+     vector<vector<double> > PT;  // PT = exp(QT)
+     trans_prob_mat(rates[0], rates[1], T, PT);
+     p *= pdf(rates, eigen_vals, U, Uinv, PT, T, a, b, jump_times[0]);
+
+    a = 1 - a;
+    const double w = jump_times[0];
+    T = T - w;
+    jump_times.erase(jump_times.begin());
+    for (size_t i = 0; i < jump_times.size(); ++i)
+      jump_times[i] -= w;
+  }
+
+  assert(a == b);
+  vector<vector<double> > PT;  // PT = exp(QT)
+  trans_prob_mat(rates[0], rates[1], T, PT);
+  const double pr_no_jump = exp(-rates[a]*T)/PT[a][a];
+  return p*pr_no_jump;
+}
+
+
+static void
+select_jumps(const vector<double> jumps,
+             const double t0, const double t1,
+             vector<double> & subset_jumps) {
+  // jumps is a vector of ascending positive values
+
+  vector<double>::const_iterator low,up;
+  low = std::upper_bound(jumps.begin(), jumps.end(), t0); // first > t0
+  up = std::lower_bound(jumps.begin(), jumps.end(), t1); // first >= t1
+  subset_jumps = vector<double>(low, up);
+  // change reference point to t0
+  for (size_t i = 0; i < subset_jumps.size(); ++i)
+    subset_jumps[i] -= t0;
+}
+
+
+/*counterpart of downward_sampling_branch*/
 void
-gibbs_site( const EpiEvoModel &the_model,
-            const size_t site,
-            vector<vector<Path> > &all_paths,
-            std::mt19937 &gen,
-            vector<Path> &new_path) {
+proposal_prob_branch(const vector<vector<double> > &interval_rates,
+                     const vector<double> &interval_lengths,
+                     const vector<size_t> &subtree_sizes,
+                     const size_t site,
+                     const size_t node_id,
+                     const vector<vector<Path> > &all_paths,
+                     const vector<vector<vector<double> > > &all_p,
+                     const Path &path,
+                     double &prob) {
+
+  const size_t n_intervals = interval_rates.size();
+  const vector<double> jumps = path.jumps;
+
+  size_t a = path.init_state; // state of one end
+  double time_passed = 0;
+  for (size_t m = 0; m < n_intervals - 1; ++m) {
+
+    // compute conditional posterior probability
+    vector<vector<double> > P; // transition matrix
+    trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+                   interval_lengths[m], P);
+    double p0 = (all_p[node_id][m+1][0] * P[a][0] /
+                 all_p[node_id][m][a]);
+
+    // check state at break point
+    const double t = time_passed + interval_lengths[m];
+    const size_t b = (size_t)(path.state_at_time(t)); // state of the other end
+    prob *= (b == 0) ? p0: 1.0 - p0;
+
+    // prepare helper values
+    vector<double> rates;
+    vector<double> eigen_vals;
+    vector<vector<double> > U;
+    vector<vector<double> > Uinv;
+    decompose(interval_rates[m][0], interval_rates[m][1],
+              rates, eigen_vals, U, Uinv);
+
+    // get jumps between time interval (time_passed, time_passed + interval_lengths[m])
+    vector<double> subset_jumps;
+    select_jumps(path.jumps, time_passed,
+                 time_passed + interval_lengths[m], subset_jumps);
+
+    // compute end_cond_sample prob
+    prob *= end_cond_sample_prob(rates, eigen_vals, U, Uinv,
+                                 a, b, interval_lengths[m], subset_jumps);
+
+    // prepare for next interval
+    time_passed += interval_lengths[m];
+    a = b;
+  }
+
+  if (is_leaf(subtree_sizes[node_id])) {
+    const size_t b = all_paths[node_id][site].end_state();
+    const size_t m = n_intervals - 1;
+    // prepare helper values
+    vector<double> rates;
+    vector<double> eigen_vals;
+    vector<vector<double> > U;
+    vector<vector<double> > Uinv;
+    decompose(interval_rates[m][0], interval_rates[m][1],
+              rates, eigen_vals, U, Uinv);
+
+    vector<double> subset_jumps;
+    select_jumps(path.jumps, time_passed,
+                 time_passed + interval_lengths[m], subset_jumps);
+    // compute end_cond_sample prob
+    prob *= end_cond_sample_prob(rates, eigen_vals, U, Uinv,
+                                 a, b, interval_lengths[m], subset_jumps);
+  } else {
+    // last interval requires information from children
+    vector<size_t> children;
+    get_children(node_id, subtree_sizes, children);
+    const size_t m = n_intervals - 1;
+
+    // compute conditional posterior probability
+    vector<vector<double> > P; // transition matrix
+    trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+                   interval_lengths[m], P);
+    double p0 = 1.0;
+    for (size_t idx = 0; idx < children.size(); ++idx)
+      p0 *= all_p[children[idx]][0][0];
+    p0 *= P[a][0]/all_p[node_id][m][a];
+
+    size_t b = (size_t)(path.end_state());
+    prob *= (b == 0)? p0 : 1.0 - p0;
+
+    // prepare helper values
+    vector<double> rates;
+    vector<double> eigen_vals;
+    vector<vector<double> > U;
+    vector<vector<double> > Uinv;
+    decompose(interval_rates[m][0], interval_rates[m][1],
+              rates, eigen_vals, U, Uinv);
+
+    // select jumps
+    vector<double> subset_jumps;
+    select_jumps(path.jumps, time_passed,
+                 time_passed + interval_lengths[m], subset_jumps);
+
+    // compute end_cond_sample prob
+    prob *= end_cond_sample_prob(rates, eigen_vals, U, Uinv,
+                                 a, b, interval_lengths[m], subset_jumps);
+  }
+}
+
+
+// compute proposal prob
+void
+proposal_prob(const vector<double> &triplet_rates,
+              const vector<size_t> &subtree_sizes,
+              const size_t site,
+              const vector<vector<Path> > &all_paths,
+              const vector<vector<double> > &root_trans_prob,
+              const vector<vector<vector<double> > > &all_p,
+              const vector<Path> &new_path,
+              double &pro_old, double &pro_new) {
+
+  // compute posterior probability at root node
+  const size_t root_id = 0;
+  vector<size_t> children;
+  get_children(root_id, subtree_sizes, children);
+  const double root_p0 = root_post_prob0(children, site, all_paths,
+                                         root_trans_prob, all_p);
+
+  pro_old = 1.0;
+  pro_new = 1.0;
+
+  pro_old *= all_paths[1][site].init_state ? 1.0-root_p0 : root_p0;
+  pro_new *= new_path[1].init_state ? 1.0-root_p0 : root_p0;
+
+  // preorder traversal of the tree
+  for (size_t node_id = 1; node_id < subtree_sizes.size(); ++node_id) {
+    // collect relevant transition rates for each interval
+    vector<vector<double> > interval_rates;
+    vector<double> interval_lengths;
+    rates_on_branch(triplet_rates, all_paths[node_id][site-1],
+                    all_paths[node_id][site+1],
+                    interval_rates, interval_lengths);
+    proposal_prob_branch(interval_rates, interval_lengths,
+                         subtree_sizes, site, node_id, all_paths,
+                         all_p, new_path[node_id], pro_new);
+    proposal_prob_branch(interval_rates, interval_lengths,
+                         subtree_sizes, site, node_id, all_paths,
+                         all_p, all_paths[node_id][site], pro_old);
+  }
+
+  //  cerr << pro_old << "\t" << pro_new << endl;
+
+}
+
+
+static double
+log_lik_ratio(const vector<double> &rates,
+              const PathContextStat &pcs_num,
+              const PathContextStat &pcs_denom) {
+  double result = 0.0;
+  for (size_t i = 0; i < 8; ++i) {
+    result += (pcs_num.jumps_in_context[i] -
+               pcs_denom.jumps_in_context[i])*log(rates[i]) -
+      (pcs_num.time_in_context[i] -
+       pcs_denom.time_in_context[i]) * rates[i];
+  }
+  return result;
+}
+
+
+
+
+
+// compute acceptance rate
+double
+log_accept_rate(const EpiEvoModel &the_model,
+                const size_t site,
+                const vector<vector<Path> > &all_paths,
+                const vector<vector<vector<double> > > &all_p,
+                const vector<Path> &new_path) {
+  double pro_old, pro_new;
+  proposal_prob(the_model.triplet_rates, the_model.subtree_sizes,
+                site, all_paths, the_model.init_T, all_p, new_path,
+                pro_old, pro_new);
+
+  double lr = log(pro_old) - log(pro_new);
+
+  for (size_t i = 1; i < the_model.subtree_sizes.size(); ++i) {
+    Path l = all_paths[i][site-1];
+    Path ll = all_paths[i][site-2];
+    Path r = all_paths[i][site+1];
+    Path rr = all_paths[i][site+2];
+    PathContextStat pcs_old(l, all_paths[i][site], r);
+    PathContextStat pcs_new(l, new_path[i], r);
+    PathContextStat pcs_old_l(ll, l, all_paths[i][site]);
+    PathContextStat pcs_new_l(ll, l, new_path[i]);
+    PathContextStat pcs_old_r(all_paths[i][site], r, rr);
+    PathContextStat pcs_new_r(new_path[i], r, rr);
+
+    lr += log_lik_ratio(the_model.triplet_rates, pcs_new, pcs_old) +
+      log_lik_ratio(the_model.triplet_rates, pcs_new_l, pcs_old_l) +
+      log_lik_ratio(the_model.triplet_rates, pcs_new_r, pcs_old_r);
+  }
+
+  return lr;
+}
+
+
+//
+
+void
+gibbs_site(const EpiEvoModel &the_model,
+           const size_t site,
+           vector<vector<Path> > &all_paths,
+           std::mt19937 &gen,
+           vector<Path> &new_path) {
 
   // collect relevant transition rates for each interval
   const size_t n_nodes = the_model.subtree_sizes.size();
   vector<vector<vector<double> > > all_interval_rates(n_nodes);
   vector<vector<double> > all_interval_lengths(n_nodes);
-  for (size_t node_id = 1; node_id < n_nodes; ++node_id)
+  for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
     rates_on_branch(the_model.triplet_rates,
                     all_paths[node_id][site-1],
                     all_paths[node_id][site+1],
                     all_interval_rates[node_id],
                     all_interval_lengths[node_id]);
+  }
 
+  // upward pruning and downward sampling
   vector<vector<vector<double> > > all_p;
   pruning(the_model.triplet_rates, the_model.subtree_sizes, site, all_paths,
           all_interval_rates, all_interval_lengths, all_p);
 
-  //  vector<Path> new_path;
   downward_sampling(the_model.triplet_rates, the_model.subtree_sizes, site,
                     all_paths, the_model.init_T, all_p, gen, new_path);
+
+
+  // acceptance rate
+  double log_acc_rate = log_accept_rate(the_model, site, all_paths,
+                                        all_p, new_path);
+  std::uniform_real_distribution<double> unif(0.0,1.0);
+
+  //cerr << "acc rate = " << exp(log_acc_rate) << endl;
+
+  if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate)) {
+    for (size_t i = 1; i < the_model.subtree_sizes.size(); ++i)
+      all_paths[i][site] = new_path[i];
+    //cerr << "." << endl;
+  }
+
 }
