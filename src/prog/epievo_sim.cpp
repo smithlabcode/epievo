@@ -26,6 +26,7 @@
 #include <random>
 #include <cmath>   /* exp, sqrt, pow */
 #include <numeric>  /* std::inner_product */
+#include <algorithm>    /* std::max */
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -45,6 +46,7 @@ using std::cout;
 using std::to_string;
 using std::ostream_iterator;
 
+static const double TIME_TOL = 1e-5;
 
 bool
 file_is_readable(const string &param_file) {
@@ -99,7 +101,7 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
 
   // sample a holding time = time until next state change
   std::exponential_distribution<double> exp_distr(holding_rate);
-  const double holding_time = exp_distr(gen);
+const double holding_time = std::max(exp_distr(gen), TIME_TOL);
 
   // update the current time_value
   time_value += holding_time;
