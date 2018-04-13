@@ -266,8 +266,8 @@ transitions that modify a single position in $s$ defines bijection
 between the global jump times $Y$ and the union of the site-specific
 jump times $\cup_n Y_n$. Note that the sequences of site-specific
 paths $(H_1,\ldots,H_N)$ more concisely describes a realization of our
-process; 
-%%% JQU: Is the below statement too strong/general? 
+process;
+%%% JQU: Is the below statement too strong/general?
 obtaining the state sequence $s(t)$ for any time $t$ requires
 more effort.
 
@@ -373,7 +373,7 @@ In summary, the transition rate matrix $\Lambda$ has 5 free
 parameters; the two ratios $\death{}/\birth{}$ and
 $\death{}\expansion{}^2/(\birth{}\contraction{}^2)$ uniquely
 determine the stationary distribution \eqref{eqn:stationary} through
-equation \eqref{eqn:rel}.  
+equation \eqref{eqn:rel}.
 %%%
 % If we add an additional constraint on the expected number of changes
 % per unit time, then the model will have only 4 free parameters.
@@ -460,8 +460,8 @@ Algorithm \ref{alg:simulation}.
 
 First, given a global path $H$ for the evolution of an epigenome over
 time $\halfopen{0}{\tau}$ with $\tau = 1$, we are interested in
-estimating the transition rate parameters $\Lambda$. 
-%%% JQU: why assume stationary? 
+estimating the transition rate parameters $\Lambda$.
+%%% JQU: why assume stationary?
 We assume a stationary process here, but this assumption is not
 necessary (see Appendix).
 
@@ -856,7 +856,7 @@ time-dependent graphical models.
 \clearpage
 
 \appendix
-\subsection{Stationary Gibbs measure as Markov chain}
+\section{Stationary Gibbs measure as Markov chain}
 
 The stationary distribution in \eqref{eqn:stationary} is equivalent to
 the distribution of a Markov chain. Therefore, when the epigenome is
@@ -935,6 +935,69 @@ can take any real value.
     \frac{\partial l}{\partial \log\lambda_3} &= J_3 + J_6 - (D_3 + D_6)\lambda_3 + 2J_7 - 2D_7\lambda_7
   \end{aligned}
 \end{equation}
+
+
+%%% below serves as a reference for our code
+%%% may be masked in the appendix
+\section{End-conditioned path sampling for continuous-time Markov chain}
+
+We used the exact path sampling algorithm of \citetext{hobolth2008markov}. 
+The $2\times2$ transition rate matrix $Q$ has an eigenvalue decomposition $Q = UDU^{-1}$,
+where $D$ is the diagonal matrix of eigenvalues and $U$ is a matrix of orthogonal eigenvectors.
+%
+\[
+Q =
+ \begin{bmatrix}
+  -\lambda_0 & \lambda_0 \\
+  \lambda_1 & -\lambda_1
+ \end{bmatrix}, ~~
+D =
+ \begin{bmatrix}
+  0 & 0 \\
+  0 & -\lambda_0-\lambda_1
+ \end{bmatrix}, ~~
+U =
+ \begin{bmatrix}
+  1 & \lambda_0 \\
+  1 & -\lambda_1
+ \end{bmatrix},  ~~\text{and}~~
+ U^{-1} = \frac{1}{\lambda_0+\lambda_1}
+ \begin{bmatrix}
+  \lambda_1 & \lambda_0 \\
+  1 & -1
+ \end{bmatrix}.
+\]
+%
+The transition probability matrix between two time points separated by time $t$ is
+\begin{equation}
+P(t) = e^{Qt} = Ue^{tD}U^{-1} = \frac{1}{\lambda_0+\lambda_1} \begin{bmatrix}
+  \lambda_0 h(t) + \lambda_1 & \lambda_0 (1-h(t)) \\
+  \lambda_1(1-h(t)) & \lambda_0 + \lambda_1 h(t)
+ \end{bmatrix}, 
+\end{equation}
+where $h(t) = exp(-(\lambda_0 + \lambda_1)t)$.
+
+First consider the case where the states of the two end points of a time interval
+$T$ are identical, \text{i.e.} $X(0) = X(T) = a$, the probability that
+there are no state changes in the time interval $[0,T]$ is
+\begin{equation}
+p_a = \frac{exp(-\lambda_aT)}{P(T)_{aa}}.
+\end{equation}
+
+Next consider the case where $X(0) = a$, $X(T) = b$, and at least one
+change occurs within the time interval. The conditional probability
+that the first state change from $a$ to $\bar{a}$ happens at a time
+smaller than $t$ is
+\begin{equation}
+\begin{aligned}
+&\Pr(\tau \le t, X(\tau) = \bar{a} | X(0) = a, X(T) = b) \\
+&= \Pr(\tau \le t, X(\tau) = \bar{a}, X(T) = b| X(0) = a) / \Pr(X(T) = b | X(0) = a) \\
+&= \int_{0}^{t} \lambda_ae^{-\lambda_a\tau}P(T-\tau)_{\bar{a}b}/ P(T)_{ab} ~ d\tau \\
+&= \int_{0}^{t}\frac{\lambda_a}{P(T)_{ab}}\sum\limits_{i} U_{\bar{a}i}U_{ib}^{-1} e^{TD_i}e^{-\tau(\lambda_a+D_i)} \\
+& = \int_{0}^{t} f_{abT}(\tau) ~d\tau,
+\end{aligned}
+\end{equation}
+
 
 \clearpage
 
