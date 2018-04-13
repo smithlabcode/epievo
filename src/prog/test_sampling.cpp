@@ -48,6 +48,27 @@ using std::min;
 using std::runtime_error;
 using std::bitset;
 
+////////////////////////////////////////////////////////////////////////////////
+//////////   copied from global_jumps_to_paths.cpp                    //////////
+////////////////////////////////////////////////////////////////////////////////
+static void
+write_root_to_pathfile_local(const string &outfile, const string &root_name) {
+  std::ofstream outpath(outfile.c_str());
+  outpath << "NODE:" << root_name << endl;
+}
+
+static void
+append_to_pathfile_local(const string &pathfile, const string &node_name,
+                         const vector<Path> &path_by_site) {
+  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
+  outpath << "NODE:" << node_name << endl;
+  for (size_t i = 0; i < path_by_site.size(); ++i)
+    outpath << i << '\t' << path_by_site[i] << '\n';
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 void
 propose_new_path(const vector<double> &rates, const Path &l,
                  const Path &m, const Path &r,
@@ -193,16 +214,23 @@ int main(int argc, const char **argv) {
 
     size_t the_site = 0;
     string node_name;
+    string outfile;
+
+    size_t rounds = 1;
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "test triple path",
-                           "<model-file> <paths-file> <outfile>");
+                           "<model-file> <paths-file>");
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("site", 's', "site to simulate",
                       true, the_site);
     opt_parse.add_opt("node", 'n', "name of node below edge to sample",
                       true, node_name);
+    opt_parse.add_opt("rounds", 'r', "number of posterior update cycles",
+                      true, rounds);
+     opt_parse.add_opt("outfile", 'o', "name of the output file for posterior-updated paths",
+                      true, outfile);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -218,13 +246,12 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() != 3) {
+    if (leftover_args.size() != 2) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
     const string model_file(leftover_args[0]);
     const string pathsfile(leftover_args[1]);
-    const string outfile(leftover_args[2]);
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
@@ -304,10 +331,21 @@ int main(int argc, const char **argv) {
          << "       start state     \t " << a << endl
          << "       end state       \t " << b << endl;
 
+
+    // prepare helper values
+    vector<double> rates;
+    vector<double> eigen_vals;
+    vector<vector<double> > U;
+    vector<vector<double> > Uinv;
+    decompose(the_model.triplet_rates[0],
+              the_model.triplet_rates[2],
+              rates, eigen_vals, U, Uinv);
+
     vector<double> jump_times;
-    end_cond_sample(the_model.triplet_rates[0],
-                    the_model.triplet_rates[2],
-                    a,  b, T, gen, jump_times);
+    end_cond_sample(rates, eigen_vals, U, Uinv,
+                    a, b, T, gen, jump_times);
+
+
 
     cerr << " sampled jump times: " << endl;
     for (size_t i = 0; i < jump_times.size(); ++i)
@@ -318,18 +356,31 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     cerr << "------------ TEST upward downward sampling BELOW -------------" << endl;
+    //const size_t rounds = 10;
 
+    for (size_t k = 0; k < rounds; ++k) {
+      cerr << "pass " << k+1 << endl;
+      for (size_t i = 1; i < n_sites-1; ++i) {
+        vector<Path> new_path;
+        gibbs_site(the_model, i, all_paths, gen, new_path);
+        for (size_t node_id = 1; node_id < the_model.subtree_sizes.size(); ++node_id)
+          all_paths[node_id][i] = new_path[node_id];
+      }
+    }
 
-    vector<Path> new_path;
-    gibbs_site(the_model, the_site, all_paths, gen, new_path);
+    write_root_to_pathfile_local(outfile, the_model.node_names.front());
 
-    cerr << "[old_path]" << endl;
-    for (size_t i = 1; i < new_path.size(); ++i)
-      cerr << "node_"<< i << ":\t" << all_paths[i][the_site] << endl;
+    for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
+      append_to_pathfile_local(outfile, the_model.node_names[node_id], all_paths[node_id]);
+    }
 
-    cerr << "[new_path]" << endl;
-    for (size_t i = 1; i < new_path.size(); ++i)
-      cerr << "node_"<< i << ":\t" << new_path[i] << endl;
+    // cerr << "[old_path]" << endl;
+    // for (size_t i = 1; i < new_path.size(); ++i)
+    //   cerr << "node_"<< i << ":\t" << all_paths[i][the_site] << endl;
+
+    // cerr << "[new_path]" << endl;
+    // for (size_t i = 1; i < new_path.size(); ++i)
+    //   cerr << "node_"<< i << ":\t" << new_path[i] << endl;
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
