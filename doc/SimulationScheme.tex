@@ -856,8 +856,9 @@ time-dependent graphical models.
 \clearpage
 
 \appendix
-\section{Stationary Gibbs measure as Markov chain}
+\section{Conversion between Gibbs measure  and Markov chain}
 
+%%% Gibbs to MC
 The stationary distribution in \eqref{eqn:stationary} is equivalent to
 the distribution of a Markov chain. Therefore, when the epigenome is
 modeled with a Gibbs measure, we can sample an instance of the state
@@ -892,6 +893,19 @@ residing within functional domains (the ``features'') is:
 \[
 1- \frac{2Q(0,1)Q(1,0)}{(Q(0,0)-Q(1,1))^2 + 4Q(0,1)Q(1,0) +
   (Q(1,1)-Q(0,0))\sqrt{\Delta}}.
+\]
+
+
+%%% MC to Gibbs
+Converting a Markov chain to an equivalent Gibbs measure is more
+straight forward. Given Markov chain transition probability matrix
+$T$, we can choose potentials $Q(i,j) = exp(\phi(i,j))$ as 
+\[
+Q =
+ \begin{bmatrix}
+   1 - T(0,1) & \sqrt{T(0,1)T(1,0)} \\
+    \sqrt{T(0,1)T(1,0)} & 1-T(1,0)
+ \end{bmatrix}
 \]
 
 \section{Equations for maximum likelihood estimation}
