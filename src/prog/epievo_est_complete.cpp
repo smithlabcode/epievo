@@ -582,11 +582,17 @@ int main(int argc, const char **argv) {
     string outfile;
     bool VERBOSE = false;
     bool OPTBRANCH = false;
-
+    bool SCALE = true;
+    string param_file;
+    string tree_file;
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "estimate parameters from"
                            " complete data (site-specific paths)",
-                           "<path-file> <init-param-file>");
+                           "<path-file>");
+    opt_parse.add_opt("param", 'p', "initial parameter file",
+                      true, param_file);
+    opt_parse.add_opt("tree", 't', "initial tree file in newick format",
+                      true, tree_file);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
@@ -606,12 +612,11 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() != 2) {
+    if (leftover_args.size() != 1) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
     const string path_file(leftover_args.front());
-    const string init_model_file(leftover_args.back());
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
@@ -633,9 +638,9 @@ int main(int argc, const char **argv) {
            << "n_sites=" << n_sites << endl;
 
     if (VERBOSE)
-      cerr << "reading parameter file: " << init_model_file << endl;
+      cerr << "reading parameter file: " << param_file << endl;
     EpiEvoModel the_model;
-    read_model(init_model_file, the_model);
+    read_model(SCALE, param_file, tree_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
 

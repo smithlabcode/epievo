@@ -40,11 +40,7 @@ struct EpiEvoModel {
   std::vector<size_t> parent_ids;
   std::vector<double> branches;
 
-  // "logfac" means log of potential factors
-  two_by_two stationary_logfac;      // log of stationary potentials for pairs
   two_by_two stationary_logbaseline; // symmetric part in J-P model
-  two_by_two init_logfac;            // log of initial potentials for pairs
-
   two_by_two T;       // horizontal transition probs (stationary)
   two_by_two init_T;  // horizontal transition probs (initial)
   two_by_two Q;       // pair-wise potentials (stationary)
@@ -55,7 +51,8 @@ struct EpiEvoModel {
   void get_stationary_state_proportions(std::vector<double> &pi) const;
   void get_stationary_triplet_proportions(std::vector<double> &props) const;
 
-  void initialize();
+  void initialize(const bool SCALE);
+
   void sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
                                   std::vector<char> &sequence) const;
   void sample_state_sequence_stationary(const size_t n_sites, std::mt19937 &gen,
@@ -74,8 +71,12 @@ private:
 std::ostream &
 operator<<(std::ostream &os, const EpiEvoModel &m);
 
+// void
+// read_model(const std::string &param_file, EpiEvoModel &m);
+
 void
-read_model(const std::string &param_file, EpiEvoModel &m);
+read_model(const bool SCALE, const std::string &param_file,
+           const std::string &tree_file, EpiEvoModel &m);
 
 void
 potential_to_transition_prob(const two_by_two &Q, two_by_two &T);
@@ -88,5 +89,6 @@ scale_rates(const std::vector<double> &rates,
 
 double
 rate_scaling_factor(const std::vector<double> &triplet_rates);
+
 
 #endif

@@ -211,16 +211,22 @@ int main(int argc, const char **argv) {
   try {
 
     bool VERBOSE = false;
-
+    bool SCALE = true;
     size_t the_site = 0;
     string node_name;
     string outfile;
 
     size_t rounds = 1;
 
+    string param_file;
+    string tree_file;
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "test triple path",
-                           "<model-file> <paths-file>");
+                           " <paths-file>");
+    opt_parse.add_opt("param", 'p', "parameter file",
+                      true, param_file);
+    opt_parse.add_opt("tree", 't', "tree file in newick format",
+                      true, tree_file);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("site", 's', "site to simulate",
@@ -250,8 +256,7 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string model_file(leftover_args[0]);
-    const string pathsfile(leftover_args[1]);
+    const string pathsfile(leftover_args.front());
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
@@ -269,9 +274,9 @@ int main(int argc, const char **argv) {
            << "n_sites=" << n_sites << endl;
 
     if (VERBOSE)
-      cerr << "[READING PARAMETER FILE: " << model_file << "]" << endl;
+      cerr << "[READING PARAMETER FILE: " << param_file << ", " << tree_file << "]" << endl;
     EpiEvoModel the_model;
-    read_model(model_file, the_model);
+    read_model(SCALE, param_file, tree_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
 

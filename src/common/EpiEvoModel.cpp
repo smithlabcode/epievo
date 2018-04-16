@@ -70,22 +70,27 @@ EpiEvoModel::tostring() const {
 
   oss << "[TREE]" << '\n'
       << t << '\n'
-      << "[INIT HORIZ LOG POTENTIALS]\n"
-      << format_two_by_two(init_logfac) << '\n'
+      // << "[INIT HORIZ LOG POTENTIALS]\n"
+      // << format_two_by_two(init_logfac) << '\n'
       << "[INIT HORIZ TRANSITION PROBS]\n"
       << format_two_by_two(init_T) << '\n'
-      << "[STATIONARY HORIZ LOG POTENTIALS]\n"
-      << format_two_by_two(stationary_logfac) << '\n'
+      // << "[STATIONARY HORIZ LOG POTENTIALS]\n"
+      // << format_two_by_two(stationary_logfac) << '\n'
       << "[STATIONARY HORIZ TRANSITION PROBS]\n"
       << format_two_by_two(T) << '\n'
       << "[STATIONARY LOG BASELINE VALUES]\n"
       << format_two_by_two(stationary_logbaseline) << '\n'
       << "[STATIONARY POTENTIALS]\n"
       << format_two_by_two(Q) << '\n'
-      << "[TRIPLE RATES]" << '\n';
+      << "[TRIPLE RATES]\n";
+
   oss << bitset<3>(0) << '\t' << triplet_rates[0];
   for (size_t i = 1; i < triplet_rates.size(); ++i)
     oss << '\n' << bitset<3>(i) << '\t' << triplet_rates[i];
+
+  const double mu = rate_scaling_factor(triplet_rates);
+  oss << "\n[UNIT TIME TRANSITIONS]\n" << mu;
+
   return oss.str();
 }
 
@@ -93,47 +98,6 @@ EpiEvoModel::tostring() const {
 std::ostream &
 operator<<(std::ostream &os, const EpiEvoModel &m) {
   return os << m.tostring();
-}
-
-
-void
-read_model(const string &param_file, EpiEvoModel &m) {
-  std::ifstream in(param_file.c_str());
-  if (!in)
-    throw std::runtime_error("Could not open file" + param_file);
-
-  /* read the phylogenetic tree */
-  string dummy_label;
-  in >> dummy_label >> m.t;
-
-  /* read the stationary distribution */
-  in >> dummy_label;
-  assert(dummy_label == "stationary");
-  m.stationary_logfac.resize(2, vector<double>(2, 0.0));
-  in >> m.stationary_logfac[0][0]
-     >> m.stationary_logfac[0][1]
-     >> m.stationary_logfac[1][1];
-  m.stationary_logfac[1][0] = m.stationary_logfac[0][1];
-
-  /* read the baseline */
-  in >> dummy_label;
-  assert(dummy_label == "baseline");
-  m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
-  in >> m.stationary_logbaseline[0][0]
-     >> m.stationary_logbaseline[0][1]
-     >> m.stationary_logbaseline[1][1];
-  m.stationary_logbaseline[1][0] = m.stationary_logbaseline[0][1];
-
-  /* read the initial distribution (at root) */
-  in >> dummy_label;
-  assert(dummy_label == "init");
-  m.init_logfac.resize(2, vector<double>(2, 0.0));
-  in >> m.init_logfac[0][0]
-     >> m.init_logfac[0][1]
-     >> m.init_logfac[1][1];
-  m.init_logfac[1][0] = m.init_logfac[0][1];
-
-  m.initialize();
 }
 
 
@@ -219,56 +183,6 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
   transform(scaled_branches.begin(), scaled_branches.end(),
             scaled_branches.begin(),
             std::bind2nd(std::multiplies<double>(), unit));
-}
-
-void
-EpiEvoModel::compute_triplet_rates() {
-  triplet_rates.resize(n_triplets, 0.0);
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      for (size_t k = 0; k < 2; ++k)
-        triplet_rates[triple2idx(i, j, k)] =
-          std::exp(stationary_logfac[i][1-j] +
-                   stationary_logfac[1-j][k] +
-                   stationary_logbaseline[i][k]);
-}
-
-
-/* This function takes the parameter values for the model, which were
-   most likely read from a parameter file, and computes the initial
-   horizontal transitions (init_T), the stationary horizontal
-   transitions (T), the stationary rates (Q), and the rates
-   for triples */
-void
-EpiEvoModel::initialize() {
-
-  // make sure every node has a name ADS: modify below so that all
-  // nodes always have names; check for this rather than attempt to
-  // fix it
-  t.assign_missing_node_names();
-  t.get_subtree_sizes(subtree_sizes);
-  t.get_node_names(node_names);
-  get_parent_id(subtree_sizes, parent_ids);
-  t.get_branch_lengths(branches);
-
-  // convert the initial potentials into transition probs
-  two_by_two init_Q(2, vector<double>(2, 0.0));
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      init_Q[i][j] = exp(init_logfac[i][j]);
-  potential_to_transition_prob(init_Q, init_T);
-
-  // initialize stationary potentials
-  Q = two_by_two(2, vector<double>(2, 0.0));
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      Q[i][j] = exp(stationary_logfac[i][j]);
-
-  // convert the stationary potentials into transition probs
-  potential_to_transition_prob(Q, T);
-
-  // get the 1D vector of rates for the triples
-  compute_triplet_rates();
 }
 
 
@@ -365,4 +279,109 @@ rate_scaling_factor(const vector<double> &triplet_rates) {
   stationary_from_horiz_trans_prob(T, pi);
 
   return rate_scaling_factor(pi, T, triplet_rates);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// For new param format
+////////////////////////////////////////////////////////////////////////////////
+
+// 6-parameter input param_file
+// tree-newick
+void
+read_model(const bool SCALE, const string &param_file, const string &tree_file,
+           EpiEvoModel &m) {
+
+  /* read the phylogenetic tree */
+  std::ifstream tree_in(tree_file.c_str());
+  if (!tree_in)
+    throw std::runtime_error("Could not open file" + tree_file);
+  string dummy_label;
+  tree_in >> m.t;
+
+  std::ifstream in(param_file.c_str());
+  if (!in)
+    throw std::runtime_error("Could not open file" + param_file);
+
+  /* read the stationary distribution */
+  in >> dummy_label;
+  assert(dummy_label == "stationary");
+  m.T.resize(2, vector<double>(2, 0.0));
+  in >> m.T[0][0] >> m.T[1][1];
+  m.T[1][0] = 1.0 - m.T[1][1];
+  m.T[0][1] = 1.0 - m.T[0][0];
+
+  /* read the baseline */
+  in >> dummy_label;
+  assert(dummy_label == "baseline");
+  m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
+  in >> m.stationary_logbaseline[0][0]
+     >> m.stationary_logbaseline[1][1];
+
+  /* read the initial distribution (at root) */
+  in >> dummy_label;
+  assert(dummy_label == "init");
+  m.init_T.resize(2, vector<double>(2, 0.0));
+  in >> m.init_T[0][0] >> m.init_T[1][1];
+  m.init_T[1][0] = 1.0 - m.init_T[1][1];
+  m.init_T[0][1] = 1.0 - m.init_T[0][0];
+
+  m.initialize(SCALE);
+}
+
+
+void
+transition_prob_to_potential(const two_by_two &T, two_by_two &Q) {
+
+  // Gibbs measure pair-wise potentials
+  Q = T;
+  Q[0][0] = 1.0 - T[0][1];
+  Q[0][1] = sqrt(T[0][1]*T[1][0]);
+  Q[1][0] = Q[0][1];
+  Q[1][1] = 1.0 - T[1][0];
+}
+
+
+
+/* This function takes the parameter values for the model, which were
+   most likely read from a parameter file, and computes the initial
+   horizontal transitions (init_T), the stationary horizontal
+   transitions (T), the stationary rates (Q), and the rates
+   for triples */
+void
+EpiEvoModel::initialize(const bool SCALE) {
+
+  // make sure every node has a name ADS: modify below so that all
+  // nodes always have names; check for this rather than attempt to
+  // fix it
+  t.assign_missing_node_names();
+  t.get_subtree_sizes(subtree_sizes);
+  t.get_node_names(node_names);
+  get_parent_id(subtree_sizes, parent_ids);
+  t.get_branch_lengths(branches);
+
+  // convert target transition probs into Gibbs pair-wise potentials
+  Q = two_by_two(2, vector<double>(2, 0.0));
+  transition_prob_to_potential(T, Q);
+
+  // get the 1D vector of rates for the triples
+  compute_triplet_rates();
+
+  if (SCALE) {
+    const double mu = rate_scaling_factor(triplet_rates);
+    for (size_t i = 0; i < n_triplets; ++i)
+      triplet_rates[i] /= mu;
+  }
+
+}
+
+
+void
+EpiEvoModel::compute_triplet_rates() {
+  triplet_rates.resize(n_triplets, 0.0);
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      for (size_t k = 0; k < 2; ++k)
+        triplet_rates[triple2idx(i, j, k)] =
+          Q[i][1-j] * Q[1-j][k] * std::exp(stationary_logbaseline[i][k]);
 }
