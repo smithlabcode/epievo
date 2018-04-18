@@ -180,17 +180,18 @@ a meaningful way to either individual nucleotide positions
 in the genome, or appropriate bins. We only require that the
 neighboring relations are preserved.
 
-Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
-denoting the state at position $i$.
-%%%
-As a graphical model, neighboring sites are connected with undirected
-edges. An epigenome $s$ evolves over time, but we assume the
-stationary distribution for the epigenome has a Gibbs distribution
-that factorizes over pairs of neighboring sites:
-\begin{equation}\label{eqn:stationary}
-  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
-\end{equation}
-This is equivalent to a first-order Markov chain model (see Appendix).
+% Move to later
+%Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
+%denoting the state at position $i$.
+%%%%
+%As a graphical model, neighboring sites are connected with undirected
+%edges. An epigenome $s$ evolves over time, but we assume the
+%stationary distribution for the epigenome has a Gibbs distribution
+%that factorizes over pairs of neighboring sites:
+%\begin{equation}\label{eqn:stationary}
+%  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
+%\end{equation}
+%An equivalent first-order Markov chain form is defined in Appendix.
 
 As the epigenome evolves, the state associated with individual
 positions may change. The types of changes we are most interested in
@@ -219,6 +220,20 @@ directionality.
 %%% Need to give examples where we believe this is reasonable, like
 %%% enhancers that operate at a distance. But then cite CTCF
 %%% directionality.
+
+% The Gibbs measure is moved to here.
+An epigenome is firstly modeled in graphical model that neighboring sites
+are connected with undirected edges.
+Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
+denoting the state at position $i$.
+%An epigenome $s$ evolves over time, but we assume the
+The stationary distribution for the epigenome has a Gibbs distribution
+that factorizes over pairs of neighboring sites.
+An equivalent first-order Markov chain form is defined in Appendix.
+\begin{equation}\label{eqn:stationary}
+  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
+\end{equation}
+
 
 %%% Describe the paths for the full genome, and then the paths for
 %%% individual sites
@@ -754,13 +769,14 @@ In the bottom-up pass of Felsenstein's pruning algorithm we compute
   p_j(u) = {\textstyle \sum_{k}} P_u(j, k) \times q_{k}(u).
 \end{equation}
 In this way, we can compute the marginal posterior probability of
-observing the states $X_n(v)$ at leaf nodes at site $n$, given the
-evolutionary paths at all other sites:
+observing the states $X_n(r)$ at all leaf nodes below the
+root node $r$ at site $n$,
+given the evolutionary paths at all other sites:
 \begin{equation}\label{eqn:leafmarginal}
   \Pr(X_n(r) | H_{\overline{n}}) = \sum_j\Pr(s_n(r) = j | H_{\overline{n}}) q_j(r).
 \end{equation}
 %%%
-At the root node, the marginal posterior distribution of the state is
+The marginal posterior distribution of the root node's state is
 \begin{equation} \label{eqn:rootposterior}
   \begin{aligned}
     \Pr(s_n(r)| H_{\overline{n}}, X_n(r)) = &
