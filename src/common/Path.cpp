@@ -35,14 +35,12 @@ operator<<(std::ostream &os, const Path &p) {
   return os;
 }
 
-void initialize_paths(const std::vector<bool> &seq, const double tot_time,
-                      std::vector<Path> &paths) {
+void
+initialize_paths(const std::vector<bool> &seq, const double tot_time,
+                 std::vector<Path> &paths) {
   paths.resize(seq.size());
-  for (size_t i = 0; i < seq.size(); ++i) {
-    paths[i].init_state = seq[i];
-    paths[i].tot_time = tot_time;
-    paths[i].jumps.resize(0);
-  }
+  for (size_t i = 0; i < seq.size(); ++i)
+    paths[i] = Path(seq[i], tot_time);
 }
 
 void end_sequence(const vector<Path> &paths,

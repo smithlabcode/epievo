@@ -33,6 +33,10 @@
 struct Path {
 
   Path() : init_state(false), tot_time(0.0) {}
+  Path(const bool is, const double tt) :
+    init_state(is), tot_time(tt), jumps(std::vector<double>()) {}
+  Path(const bool is, const double tt, const std::vector<double> &j) :
+    init_state(is), tot_time(tt), jumps(j) {}
 
   bool init_state;
   double tot_time;
