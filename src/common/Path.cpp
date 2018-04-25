@@ -43,21 +43,18 @@ initialize_paths(const std::vector<bool> &seq, const double tot_time,
     paths[i] = Path(seq[i], tot_time);
 }
 
-void end_sequence(const vector<Path> &paths,
-                  vector<bool> &seq) {
+void
+end_sequence(const vector<Path> &paths, vector<bool> &seq) {
   seq.resize(paths.size());
-  for (size_t i = 0; i < paths.size(); ++i) {
-    bool s = paths[i].init_state;
-    seq[i] = (paths[i].jumps.size() % 2 == 0)? s : !s;
-  }
+  for (size_t i = 0; i < paths.size(); ++i)
+    seq[i] = paths[i].end_state();
 }
 
 bool
 Path::state_at_time(const double t) const {
-  vector<double>::const_iterator low;
-  low = std::lower_bound(jumps.begin(), jumps.end(), t);
-  size_t idx = (size_t)(low - jumps.begin());
-  bool s = (idx%2 == 0)?  init_state: !init_state;
+  const size_t idx =
+    std::lower_bound(jumps.begin(), jumps.end(), t) - jumps.begin();
+  const bool s = (idx % 2 == 0) ? init_state : !init_state;
   // bool s = p.init_state;
   // for (size_t i = 0; i < p.jumps.size() && p.jumps[i] < t; ++i)
   //   s = !s;
