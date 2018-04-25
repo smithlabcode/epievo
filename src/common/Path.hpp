@@ -13,6 +13,9 @@ using std::vector;
 using std::string;
 
 struct Path {
+
+  Path() : init_state(false), tot_time(0.0) {}
+
   bool init_state;
   double tot_time;
   vector<double> jumps;
