@@ -72,7 +72,8 @@ void sequence_at_time(const vector<Path> &paths, const double t,
   }
 }
 
-void to_path(const bool s, const string jumps, Path &p) {
+void
+to_path(const bool s, const string &jumps, Path &p) {
   p.init_state = s;
   vector<string> fields = smithlab::split(jumps, ",", false);
   p.tot_time = std::stod(fields.back());
