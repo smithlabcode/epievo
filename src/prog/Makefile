@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = evosim estparam epievo_sim global_jumps_to_paths \
+PROGS = epievo_sim global_jumps_to_paths \
 	extract_state_sequences test_sampling epievo_est_complete
 
 CXX = g++
@@ -48,7 +48,7 @@ all: $(PROGS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS) $(LIBS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab_os.o) \
-	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TripletPattern.o param.o jump.o Path.o) \
+	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TripletPattern.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
 epievo_est_complete epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \

@@ -180,17 +180,18 @@ a meaningful way to either individual nucleotide positions
 in the genome, or appropriate bins. We only require that the
 neighboring relations are preserved.
 
-Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
-denoting the state at position $i$.
-%%%
-As a graphical model, neighboring sites are connected with undirected
-edges. An epigenome $s$ evolves over time, but we assume the
-stationary distribution for the epigenome has a Gibbs distribution
-that factorizes over pairs of neighboring sites:
-\begin{equation}\label{eqn:stationary}
-  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
-\end{equation}
-This is equivalent to a first-order Markov chain model (see Appendix).
+% Move to later
+%Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
+%denoting the state at position $i$.
+%%%%
+%As a graphical model, neighboring sites are connected with undirected
+%edges. An epigenome $s$ evolves over time, but we assume the
+%stationary distribution for the epigenome has a Gibbs distribution
+%that factorizes over pairs of neighboring sites:
+%\begin{equation}\label{eqn:stationary}
+%  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
+%\end{equation}
+%An equivalent first-order Markov chain form is defined in Appendix.
 
 As the epigenome evolves, the state associated with individual
 positions may change. The types of changes we are most interested in
@@ -219,6 +220,20 @@ directionality.
 %%% Need to give examples where we believe this is reasonable, like
 %%% enhancers that operate at a distance. But then cite CTCF
 %%% directionality.
+
+% The Gibbs measure is moved to here.
+An epigenome is firstly modeled in graphical model that neighboring sites
+are connected with undirected edges.
+Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
+denoting the state at position $i$.
+%An epigenome $s$ evolves over time, but we assume the
+The stationary distribution for the epigenome has a Gibbs distribution
+that factorizes over pairs of neighboring sites.
+An equivalent first-order Markov chain form is defined in Appendix.
+\begin{equation}\label{eqn:stationary}
+  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
+\end{equation}
+
 
 %%% Describe the paths for the full genome, and then the paths for
 %%% individual sites
@@ -598,11 +613,11 @@ The method we use follows that outlined by
 The basic machinery we borrow is most easily explained by first
 focusing on a single trajectory (single branch tree) with known
 site-specific paths for all sites except $n$. We can sample a path
-$H_n$ according to the distribution
+$H_n'$ according to the distribution
 \[
-\Pr(H_n | H_1, \ldots, H_{n-1}, H_{n+1},\ldots, H_N) = \Pr(H_n | H_{\overline{n}})
+\Pr(H_n' | H_1, \ldots, H_{n-1}, H_{n+1},\ldots, H_N) = \Pr(H_n' | H_{\overline{n}})
 \]
-by using MCMC and the likelihood from equation~\eqref{}. When $H_n$ is
+by using MCMC and the likelihood from equation~\eqref{eqn:lik}. When $H_n'$ is
 known partially, for example if the starting state $s_n(0)$ and the
 ending state $s_n(1)$ are known, MCMC can be applied similarly to
 sample a path consistent with those end-points. If the data are state
@@ -633,18 +648,22 @@ other than site $n$. We want to make inferences about the state at
 position $n$ of $v$, and also about the paths for edges incident on
 $v(n)$. We require a method for sampling paths at site $n$ that share
 a common state at their common end-point.
-
+%%%
 \citetext{hobolth2009simulation} reviewed and compared three
 approaches to sample paths of discrete-state continuous-time Markov
 chain conditional on end-point states, namely the rejection sampling,
-direct sampling and uniformization. Method 1 in the previous section
-is similar to uniformization, since the neighboring sites may have
-state changes, and the rate of jumps depends on the contemporary
-states of the neighboring sites. We proposed to use an averaged rate
-to for the Poisson distribution, and let the acceptance probability to
-do most of the work of correcting the proposal distribution towards
-the posterior distribution. Method 2 is forward sampling, which is the
-basis of rejection sampling.
+direct sampling and uniformization. We use the direct sampling method
+for the end-conditioned sampling of a ctMC path, as detailed by
+\citetext{hobolth2008markov} and below.
+%%
+% Method 1 in the previous section
+% is similar to uniformization, since the neighboring sites may have
+% state changes, and the rate of jumps depends on the contemporary
+% states of the neighboring sites. We proposed to use an averaged rate
+% to for the Poisson distribution, and let the acceptance probability to
+% do most of the work of correcting the proposal distribution towards
+% the posterior distribution. Method 2 is forward sampling, which is the
+% basis of rejection sampling.
 
 %% \paragraph{Rejection sampling for the proposal:}
 %% This approach first does forward sampling as described in Method 2
@@ -754,13 +773,14 @@ In the bottom-up pass of Felsenstein's pruning algorithm we compute
   p_j(u) = {\textstyle \sum_{k}} P_u(j, k) \times q_{k}(u).
 \end{equation}
 In this way, we can compute the marginal posterior probability of
-observing the states $X_n(v)$ at leaf nodes at site $n$, given the
-evolutionary paths at all other sites:
+observing the states $X_n(r)$ at all leaf nodes below the
+root node $r$ at site $n$,
+given the evolutionary paths at all other sites:
 \begin{equation}\label{eqn:leafmarginal}
   \Pr(X_n(r) | H_{\overline{n}}) = \sum_j\Pr(s_n(r) = j | H_{\overline{n}}) q_j(r).
 \end{equation}
 %%%
-At the root node, the marginal posterior distribution of the state is
+The marginal posterior distribution of the root node's state is
 \begin{equation} \label{eqn:rootposterior}
   \begin{aligned}
     \Pr(s_n(r)| H_{\overline{n}}, X_n(r)) = &
@@ -800,7 +820,7 @@ Next, we sample the state transitions at this position within each
 single time interval, during which its two neighbors have unchanged
 states, and the initial and final states for this time interval are
 fixed.  Focusing on one interval, let $0$ and $\tau$ be the end time
-points.  Let an instance of the path within this interval be $L_n =
+points.  Let an instance of the path within this interval be $h_n=
 \{t_m\}_{m=0}^{M}$, which is a set of jumping times and the start and
 end time points ($t_0 = 0$ and $t_M=\tau$). Let $\Delta_m = t_m -
 t_{m-1}$ be the holding time between jumps. Let the homogeneous
@@ -827,7 +847,25 @@ Let $W$ be the waiting time until the first jump.
 f_{ij\tau}(t) = Q_{i\bar{i}} \exp(Q_{ii}t) \frac{P(\tau-t)_{\bar{i}j}}{P(\tau)_{ij}}.
 \end{aligned}
 \end{equation}
-The direct sampling procedure for a homogeneous continuous-time Markov path within an end-conditioned interval is detailed in Algorithm~\ref{alg:samplepath}.
+The direct sampling procedure for a homogeneous continuous-time Markov
+path within an end-conditioned interval is detailed in
+Algorithm~\ref{alg:samplepath}.
+
+The acceptance probability of the end-conditioned sampling result
+$H_n'$, an evolutionary path over the entire tree at site $n$, can be
+computed as
+\begin{equation}\label{def:accept}
+  \alpha = \min\left\{\frac{\pi(H_n', H_{\overline{n}})/g(H_n')}{\pi(H_n, H_{\overline{n}})/g(H_n)}, 1\right\},
+\end{equation}
+where $H_n$ is the current path state, $\pi$ is the complete data
+likelihood function \eqref{eqn:lik} and $g$ is the proposal
+probability density function for the direct end-conditioned sampling
+of a ctMC path that generated $H_n'$.  For two versions of complete
+evolutionary history that only differ at one position, their
+likelihood ratio is determined by the paths at that position, and two
+positions to each side, \textit{i.e.} 5 positions in total. Because
+the total time spent in each triplet context \eqref{def:JD} is altered
+at the center position and its two neighboring positions.
 
 \section{Discussion}
 
@@ -865,43 +903,43 @@ modeled with a Gibbs measure, we can sample an instance of the state
 sequence, or evaluate its probability, using the equivalent Markov
 chain. We can relate the factors in \eqref{eqn:stationary} and the
 transition probabilities of the Markov chain as follows. Define
-pair-wise potentials $Q(i,j)=\exp(\phi(i, j))$, where $i, j\in\{0,1\}$
-are binary states. The largest eigenvalue of $Q$ is
+pair-wise potentials $\Psi(i,j)=\exp(\phi(i, j))$, where $i, j\in\{0,1\}$
+are binary states. The largest eigenvalue of $\Psi$ is
 \[
-q=\textstyle\frac{1}{2}\left(Q(0,0)+Q(1,1) +\sqrt{\Delta}\right), \text{ where }
-\Delta=(Q(0,0) - Q(1,1))^2 + 4Q(0,1)Q(1,0).
+q=\textstyle\frac{1}{2}\left(\Psi(0,0)+\Psi(1,1) +\sqrt{\Delta}\right), \text{ where }
+\Delta=(\Psi(0,0) - \Psi(1,1))^2 + 4\Psi(0,1)\Psi(1,0).
 \]
 Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
 \[
-\frac{h_0}{h_1} = \frac{Q(0,1)}{q-Q(0,0)} = \frac{q-Q(1,1)}{Q(1,0)}.
+\frac{h_0}{h_1} = \frac{\Psi(0,1)}{q-\Psi(0,0)} = \frac{q-\Psi(1,1)}{\Psi(1,0)}.
 \]
 The Markov chain transition matrix is:
 \[
-T(i,j) = \frac{Q(i,j)h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
+T(i,j) = \frac{\Psi(i,j)h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
 \]
 More specifically,
 \begin{equation} \label{eqn:gibbs2markov}
   \begin{array}{ll}
-    T(1,1) = \displaystyle\frac{2Q(1,1)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, &
-    T(0,0) = \displaystyle\frac{2Q(0,0)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, \\[2em]
-    T(0,1) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(0,0)+\sqrt{\Delta})^2 -Q(1,1)^2}, &
-    T(1,0) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(1,1)+\sqrt{\Delta})^2 -Q(0,0)^2}.
+    T(1,1) = \displaystyle\frac{2\Psi(1,1)}{\Psi(0,0)+\Psi(1,1)+\sqrt{\Delta}}, &
+    T(0,0) = \displaystyle\frac{2\Psi0,0)}{\Psi(0,0)+\Psi(1,1)+\sqrt{\Delta}}, \\[2em]
+    T(0,1) = \displaystyle\frac{4\Psi(0,1)\Psi(1,0)}{(\Psi(0,0)+\sqrt{\Delta})^2 -\Psi(1,1)^2}, &
+    T(1,0) = \displaystyle\frac{4\Psi(0,1)\Psi(1,0)}{(\Psi(1,1)+\sqrt{\Delta})^2 -\Psi(0,0)^2}.
   \end{array}
 \end{equation}
 Accordingly, the expected fraction of an epigenome state sequence
 residing within functional domains (the ``features'') is:
 \[
-1- \frac{2Q(0,1)Q(1,0)}{(Q(0,0)-Q(1,1))^2 + 4Q(0,1)Q(1,0) +
-  (Q(1,1)-Q(0,0))\sqrt{\Delta}}.
+1- \frac{2\Psi(0,1)\Psi(1,0)}{(\Psi(0,0)-\Psi(1,1))^2 + 4\Psi(0,1)\Psi(1,0) +
+  (\Psi(1,1)-\Psi(0,0))\sqrt{\Delta}}.
 \]
 
 
 %%% MC to Gibbs
 Converting a Markov chain to an equivalent Gibbs measure is more
 straight forward. Given Markov chain transition probability matrix
-$T$, we can choose potentials $Q(i,j) = exp(\phi(i,j))$ as 
+$T$, we can choose potentials $\Psi(i,j) = exp(\phi(i,j))$ as 
 \[
-Q =
+\Psi =
  \begin{bmatrix}
    1 - T(0,1) & \sqrt{T(0,1)T(1,0)} \\
     \sqrt{T(0,1)T(1,0)} & 1-T(1,0)
@@ -1066,7 +1104,7 @@ smaller than $t$ is
     \FOR {each child node $v$ of $u$}
     %% \STATE Sample state $s_n(v)$ conditional on $H_{\overline{n}}$ and $X_n(u)$
     %% according to \eqref{eqn:rootposterior}.
-    \STATE Sample $s(v) \sim P_v(j, k) \times q_k(v)\slash p_j(v)$
+    \STATE Sample $s(v) \sim P(s(v)=k|X(u), s(u)=j) = P_v(j, k) \times q_k(v)\slash p_j(v)$
     %% \[k \sim \frac{1}{p_j(v)}\times P_v[j,k] \times q_k(v) \]
     \STATE Update the direct sampling probability with factor $P_v(j,k)q_k(v)\slash p_j(v)$
     \STATE DownwardStateSampling$(v, s(v), X(v))$

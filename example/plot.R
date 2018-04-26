@@ -32,10 +32,10 @@ records <- strsplit(branch_path, "\t")
 nsites  <- length(records)
 
 pdf(pathplot, width=7, height=3, pointsize=8 )
-colors <- c("cadetblue", "black")
+colors <- c("black", "white")
 # assuming first site has no state change
 tot <- as.numeric(records[[1]][3])
-plot(x=xrange, y=c(0,tot), pch="", xlab= "Position", ylab="Time",
+plot(x=xrange, y=c(0,tot), ylim=c(tot, 0), pch="", xlab= "Position", ylab="Time",
      main=dat[name_lines[which_node+1]])
 rect(xleft=xrange[1], ybottom=0, xright=xrange[2], ytop=tot)
 for (i in xrange[1]:xrange[2]) {

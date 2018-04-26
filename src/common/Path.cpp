@@ -9,6 +9,8 @@
 
 #include "smithlab_utils.hpp"
 
+#include "StateSeq.hpp"
+
 using std::vector;
 using std::string;
 
@@ -33,38 +35,30 @@ operator<<(std::ostream &os, const Path &p) {
   return os;
 }
 
-void initialize_paths(const std::vector<bool> &seq, const double tot_time,
-                      std::vector<Path> &paths) {
+void
+initialize_paths(const std::vector<bool> &seq, const double tot_time,
+                 std::vector<Path> &paths) {
   paths.resize(seq.size());
-  for (size_t i = 0; i < seq.size(); ++i) {
-    paths[i].init_state = seq[i];
-    paths[i].tot_time = tot_time;
-    paths[i].jumps.resize(0);
-  }
+  for (size_t i = 0; i < seq.size(); ++i)
+    paths[i] = Path(seq[i], tot_time);
 }
 
-void end_sequence(const vector<Path> &paths,
-                  vector<bool> &seq) {
+void
+get_seq_end(const vector<Path> &paths, vector<bool> &seq) {
   seq.resize(paths.size());
-  for (size_t i = 0; i < paths.size(); ++i) {
-    bool s = paths[i].init_state;
-    seq[i] = (paths[i].jumps.size() % 2 == 0)? s : !s;
-  }
+  for (size_t i = 0; i < paths.size(); ++i)
+    seq[i] = paths[i].end_state();
 }
 
 bool
 Path::state_at_time(const double t) const {
-  vector<double>::const_iterator low;
-  low = std::lower_bound(jumps.begin(), jumps.end(), t);
-  size_t idx = (size_t)(low - jumps.begin());
-  bool s = (idx%2 == 0)?  init_state: !init_state;
-  // bool s = p.init_state;
-  // for (size_t i = 0; i < p.jumps.size() && p.jumps[i] < t; ++i)
-  //   s = !s;
+  const size_t idx =
+    std::lower_bound(jumps.begin(), jumps.end(), t) - jumps.begin();
+  const bool s = (idx % 2 == 0) ? init_state : !init_state;
   return s;
 }
 
-void sequence_at_time(const vector<Path> &paths, const double t,
+void get_seq_at_time(const double t, const vector<Path> &paths,
                       vector<bool> &seq) {
   seq.resize(paths.size());
   for (size_t i = 0; i < paths.size(); ++i) {
@@ -72,7 +66,8 @@ void sequence_at_time(const vector<Path> &paths, const double t,
   }
 }
 
-void to_path(const bool s, const string jumps, Path &p) {
+void
+to_path(const bool s, const string &jumps, Path &p) {
   p.init_state = s;
   vector<string> fields = smithlab::split(jumps, ",", false);
   p.tot_time = std::stod(fields.back());
@@ -81,7 +76,8 @@ void to_path(const bool s, const string jumps, Path &p) {
     p.jumps.push_back(std::stod(fields[i]));
 }
 
-void read_paths(const string path_file, vector<vector<Path> > &paths) {
+void
+read_paths(const string path_file, vector<vector<Path> > &paths) {
   std::ifstream in(path_file.c_str());
   if (!in)
     throw SMITHLABException("cannot read: " + path_file);
@@ -135,7 +131,7 @@ read_paths(const string &path_file, vector<string> &node_names,
   }
 }
 
-void get_initial_seq(const vector<Path> &paths, vector<bool> &seq) {
+void get_seq_init(const vector<Path> &paths, vector<bool> &seq) {
   seq.clear();
   for (size_t i = 0; i < paths.size(); ++i)
     seq.push_back(paths[i].init_state);
@@ -192,11 +188,8 @@ Environment::Environment(const Path &pa, const Path &pb) {
 
 TriplePath::TriplePath(const Path &l, const Path &m, const Path &r) {
   assert(l.tot_time == m.tot_time && l.tot_time == r.tot_time);
-  size_t sl = (size_t)(l.init_state);
-  size_t sm = (size_t)(m.init_state);
-  size_t sr = (size_t)(r.init_state);
   states.clear();
-  states.push_back(sl * 4 + sm * 2 + sr);
+  states.push_back(triple2idx(l.init_state, m.init_state, r.init_state));
 
   breaks.clear();
   breaks.insert(breaks.end(), l.jumps.begin(), l.jumps.end());
@@ -207,10 +200,8 @@ TriplePath::TriplePath(const Path &l, const Path &m, const Path &r) {
 
   for (size_t i = 1; i < breaks.size(); ++i) {
     const double t = breaks[i-1] + (breaks[i] - breaks[i-1])/2;
-    const size_t state_l = (size_t)(l.state_at_time(t));
-    const size_t state_m = (size_t)(m.state_at_time(t));
-    const size_t state_r = (size_t)(r.state_at_time(t));
-    states.push_back(state_l * 4 + state_m * 2 + state_r);
+    states.push_back(triple2idx(l.state_at_time(t),
+                                m.state_at_time(t), r.state_at_time(t)));
   }
 
   jump_context_freq.resize(8, 0);
@@ -234,21 +225,16 @@ TriplePath::time_by_context(vector<double> &tbc) const {
 PathContextStat::PathContextStat(const Path &l, const Path &m, const Path &r) {
   jumps_in_context = vector<double>(8, 0.0);
   time_in_context = vector<double>(8, 0.0);
-  size_t l_state = static_cast<size_t>(l.init_state);
-  size_t m_state = static_cast<size_t>(m.init_state);
-  size_t r_state = static_cast<size_t>(r.init_state);
-  size_t context = 4*l_state + 2*m_state + r_state;
+  size_t context = triple2idx(l.init_state, m.init_state, r.init_state);
   vector<double> jumps = m.jumps;
   jumps.insert(jumps.begin(), 0.0);
   jumps.push_back(m.tot_time);
   for (size_t i = 1; i < jumps.size(); ++i) {
     const double t = 0.5*(jumps[i] + jumps[i-1]);
-    l_state = static_cast<size_t>(l.state_at_time(t));
-    m_state = static_cast<size_t>(m.state_at_time(t));
-    r_state = static_cast<size_t>(r.state_at_time(t));
-    context = 4*l_state + 2*m_state + r_state;
+    context = triple2idx(l.state_at_time(t), m.state_at_time(t),
+                         r.state_at_time(t));
     ++jumps_in_context[context];
-    time_in_context[context] += jumps[i]-jumps[i-1];
+    time_in_context[context] += jumps[i] - jumps[i-1];
   }
   --jumps_in_context[context]; // last break point is not a jump
 }

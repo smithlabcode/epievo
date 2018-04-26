@@ -1,5 +1,0 @@
-tree	(A:40,B:40)C:0.0;
-sites	100000
-stationary  -0.1	-4	-0.05
-baseline	5	7.8	4
-init	-0.1	-4	-0.05

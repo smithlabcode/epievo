@@ -140,13 +140,14 @@ int main(int argc, const char **argv) {
     string outfile;
     string pathfile;
     bool VERBOSE = false;
+    bool SCALE = true;
     size_t n_sites = 100;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "simulate methylome evolution",
-                           "<params-file>");
+                           "<params-file> <tree-file>");
     opt_parse.add_opt("output", 'o', "name of output file for methylomes"
                       "(default: stdout)", false, outfile);
     opt_parse.add_opt("n-sites", 'n', "length of sequence to simulate"
@@ -171,11 +172,14 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() < 1) {
+    if (leftover_args.size() < 2) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string param_file(leftover_args.back());
+
+    const string param_file(leftover_args.front());
+    const string tree_file(leftover_args.back());
+
     if (!file_is_readable(param_file)) {
       cerr << "cannot read file: "<< param_file << endl
            << opt_parse.help_message() << endl;
@@ -186,8 +190,11 @@ int main(int argc, const char **argv) {
     /* (1) INITIALIZING PARAMETERS */
     if (VERBOSE)
       cerr << "reading parameter file: " << param_file << endl;
+
     EpiEvoModel the_model;
-    read_model(param_file, the_model);
+    read_model(SCALE, param_file, tree_file, the_model);
+    //read_model(param_file, the_model);
+
     if (VERBOSE)
       cerr << the_model << endl;
 
