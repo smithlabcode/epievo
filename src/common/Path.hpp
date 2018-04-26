@@ -67,13 +67,13 @@ read_paths(const std::string &path_file,
            std::vector<std::vector<Path> > &paths);
 
 void
-get_initial_seq(const std::vector<Path> &paths, std::vector<bool> &seq);
+get_seq_init(const std::vector<Path> &paths, std::vector<bool> &seq);
 
 void
-end_sequence(const std::vector<Path> &paths, std::vector<bool> &seq);
+get_seq_end(const std::vector<Path> &paths, std::vector<bool> &seq);
 
 void
-sequence_at_time(const std::vector<Path> &paths, const double t,
+get_seq_at_time(const double t, const std::vector<Path> &paths,
                  std::vector<bool> &seq);
 
 ////////////////////////////////////////////////////////////////////////////////
