@@ -903,43 +903,43 @@ modeled with a Gibbs measure, we can sample an instance of the state
 sequence, or evaluate its probability, using the equivalent Markov
 chain. We can relate the factors in \eqref{eqn:stationary} and the
 transition probabilities of the Markov chain as follows. Define
-pair-wise potentials $Q(i,j)=\exp(\phi(i, j))$, where $i, j\in\{0,1\}$
-are binary states. The largest eigenvalue of $Q$ is
+pair-wise potentials $\Psi(i,j)=\exp(\phi(i, j))$, where $i, j\in\{0,1\}$
+are binary states. The largest eigenvalue of $\Psi$ is
 \[
-q=\textstyle\frac{1}{2}\left(Q(0,0)+Q(1,1) +\sqrt{\Delta}\right), \text{ where }
-\Delta=(Q(0,0) - Q(1,1))^2 + 4Q(0,1)Q(1,0).
+q=\textstyle\frac{1}{2}\left(\Psi(0,0)+\Psi(1,1) +\sqrt{\Delta}\right), \text{ where }
+\Delta=(\Psi(0,0) - \Psi(1,1))^2 + 4\Psi(0,1)\Psi(1,0).
 \]
 Let $h$ be a right eigenvector of $Q$ corresponding to $q$, then we have
 \[
-\frac{h_0}{h_1} = \frac{Q(0,1)}{q-Q(0,0)} = \frac{q-Q(1,1)}{Q(1,0)}.
+\frac{h_0}{h_1} = \frac{\Psi(0,1)}{q-\Psi(0,0)} = \frac{q-\Psi(1,1)}{\Psi(1,0)}.
 \]
 The Markov chain transition matrix is:
 \[
-T(i,j) = \frac{Q(i,j)h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
+T(i,j) = \frac{\Psi(i,j)h_j}{qh_{i}},~\text{where } i,j \in\{0,1\}.
 \]
 More specifically,
 \begin{equation} \label{eqn:gibbs2markov}
   \begin{array}{ll}
-    T(1,1) = \displaystyle\frac{2Q(1,1)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, &
-    T(0,0) = \displaystyle\frac{2Q(0,0)}{Q(0,0)+Q(1,1)+\sqrt{\Delta}}, \\[2em]
-    T(0,1) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(0,0)+\sqrt{\Delta})^2 -Q(1,1)^2}, &
-    T(1,0) = \displaystyle\frac{4Q(0,1)Q(1,0)}{(Q(1,1)+\sqrt{\Delta})^2 -Q(0,0)^2}.
+    T(1,1) = \displaystyle\frac{2\Psi(1,1)}{\Psi(0,0)+\Psi(1,1)+\sqrt{\Delta}}, &
+    T(0,0) = \displaystyle\frac{2\Psi0,0)}{\Psi(0,0)+\Psi(1,1)+\sqrt{\Delta}}, \\[2em]
+    T(0,1) = \displaystyle\frac{4\Psi(0,1)\Psi(1,0)}{(\Psi(0,0)+\sqrt{\Delta})^2 -\Psi(1,1)^2}, &
+    T(1,0) = \displaystyle\frac{4\Psi(0,1)\Psi(1,0)}{(\Psi(1,1)+\sqrt{\Delta})^2 -\Psi(0,0)^2}.
   \end{array}
 \end{equation}
 Accordingly, the expected fraction of an epigenome state sequence
 residing within functional domains (the ``features'') is:
 \[
-1- \frac{2Q(0,1)Q(1,0)}{(Q(0,0)-Q(1,1))^2 + 4Q(0,1)Q(1,0) +
-  (Q(1,1)-Q(0,0))\sqrt{\Delta}}.
+1- \frac{2\Psi(0,1)\Psi(1,0)}{(\Psi(0,0)-\Psi(1,1))^2 + 4\Psi(0,1)\Psi(1,0) +
+  (\Psi(1,1)-\Psi(0,0))\sqrt{\Delta}}.
 \]
 
 
 %%% MC to Gibbs
 Converting a Markov chain to an equivalent Gibbs measure is more
 straight forward. Given Markov chain transition probability matrix
-$T$, we can choose potentials $Q(i,j) = exp(\phi(i,j))$ as 
+$T$, we can choose potentials $\Psi(i,j) = exp(\phi(i,j))$ as 
 \[
-Q =
+\Psi =
  \begin{bmatrix}
    1 - T(0,1) & \sqrt{T(0,1)T(1,0)} \\
     \sqrt{T(0,1)T(1,0)} & 1-T(1,0)
@@ -1104,7 +1104,7 @@ smaller than $t$ is
     \FOR {each child node $v$ of $u$}
     %% \STATE Sample state $s_n(v)$ conditional on $H_{\overline{n}}$ and $X_n(u)$
     %% according to \eqref{eqn:rootposterior}.
-    \STATE Sample $s(v) \sim P_v(j, k) \times q_k(v)\slash p_j(v)$
+    \STATE Sample $s(v) \sim P(s(v)=k|X(u), s(u)=j) = P_v(j, k) \times q_k(v)\slash p_j(v)$
     %% \[k \sim \frac{1}{p_j(v)}\times P_v[j,k] \times q_k(v) \]
     \STATE Update the direct sampling probability with factor $P_v(j,k)q_k(v)\slash p_j(v)$
     \STATE DownwardStateSampling$(v, s(v), X(v))$

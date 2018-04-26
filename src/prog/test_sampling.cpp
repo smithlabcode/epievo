@@ -153,10 +153,6 @@ log_accept_rate(const vector<double> &rates,
   PathContextStat pcs_old_r(m, r, rr);
   PathContextStat pcs_new_r(new_m, r, rr);
 
-  // cerr << "likratio_middle =" << log_lik_ratio(rates, pcs_new, pcs_old) << endl;
-  // cerr << "likratio_left =" << log_lik_ratio(rates, pcs_new_l, pcs_old_l) << endl;
-  // cerr << "likratio_right =" << log_lik_ratio(rates, pcs_new_r, pcs_old_r) << endl;
-
   double lr = lp_prop_old - lp_prop_new +
     log_lik_ratio(rates, pcs_new, pcs_old) +
     log_lik_ratio(rates, pcs_new_l, pcs_old_l) +
@@ -235,7 +231,7 @@ int main(int argc, const char **argv) {
                       true, node_name);
     opt_parse.add_opt("rounds", 'r', "number of posterior update cycles",
                       true, rounds);
-     opt_parse.add_opt("outfile", 'o', "name of the output file for posterior-updated paths",
+    opt_parse.add_opt("outfile", 'o', "output file for posterior-updated paths",
                       true, outfile);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -274,7 +270,8 @@ int main(int argc, const char **argv) {
            << "n_sites=" << n_sites << endl;
 
     if (VERBOSE)
-      cerr << "[READING PARAMETER FILE: " << param_file << ", " << tree_file << "]" << endl;
+      cerr << "[READING PARAMETER FILE: "
+           << param_file << ", " << tree_file << "]" << endl;
     EpiEvoModel the_model;
     read_model(SCALE, param_file, tree_file, the_model);
     if (VERBOSE)
@@ -301,12 +298,13 @@ int main(int argc, const char **argv) {
            << "parent id: " << parent_id << endl
            << "branch length: " << branch_length << endl
            << "site: " << the_site << endl
-           << "total jumps: " << all_paths[node_id][the_site].jumps.size() << endl;
+           << "total jumps: "
+           << all_paths[node_id][the_site].jumps.size() << endl;
     }
 
     vector<std::exponential_distribution<double> > distrs;
     for (size_t i = 0; i < the_model.triplet_rates.size(); ++i) {
-      auto ed = std::exponential_distribution<double>(the_model.triplet_rates[i]);
+      auto ed(std::exponential_distribution<double>(the_model.triplet_rates[i]));
       cout << bitset<3>(i) << '\t' << ed << endl;
       distrs.push_back(ed);
     }
@@ -324,10 +322,9 @@ int main(int argc, const char **argv) {
     cout << the_path.end_state() << endl;
 
 
-
     ////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    cerr << "------------ TEST homogeneous interval end-conditioned sampling BELOW -------------" << endl;
+    cerr << "-- TEST homogeneous interval end-cond. sampling BELOW --" << endl;
     double T = 0.5;
     size_t a = 1;
     size_t b = 1;
@@ -360,7 +357,7 @@ int main(int argc, const char **argv) {
 
     ////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    cerr << "------------ TEST upward downward sampling BELOW -------------" << endl;
+    cerr << "---------- TEST upward downward sampling BELOW -----------" << endl;
     //const size_t rounds = 10;
 
     for (size_t k = 0; k < rounds; ++k) {
@@ -368,7 +365,7 @@ int main(int argc, const char **argv) {
       for (size_t i = 1; i < n_sites-1; ++i) {
         vector<Path> new_path;
         gibbs_site(the_model, i, all_paths, gen, new_path);
-        for (size_t node_id = 1; node_id < the_model.subtree_sizes.size(); ++node_id)
+        for (size_t node_id = 1; node_id < n_nodes; ++node_id)
           all_paths[node_id][i] = new_path[node_id];
       }
     }
@@ -376,7 +373,8 @@ int main(int argc, const char **argv) {
     write_root_to_pathfile_local(outfile, the_model.node_names.front());
 
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-      append_to_pathfile_local(outfile, the_model.node_names[node_id], all_paths[node_id]);
+      append_to_pathfile_local(outfile, the_model.node_names[node_id],
+                               all_paths[node_id]);
     }
 
     // cerr << "[old_path]" << endl;
