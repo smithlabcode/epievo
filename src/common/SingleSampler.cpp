@@ -44,18 +44,20 @@ static const double MINWAIT = 1e-8;
 /* 2x2 rate matrix to transition prob. matrix */
 static void
 trans_prob_mat(const double rate0, const double rate1,
-               const double interval,
+               const double time_interval,
                vector<vector<double> > &transition_matrix) {
 
-  assert(rate0 > 0 && rate1 > 0 && interval > 0);
-  double h = 1.0 / exp(interval * (rate0 + rate1));
+  assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
+
+  const double h = 1.0 / exp(time_interval * (rate0 + rate1));
 
   transition_matrix = vector<vector<double> >(2, vector<double>(2, 0.0));
 
-  transition_matrix[0][0] = (rate0 * h + rate1) / (rate0 + rate1);
+  const double denominator = rate0 + rate1;
+  transition_matrix[0][0] = (rate0*h + rate1)/denominator;
   transition_matrix[0][1] = 1.0 - transition_matrix[0][0];
 
-  transition_matrix[1][1] = (rate0 + rate1 * h) / (rate0 + rate1);
+  transition_matrix[1][1] = (rate0 + rate1*h)/denominator;
   transition_matrix[1][0] = 1.0 - transition_matrix[1][1];
 }
 
