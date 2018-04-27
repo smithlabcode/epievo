@@ -295,13 +295,13 @@ read_model(const bool SCALE, const string &param_file, const string &tree_file,
   /* read the phylogenetic tree */
   std::ifstream tree_in(tree_file.c_str());
   if (!tree_in)
-    throw std::runtime_error("Could not open file" + tree_file);
+    throw std::runtime_error("Could not open file: " + tree_file);
   string dummy_label;
   tree_in >> m.t;
 
   std::ifstream in(param_file.c_str());
   if (!in)
-    throw std::runtime_error("Could not open file" + param_file);
+    throw std::runtime_error("Could not open file: " + param_file);
 
   /* read the stationary distribution */
   in >> dummy_label;
