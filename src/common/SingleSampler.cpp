@@ -31,6 +31,8 @@
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
 
+#include "StateSeq.hpp"
+
 using std::vector;
 using std::endl;
 using std::cerr;
@@ -88,9 +90,9 @@ pdf(const vector<double> &rates,
     const vector<vector<double> > &PT,
     const double T, const size_t a, const size_t b, const double x) {
   double f = 0.0;
-  const size_t abar = 1 - a;
+  const size_t a_bar = complement_state(a);
   for (size_t i = 0; i < 2; ++i)
-    f += U[abar][i] * Uinv[i][b] * exp(T * eigen_vals[i]) * exp(-x * (eigen_vals[i] + rates[a]));
+    f += U[a_bar][i] * Uinv[i][b] * exp(T * eigen_vals[i]) * exp(-x * (eigen_vals[i] + rates[a]));
 
   f *= rates[a] / PT[a][b];
   return f;
@@ -103,14 +105,15 @@ cdf(const vector<double> &rates,
     const vector<vector<double> > &Uinv,
     const vector<vector<double> > &PT,
     const double T, const size_t a, const size_t b, const double x) {
+  const size_t a_bar = complement_state(a);
+  const double a_rate = rates[a];
   double p = 0.0;
-  const size_t abar = 1 - a;
   for (size_t i = 0; i < 2; ++i) {
-    const double scaler = U[abar][i] * Uinv[i][b] * exp(T * eigen_vals[i]);
-    const double coeff = -(eigen_vals[i] + rates[a]);
+    const double scaler = U[a_bar][i] * Uinv[i][b] * exp(T * eigen_vals[i]);
+    const double coeff = -(eigen_vals[i] + a_rate);
     p += scaler * (1.0 / coeff) * (exp(x * coeff) - 1.0);
   }
-  p *= rates[a]/PT[a][b];
+  p *= a_rate/PT[a][b];
   return p;
 }
 
@@ -157,6 +160,7 @@ end_cond_sample_first_jump(const vector<double> rates,
                            const double T, std::mt19937 &gen) {
 
   if (a == b && T <= 2*MINWAIT) return T;
+
   if (a != b && T <= 2*MINWAIT) return T/2;
 
   vector<vector<double> > PT;  // PT = exp(QT)
@@ -177,7 +181,8 @@ end_cond_sample_first_jump(const vector<double> rates,
   const double rn = unif_lu(gen);
 
   // now do line search to find x s.t. CDF(x) = rn
-  double w = line_search_cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, rn);
+  const double w = line_search_cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, rn);
+
   return w;
 }
 
@@ -201,7 +206,7 @@ end_cond_sample(const vector<double> rates,
 
     if (wait < tot) {
       jump_times.push_back(base_time + wait);
-      start_state = 1 - start_state;
+      start_state = complement_state(start_state);
     }
     base_time += wait;
     tot -= wait;
@@ -549,11 +554,11 @@ end_cond_sample_prob(const vector<double> rates,
   assert(jump_times.size() > 0 || a == b);
 
   while (jump_times.size()) {
-     vector<vector<double> > PT;  // PT = exp(QT)
-     trans_prob_mat(rates[0], rates[1], T, PT);
-     p *= pdf(rates, eigen_vals, U, Uinv, PT, T, a, b, jump_times[0]);
+    vector<vector<double> > PT;  // PT = exp(QT)
+    trans_prob_mat(rates[0], rates[1], T, PT);
+    p *= pdf(rates, eigen_vals, U, Uinv, PT, T, a, b, jump_times[0]);
 
-    a = 1 - a;
+    a = complement_state(a);
     const double w = jump_times[0];
     T = T - w;
     jump_times.erase(jump_times.begin());
@@ -808,13 +813,11 @@ gibbs_site(const EpiEvoModel &the_model,
                     all_paths, the_model.init_T, all_p, gen, new_path);
 
   // acceptance rate
-  double log_acc_rate = log_accept_rate(the_model, site, all_paths,
-                                        all_p, new_path);
+  const double log_acc_rate = log_accept_rate(the_model, site, all_paths,
+                                              all_p, new_path);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
   if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate))
     for (size_t i = 1; i < the_model.subtree_sizes.size(); ++i)
       all_paths[i][site] = new_path[i];
-
-
 }
