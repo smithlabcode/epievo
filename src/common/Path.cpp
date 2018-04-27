@@ -1,3 +1,24 @@
+/* Copyright (C) 2018 University of Southern California
+ *                    Jianghan Qu and Andrew D Smith
+ *
+ * Author: Andrew D. Smith and Jianghan Qu
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
+ */
+
 #include "Path.hpp"
 
 #include <string>
@@ -61,8 +82,9 @@ Path::state_at_time(const double t) const {
   return s;
 }
 
-void sequence_at_time(const vector<Path> &paths, const double t,
-                      vector<bool> &seq) {
+void
+sequence_at_time(const vector<Path> &paths, const double t,
+                 vector<bool> &seq) {
   seq.resize(paths.size());
   for (size_t i = 0; i < paths.size(); ++i) {
     seq[i] = paths[i].state_at_time(t);
@@ -198,6 +220,7 @@ TriplePath::TriplePath(const Path &l, const Path &m, const Path &r) {
   breaks.insert(breaks.end(), l.jumps.begin(), l.jumps.end());
   breaks.insert(breaks.end(), m.jumps.begin(), m.jumps.end());
   breaks.insert(breaks.end(), r.jumps.begin(), r.jumps.end());
+  // consider two uses of std::inplace_merge below, rather than sort
   std::sort(breaks.begin(), breaks.end());
   breaks.push_back(l.tot_time);
 
