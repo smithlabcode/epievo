@@ -116,14 +116,14 @@ rate_factor(const vector<double> &rates) {
   pi[0] = 1.0 - pi[1];
 
   vector<double> stationary_prob(rates.size(), 0.0);
-  double unit = 0.0;
+  double unit_rate = 0.0;
   for (size_t i = 0; i < rates.size(); ++i) {
     const size_t l = get_left_bit(i);
     const size_t m = get_mid_bit(i);
     const size_t r = get_right_bit(i);
     stationary_prob[i] = pi[l]*T[l][m]*T[m][r];
-    unit += stationary_prob[i] * rates[i];
+    unit_rate += stationary_prob[i] * rates[i];
   }
 
-  return unit;
+  return unit_rate;
 }

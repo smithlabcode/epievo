@@ -25,8 +25,7 @@
 #include "EpiEvoModel.hpp" /* model_param */
 
 void
-decompose(const double rate0, const double rate1,
-          std::vector<double> &rates,
+decompose(const std::vector<double> &rates,
           std::vector<double> &eigen_vals,
           std::vector<std::vector<double> > &U,
           std::vector<std::vector<double> > &Uinv);

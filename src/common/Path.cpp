@@ -65,7 +65,7 @@ initialize_paths(const std::vector<bool> &seq, const double tot_time,
 }
 
 void
-end_sequence(const vector<Path> &paths, vector<bool> &seq) {
+get_seq_end(const vector<Path> &paths, vector<bool> &seq) {
   seq.resize(paths.size());
   for (size_t i = 0; i < paths.size(); ++i)
     seq[i] = paths[i].end_state();
@@ -76,15 +76,12 @@ Path::state_at_time(const double t) const {
   const size_t idx =
     std::lower_bound(jumps.begin(), jumps.end(), t) - jumps.begin();
   const bool s = (idx % 2 == 0) ? init_state : !init_state;
-  // bool s = p.init_state;
-  // for (size_t i = 0; i < p.jumps.size() && p.jumps[i] < t; ++i)
-  //   s = !s;
   return s;
 }
 
 void
-sequence_at_time(const vector<Path> &paths, const double t,
-                 vector<bool> &seq) {
+get_seq_at_time(const double t, const vector<Path> &paths,
+                vector<bool> &seq) {
   seq.resize(paths.size());
   for (size_t i = 0; i < paths.size(); ++i) {
     seq[i] = paths[i].state_at_time(t);
@@ -156,7 +153,7 @@ read_paths(const string &path_file, vector<string> &node_names,
   }
 }
 
-void get_initial_seq(const vector<Path> &paths, vector<bool> &seq) {
+void get_seq_init(const vector<Path> &paths, vector<bool> &seq) {
   seq.clear();
   for (size_t i = 0; i < paths.size(); ++i)
     seq.push_back(paths[i].init_state);

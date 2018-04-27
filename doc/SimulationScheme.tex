@@ -152,7 +152,7 @@ existing data set.
 
 \section{The model}
 
-\subsection{Biological assumptions and assumed representation for the epigenome}
+\subsection{Biological assumptions and desired model properties}
 \label{biodefs}
 
 %%% Need to cover the issues here of what it means for a methylome,
@@ -222,18 +222,18 @@ directionality.
 %%% directionality.
 
 % The Gibbs measure is moved to here.
-An epigenome is firstly modeled in graphical model that neighboring sites
-are connected with undirected edges.
-Let epigenome $s$ be the sequence $s=s_1s_2\cdots s_N$ with $s_i$
-denoting the state at position $i$.
+An epigenome is firstly modeled in graphical model that neighboring
+sites are connected with undirected edges.  Let epigenome $s$ be the
+sequence $s=s_1s_2\cdots s_N$ with $s_i$ denoting the state at
+position $i$.
 %An epigenome $s$ evolves over time, but we assume the
 The stationary distribution for the epigenome has a Gibbs distribution
-that factorizes over pairs of neighboring sites.
-An equivalent first-order Markov chain form is defined in Appendix.
+that factorizes over pairs of neighboring sites (see Appendix):
+%% .  An equivalent
+%% first-order Markov chain form is defined in Appendix.
 \begin{equation}\label{eqn:stationary}
-  \Pr(s) = \frac{1}{Z} \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
+  \Pr(s) = \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
 \end{equation}
-
 
 %%% Describe the paths for the full genome, and then the paths for
 %%% individual sites
@@ -705,18 +705,19 @@ observed states at all leaf nodes for this site?
 
 %%% JQU: reuse of "Z"
 \paragraph{Tree branch partitions imposed by states at neighboring sites.}
-The evolutionary process at an individual site is not homogeneous along a branch, as
-its transition rates depend on states of neighboring sites at any
-instant. By partitioning each branch into maximal contiguous intervals
-with neighboring states unchanged, within each such interval the
-process is homogeneous. For site $n$, define breaks $Z =
-(z_1\ldots,z_{w_{n-1} + w_{n+1}})$ as the ordered set of times from
-$Y_{n-1}$ and $Y_{n+1}$. During each time interval $(z_{i-1}, z_{i})$,
-the state at site $n-1$ and site $n+1$ remains unchanged.  For each
-branch $b$ in the tree, we can use the set of neighbor-induced breaks
-$Z(b)$ to define new nodes that each have only one child. Once this is
-done, we can apply Felsenstein's algorithm to compute the probability
-of states at each breakpoint on each branch of the tree.
+The evolutionary process at an individual site is not homogeneous
+along a branch, as its transition rates depend on states of
+neighboring sites at any instant. By partitioning each branch into
+maximal contiguous intervals with neighboring states unchanged, within
+each such interval the process is homogeneous. For site $n$, define
+breaks $Z = (z_1\ldots,z_{w_{n-1} + w_{n+1}})$ as the ordered set of
+times from $Y_{n-1}$ and $Y_{n+1}$. During each time interval
+$(z_{i-1}, z_{i})$, the state at site $n-1$ and site $n+1$ remains
+unchanged.  For each branch $b$ in the tree, we can use the set of
+neighbor-induced breaks $Z(b)$ to define new nodes that each have only
+one child. Once this is done, we can apply Felsenstein's algorithm to
+compute the probability of states at each breakpoint on each branch of
+the tree.
 
 %%% ADS: need to define P and Q here...
 {\bf need to fix this paragraph to define P and Q properly.}
@@ -732,19 +733,16 @@ other sites is
 \[
 \Pr(\{s_n(v)\} | H_{\overline{n}}) = \sum_{\{s_{bm}\}} \prod_{b} \prod_{m} P_{bm}(s_{b,m-1}, s_{b, m})
 \]
-
 %%% ADS: need to define $X$ such that it is a data structure that
 %%% associates states with a subset of nodes, and indicates which
 %%% nodes have assigned states
-
-\paragraph{Bottom-up pruning algorithm.}
-We can use Felsenstein's pruning algorithm to compute this
+We use Felsenstein's pruning algorithm to compute this
 probability. Let the phylogenetic tree be $G_n$ consisting of all leaf
 nodes and internal nodes from $G$, and all breakpoint nodes at times
 $Z_n(b)$ on each branch $b$ of $G$. For any node $u\in G_n$ let
 $X_n(u)$ be the states of all leaf nodes below $u$ at site $n$
-(Figure~\ref{fig:treebreak}). The state transition probabilities
-from the parent of node $u$ to node $u$ are
+(Figure~\ref{fig:treebreak}). The state transition probabilities from
+the parent of node $u$ to node $u$ are
 \[
 P_u = \exp(Q_{\context{u}}\tau_u).
 \]
@@ -752,8 +750,8 @@ We use the following notation to describe the algorithm:
 %%% ADS: does X_n(v) include v if v is a leaf?
 \begin{equation}\label{def:pandq}
 \begin{array}{lll}
-p_j(v) & = \Pr(X_n(v) | s_n(u) = j), & \begin{array}{l}\mbox{where $u$ is the parent of $v$,}\end{array}\\[1em]
-q_j(u) & = \left\{
+p_j(v) = \Pr(X_n(v) | s_n(u) = j), & \begin{array}{l}\mbox{where $u$ is the parent of $v$,}\end{array}\\[1em]
+q_j(u) = \left\{
 \begin{array}{l}
   \Pr(s_n(u) = j),\\
   \prod_{v\in \child{u}} p_{j}(v),
@@ -764,9 +762,10 @@ q_j(u) & = \left\{
 \end{array}
 \end{array}
 \end{equation}
-If the state $s_n(u)$ is observed (e.g. at a leaf) then $\Pr(s_n(u) =
-j) \in \{0, 1\}$. If the data are contiuous or given as expected
-states or posterior probabilities, then $\Pr(s_n(u) = j) \in (0, 1)$.
+If the state $s_n(u)$ is observed ({\it i.e.} at a leaf) then
+$\Pr(s_n(u) = j) \in \{0, 1\}$. If the data are continuous or given as
+expected states or posterior probabilities, then $\Pr(s_n(u) = j) \in
+(0, 1)$.
 %%% ADS: above, not sure about generality needed???
 In the bottom-up pass of Felsenstein's pruning algorithm we compute
 \begin{equation}
@@ -894,7 +893,8 @@ time-dependent graphical models.
 \clearpage
 
 \appendix
-\section{Conversion between Gibbs measure  and Markov chain}
+
+\section{Relating the Gibbs measure potentials and Markov chain probabilities}
 
 %%% Gibbs to MC
 The stationary distribution in \eqref{eqn:stationary} is equivalent to
@@ -921,7 +921,7 @@ More specifically,
 \begin{equation} \label{eqn:gibbs2markov}
   \begin{array}{ll}
     T(1,1) = \displaystyle\frac{2\Psi(1,1)}{\Psi(0,0)+\Psi(1,1)+\sqrt{\Delta}}, &
-    T(0,0) = \displaystyle\frac{2\Psi0,0)}{\Psi(0,0)+\Psi(1,1)+\sqrt{\Delta}}, \\[2em]
+    T(0,0) = \displaystyle\frac{2\Psi(0,0)}{\Psi(0,0)+\Psi(1,1)+\sqrt{\Delta}}, \\[2em]
     T(0,1) = \displaystyle\frac{4\Psi(0,1)\Psi(1,0)}{(\Psi(0,0)+\sqrt{\Delta})^2 -\Psi(1,1)^2}, &
     T(1,0) = \displaystyle\frac{4\Psi(0,1)\Psi(1,0)}{(\Psi(1,1)+\sqrt{\Delta})^2 -\Psi(0,0)^2}.
   \end{array}
@@ -937,7 +937,7 @@ residing within functional domains (the ``features'') is:
 %%% MC to Gibbs
 Converting a Markov chain to an equivalent Gibbs measure is more
 straight forward. Given Markov chain transition probability matrix
-$T$, we can choose potentials $\Psi(i,j) = exp(\phi(i,j))$ as 
+$T$, we can choose potentials $\Psi(i,j) = \exp(\phi(i,j))$ as
 \[
 \Psi =
  \begin{bmatrix}
@@ -993,7 +993,7 @@ can take any real value.
 %%% may be masked in the appendix
 \section{End-conditioned path sampling for continuous-time Markov chain}
 
-We used the exact path sampling algorithm of \citetext{hobolth2008markov}. 
+We used the exact path sampling algorithm of \citetext{hobolth2008markov}.
 The $2\times2$ transition rate matrix $Q$ has an eigenvalue decomposition $Q = UDU^{-1}$,
 where $D$ is the diagonal matrix of eigenvalues and $U$ is a matrix of orthogonal eigenvectors.
 %
@@ -1025,7 +1025,7 @@ The transition probability matrix between two time points separated by time $t$ 
 P(t) = e^{Qt} = Ue^{tD}U^{-1} = \frac{1}{\lambda_0+\lambda_1} \begin{bmatrix}
   \lambda_0 h(t) + \lambda_1 & \lambda_0 (1-h(t)) \\
   \lambda_1(1-h(t)) & \lambda_0 + \lambda_1 h(t)
- \end{bmatrix}, 
+ \end{bmatrix},
 \end{equation}
 where $h(t) = exp(-(\lambda_0 + \lambda_1)t)$.
 

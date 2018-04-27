@@ -48,7 +48,7 @@ all: $(PROGS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS) $(LIBS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab_os.o) \
-	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TripletPattern.o Path.o) \
+	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
 epievo_est_complete epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
