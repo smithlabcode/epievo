@@ -32,7 +32,6 @@
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"  /* related to Path */
 #include "EpiEvoModel.hpp" /* model_param */
-#include "TripletPattern.hpp"
 #include "StateSeq.hpp"
 #include "SingleSampler.hpp"
 
