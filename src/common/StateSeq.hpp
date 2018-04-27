@@ -60,6 +60,18 @@ pair2idx(const bool i, const bool j) {
   return i*2 + j;
 }
 
+#include <cassert>
+
+// complementing a state
+inline size_t complement_state(const size_t x) {
+  assert(x == 0ul || x == 1ul);
+  return 1ul - x;
+}
+
+inline bool complement_state(const bool x) {
+  return !x;
+}
+
 // flipping bits
 inline size_t flip_left_bit(const size_t x)  {return x ^ 4ul;}
 inline size_t flip_mid_bit(const size_t x)   {return x ^ 2ul;}
