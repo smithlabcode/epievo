@@ -257,8 +257,8 @@ int main(int argc, const char **argv) {
 
     for (size_t k = 0; k < rounds; ++k) {
       cerr << "pass " << k+1 << endl;
-      for (size_t i = 1; i < n_sites - 1; ++i) {
-        std::uniform_int_distribution<> dis(1, n_sites - 2);
+      for (size_t i = 2; i < n_sites - 2; ++i) {
+        std::uniform_int_distribution<> dis(2, n_sites - 3);
         size_t site = dis(gen);
         vector<Path> new_path;
         gibbs_site(the_model, site, all_paths, gen, new_path);
