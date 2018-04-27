@@ -94,9 +94,9 @@ struct Environment {
 
 ////////////////////////////////////////////////////////////////////////////////
 struct TriplePath {
-  std::vector<size_t> states; /*triplet states, length k*/
-  std::vector<double> breaks; /*start with first jump, end with total_time, length k*/
-  std::vector<size_t> jump_context_freq; /*context frequency of jumps at middle site*/
+  std::vector<size_t> states; // triplet states, length k
+  std::vector<double> breaks; // start is first jump, end is total_time, length k
+  std::vector<size_t> jump_context_freq; // context freq. of jumps at middle site
 
   TriplePath(const Path &l, const Path &m, const Path &r);
   void time_by_context(std::vector<double> &tbc) const;
