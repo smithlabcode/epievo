@@ -79,30 +79,16 @@ get_seq_at_time(const double t, const std::vector<Path> &paths,
 ////////////////////////////////////////////////////////////////////////////////
 
 struct Environment {
-  // states on the left
-  std::vector<bool> left;
-  // states on the right
-  std::vector<bool> right;
-  // time points of environment state changes, including tot_time
-  std::vector<double> breaks;
+  std::vector<bool> left; // states on the left
+  std::vector<bool> right; // states on the right
+  std::vector<double> breaks; // time pts. of envir state change, incl. tot_time
   double tot_time;
 
   Environment(const Path &pa, const Path &pb);
 };
 
-
-
 ////////////////////////////////////////////////////////////////////////////////
-struct TriplePath {
-  std::vector<size_t> states; // triplet states, length k
-  std::vector<double> breaks; // start is first jump, end is total_time, length k
-  std::vector<size_t> jump_context_freq; // context freq. of jumps at middle site
 
-  TriplePath(const Path &l, const Path &m, const Path &r);
-  void time_by_context(std::vector<double> &tbc) const;
-};
-
-////////////////////////////////////////////////////////////////////////////////
 struct PathContextStat {
   std::vector<double> jumps_in_context;
   std::vector<double> time_in_context;
