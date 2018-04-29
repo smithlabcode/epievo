@@ -187,6 +187,9 @@ int main(int argc, const char **argv) {
     }
     ////////////////////////////////////////////////////////////////////////
 
+    if (VERBOSE)
+      cerr << "sequence length: " << n_sites << endl;
+
     /* (1) INITIALIZING PARAMETERS */
     if (VERBOSE)
       cerr << "reading parameter file: " << param_file << endl;
