@@ -26,6 +26,7 @@
 \newcommand{\merging}{\ensuremath{\mathcal{M}}}
 \newcommand{\separating}{\ensuremath{\mathcal{S}}}
 \newcommand{\child}[1]{\ensuremath{\mathrm{child}(#1)}}
+\newcommand{\tth}{\ensuremath{^\mathrm{th}}}
 
 \newcommand\halfopen[2]{\ensuremath{[#1,#2)}}
 
@@ -232,8 +233,9 @@ that factorizes over pairs of neighboring sites (see Appendix):
 %% .  An equivalent
 %% first-order Markov chain form is defined in Appendix.
 \begin{equation}\label{eqn:stationary}
-  \Pr(s) = \exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\}.
+  \Pr(s) = \frac{1}{\mathcal{Z}}\exp\big\{\phi(s_1) +\sum_{n=1}^{N-1}\phi(s_n, s_{n+1}) + \phi(s_N)\big\},
 \end{equation}
+where $\mathcal{Z}$ is the partition function.
 
 %%% Describe the paths for the full genome, and then the paths for
 %%% individual sites
@@ -703,33 +705,36 @@ evolutionary path (on the entire tree) for one site from its posterior
 distribution given observed evolutionary paths at all other sites and the
 observed states at all leaf nodes for this site?
 
-%%% JQU: reuse of "Z"
 \paragraph{Tree branch partitions imposed by states at neighboring sites.}
 The evolutionary process at an individual site is not homogeneous
 along a branch, as its transition rates depend on states of
-neighboring sites at any instant. By partitioning each branch into
-maximal contiguous intervals with neighboring states unchanged, within
-each such interval the process is homogeneous. For site $n$, define
-breaks $Z = (z_1\ldots,z_{w_{n-1} + w_{n+1}})$ as the ordered set of
-times from $Y_{n-1}$ and $Y_{n+1}$. During each time interval
-$(z_{i-1}, z_{i})$, the state at site $n-1$ and site $n+1$ remains
-unchanged.  For each branch $b$ in the tree, we can use the set of
-neighbor-induced breaks $Z(b)$ to define new nodes that each have only
-one child. Once this is done, we can apply Felsenstein's algorithm to
-compute the probability of states at each breakpoint on each branch of
-the tree.
+neighboring sites at any instant. At a given site $n$, we partition
+each branch into maximal contiguous intervals such that the states at
+neighboring sites are unchanged during those intervals. For site $n$,
+define homogeneous break times $Z_{n,b} = (z_0,z_1,\ldots,z_{w_{n-1} +
+  w_{n+1}}, \tau_b)$, or $h$-breaks, as the ordered set of times from
+$Y_{n-1}$ and $Y_{n+1}$, with $z_0 = 0$. For $0 < i \leq |Z_{n,b}|$,
+during each time interval $(z_{i-1}, z_{i})$ the state at site $n-1$
+and site $n+1$ remains unchanged along branch $b$. We denote these
+time intervals as $h$-intervals, along which the evolutionary process
+can be treated as homogeneous.
+%%%
+For each branch $b$ in the tree, we can use the set of $h$-breaks
+$Z_{n,b}$ to define a new set of nodes between $u$ and $v$, such that
+each new node only has one child. This will allow us to simplify the
+problem of sampling continuous time jump paths for an individual site.
 
 %%% ADS: need to define P and Q here...
 {\bf need to fix this paragraph to define P and Q properly.}
 
-The evolutionary process at site $n$ within the $m$-the interval on
-branch $b$ is thus a time-homogeneous continuous-time Markov chain
-with transition rate matrix $Q_{bm}$.  The states of this site of
-interest at the start and the end of a single interval, $s_{b,m-1}$
-and $s_{b,m}$ are connected through a transition probability matrix
-$P_{bm} = \exp(Q_{bm}t_{bm})$.  The likelihood of observing leaf node
-states at this site $\{s_n(v)\}$, given the evolutionary paths at
-other sites is
+The evolutionary process at site $n$ within the $m\tth{}$ $h$-interval
+on branch $b$ is thus a time-homogeneous continuous-time Markov chain
+with transition rate matrix $Q_{bm}$ defined by the states at
+neighboring sites. The states of this site of interest at the start
+and the end of an $h$-interval, $s_{b,m-1}$ and $s_{b,m}$, are
+connected through a transition probability matrix $P_{b,m} =
+\exp(Q_{bm}t_{bm})$.  The likelihood of observing leaf node states at
+this site $\{s_n(v)\}$, given the evolutionary paths at other sites is
 \[
 \Pr(\{s_n(v)\} | H_{\overline{n}}) = \sum_{\{s_{bm}\}} \prod_{b} \prod_{m} P_{bm}(s_{b,m-1}, s_{b, m})
 \]
