@@ -100,6 +100,9 @@ pdf(const vector<double> &rates,
   return f;
 }
 
+/* cdf function of end-conditioned time of first jump within the interval
+   a: init state, b: end state, x: time of first jump
+ */
 double
 cdf(const vector<double> &rates,
     const vector<double> &eigen_vals,
@@ -111,9 +114,11 @@ cdf(const vector<double> &rates,
   const double a_rate = rates[a];
   double p = 0.0;
   for (size_t i = 0; i < 2; ++i) {
-    const double scaler = U[a_bar][i] * Uinv[i][b] * exp(T * eigen_vals[i]);
-    const double coeff = -(eigen_vals[i] + a_rate);
-    p += scaler * (1.0 / coeff) * (exp(x * coeff) - 1.0);
+    const double scaler = U[a_bar][i] * Uinv[i][b];
+    const double coeff = eigen_vals[i] + a_rate;
+    const double expon = exp(T * eigen_vals[i])
+                         - exp(T * eigen_vals[i] - x * coeff);
+    p += scaler * (1.0 / coeff) * expon;
   }
   p *= a_rate/PT[a][b];
   return p;
