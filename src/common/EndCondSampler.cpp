@@ -36,6 +36,10 @@ using std::cerr;
 using std::cout;
 using std::string;
 
+static const double NUMERICAL_TOLERANCE = 1e-10;
+
+// ADS: I think the MINWAIT value needs to be considered for
+// elimination from the code.
 static const double MINWAIT = 1e-8;
 
 /* 2x2 rate matrix to transition prob. matrix */
@@ -97,59 +101,112 @@ pdf(const vector<double> &rates,
   return f;
 }
 
-/* cdf function of end-conditioned time of first jump within the interval
-   a: init state, b: end state, x: time of first jump
+
+/* This function is J_{aj} in Hobolth & Stone (2009), which appears on
+   page 1209, is part of REMARK 4. In our case, with only two states,
+   we don't need to handle the case of (lambda_j + Q_q = 0).
  */
-double
-cdf(const vector<double> &rates,
-    const vector<double> &eigen_vals,
-    const vector<vector<double> > &U,
-    const vector<vector<double> > &Uinv,
-    const vector<vector<double> > &PT,
-    const double T, const size_t a, const size_t b, const double x) {
-  const size_t a_bar = complement_state(a);
-  const double a_rate = rates[a];
-  double p = 0.0;
-  for (size_t i = 0; i < 2; ++i) {
-    const double scaler = U[a_bar][i] * Uinv[i][b];
-    const double coeff = eigen_vals[i] + a_rate;
-    const double expon = exp(T * eigen_vals[i])
-                         - exp(T * eigen_vals[i] - x * coeff);
-    p += scaler * (1.0 / coeff) * expon;
-  }
-  p *= a_rate/PT[a][b];
-  return p;
+static double
+transformed_cdf_integrand_helper(const double total_time,  // T (HS2009)
+                                 const double the_eig,     // lambda_j (HS2009)
+                                 const double the_rate,    // Q_a (HS2009)
+                                 const double proposed_time) { // t (HS2009)
+
+  const double neg_eig_plus_rate = -1.0*(the_eig + the_rate);
+  const double tot_time_mult_eig = total_time*the_eig;
+
+  const double r =
+    (exp(tot_time_mult_eig + proposed_time*neg_eig_plus_rate) -
+     exp(tot_time_mult_eig))/neg_eig_plus_rate;
+
+  assert(std::isfinite(r));
+
+  return r;
 }
 
+
+/* This function computes the value in the summation of eqn (2.5) of
+   Hobolth & Stone (2009). The coefficient of Q_{ai}/P_{ab}(T) is not
+   included here, and the value "j" from that paper may only take
+   values of 0 or 1 for our binary state space.
+ */
 double
-line_search_cdf(const vector<double> &rates,
+transformed_cdf(const vector<double> &rates,
                 const vector<double> &eigen_vals,
                 const vector<vector<double> > &U,
                 const vector<vector<double> > &Uinv,
-                const vector<vector<double> > &PT,
-                const double T, const size_t a, const size_t b,
-                const double target) {
-  double lo = MINWAIT; // PRECISION
-  double hi = T-MINWAIT;
-  double mi = 0.5 * (lo + hi);
+                const double T, const size_t a, const size_t b, const double x) {
 
-  while (hi - lo > MINWAIT) {  // PRECISION
-    double lo_val = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, lo);
-    double mi_val = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, mi);
-    double hi_val = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, hi);
-    assert(lo_val <= target && hi_val >= target);
-    if (mi_val > target) {
+  const size_t a_bar = complement_state(a);
+  const double a_rate = rates[a];
+
+  const double integrand_0 =
+    transformed_cdf_integrand_helper(T, eigen_vals[0], a_rate, x);
+  const double intermediate_factor_0 = U[a_bar][0] * Uinv[0][b];
+
+  const double integrand_1 =
+    transformed_cdf_integrand_helper(T, eigen_vals[1], a_rate, x);
+  const double intermediate_factor_1 = U[a_bar][1] * Uinv[1][b];
+
+  return std::max(intermediate_factor_0*integrand_0 +
+                  intermediate_factor_1*integrand_1,
+                  std::numeric_limits<double>::min());
+}
+
+
+static double
+cumulative_density(const vector<double> &rates,
+                   const vector<double> &eigen_vals,
+                   const vector<vector<double> > &U,
+                   const vector<vector<double> > &Uinv,
+                   const vector<vector<double> > &PT,
+                   const double T, const size_t a, const size_t b,
+                   const double x) {
+
+  return transformed_cdf(rates, eigen_vals, U, Uinv, T, a, b, x)*
+    rates[a]/PT[a][b];
+}
+
+
+static double
+bisection_search_cumulative_density(const vector<double> &rates,
+                                    const vector<double> &eigen_vals,
+                                    const vector<vector<double> > &U,
+                                    const vector<vector<double> > &Uinv,
+                                    const vector<vector<double> > &PT,
+                                    const double T,
+                                    const size_t a, const size_t b,
+                                    const double target) {
+  double lo = 0.0;
+  double lo_val = 0.0; // equals transformed_cdf for a value of 0.0
+
+  double hi = T;
+  double hi_val = transformed_cdf(rates, eigen_vals, U, Uinv, T, a, b, hi);
+
+  // ADS: the target cdf value sampled from (0, x), where x is the
+  // cumulative density for the -end-conditioned exponential is
+  // transformed here to avoid the operations on mi_val below each
+  // iteration, which also keeps values more centered.
+  const double transformed_target = target/(rates[a]/PT[a][b]);
+
+  assert(lo_val <= transformed_target && hi_val >= transformed_target);
+
+  while (hi - lo > NUMERICAL_TOLERANCE) {
+    const double mi = (lo + hi)/2.0;
+    const double mi_val =
+      transformed_cdf(rates, eigen_vals, U, Uinv, T, a, b, mi);
+    if (mi_val >= transformed_target) {
       hi = mi;
-      mi = 0.5 * (lo + hi);
-    } else if (mi_val < target) {
+      hi_val = mi_val;
+    }
+    else {
       lo = mi;
-      mi = 0.5 * (lo + hi);
-    } else {
-      return mi;
+      lo_val = mi_val;
     }
   }
-  return mi;
+  return (lo + hi)/2.0;
 }
+
 
 /* Continuous time Markov chian with rate matrix Q.
    Return the first jump time within (0, T) or T if no jumps,
@@ -163,30 +220,31 @@ end_cond_sample_first_jump(const vector<double> rates,
                            const size_t a, const size_t b,
                            const double T, std::mt19937 &gen) {
 
-  if (a == b && T <= 2*MINWAIT) return T;
-
-  if (a != b && T <= 2*MINWAIT) return T/2;
+  if (T < 2*std::numeric_limits<double>::min())
+    return (a == b) ? T : T/2.0;
 
   vector<vector<double> > PT;  // PT = exp(QT)
   trans_prob_mat(rates[0], rates[1], T, PT);
 
-  const double pr_no_jump  = (a == b) ? (exp(-rates[a] * T) / PT[a][a]) : 0.0;
+  const double pr_no_jump = (a == b) ? exp(-rates[a]*T)/PT[a][a] : 0.0;
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   if (a == b && unif(gen) < pr_no_jump)
     return T;
 
   // x~pdf <=> CDF(x)~Unif(0, 1)
+  const double lowerbound = 0.0; // smallest possible cdf...
+  // avoid calling cumulative_density for a value of 0.0
 
-  const double upperbound = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, T-MINWAIT);
-  const double lowerbound = cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, MINWAIT);
+  const double upperbound =
+    cumulative_density(rates, eigen_vals, U, Uinv, PT, T, a, b, T);
 
   std::uniform_real_distribution<double> unif_lu(lowerbound, upperbound);
-  const double rn = unif_lu(gen);
+  const double sampled_cdf_value = unif_lu(gen);
 
-  // now do line search to find x s.t. CDF(x) = rn
-  const double w = line_search_cdf(rates, eigen_vals, U, Uinv, PT, T, a, b, rn);
-
+  const double w =
+    bisection_search_cumulative_density(rates, eigen_vals, U, Uinv,
+                                        PT, T, a, b, sampled_cdf_value);
   return w;
 }
 
