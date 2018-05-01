@@ -23,20 +23,7 @@
 
 #include "Path.hpp"
 #include "EpiEvoModel.hpp" /* model_param */
-
-void
-decompose(const std::vector<double> &rates,
-          std::vector<double> &eigen_vals,
-          std::vector<std::vector<double> > &U,
-          std::vector<std::vector<double> > &Uinv);
-
-void
-end_cond_sample(const std::vector<double> rates,
-                const std::vector<double> eigen_vals,
-                const std::vector<std::vector<double> > U,
-                const std::vector<std::vector<double> > Uinv,
-                const size_t a, const size_t b, const double T,
-                std::mt19937 &gen, std::vector<double> &jump_times);
+#include "EndCondSampler.hpp"
 
 void
 pruning(const std::vector<double> &triplet_rates,

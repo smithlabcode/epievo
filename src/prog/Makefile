@@ -19,7 +19,8 @@
 # 02110-1301 USA
 
 PROGS = epievo_sim global_jumps_to_paths \
-	extract_state_sequences test_sampling epievo_est_complete
+	extract_state_sequences test_sampling epievo_est_complete \
+        test_sampling_branch
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -54,8 +55,8 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 epievo_est_complete epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
 	EpiEvoModel.o GlobalJump.o)
 
-test_sampling: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
-	EpiEvoModel.o SingleSampler.o)
+test_sampling test_sampling_branch: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
+	EpiEvoModel.o SingleSampler.o EndCondSampler.o)
 
 global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)
 
