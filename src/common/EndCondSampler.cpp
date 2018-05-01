@@ -249,7 +249,7 @@ end_cond_sample_first_jump(const vector<double> rates,
 }
 
 
-/* Endpoint-conditioned sampling of path witin time interval T*/
+/* Endpoint-conditioned sampling of path witin time interval T */
 void
 end_cond_sample(const vector<double> rates,
                 const vector<double> eigen_vals,
@@ -259,19 +259,19 @@ end_cond_sample(const vector<double> rates,
                 std::mt19937 &gen, vector<double> &jump_times) {
 
   jump_times.clear();
-  double tot = T;
   size_t start_state = a;
-  double base_time = 0;
-  while (tot > 0) {
-    double wait = end_cond_sample_first_jump(rates, eigen_vals, U, Uinv,
-                                             start_state, b, tot, gen);
+  double consumed_time = 0;
+  while (remaining_time > 0) {
 
-    if (wait < tot) {
-      jump_times.push_back(base_time + wait);
+    const double current_wait =
+      end_cond_sample_first_jump(rates, eigen_vals, U, Uinv,
+                                 start_state, b, T - consumed_time, gen);
+
+    if (current_wait < remaining_time) {
+      jump_times.push_back(consumed_time + current_wait);
       start_state = complement_state(start_state);
     }
-    base_time += wait;
-    tot -= wait;
+    consumed_time += current_wait;
   }
 }
 
