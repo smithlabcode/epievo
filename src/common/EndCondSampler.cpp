@@ -255,23 +255,26 @@ end_cond_sample(const vector<double> rates,
                 const vector<double> eigen_vals,
                 const vector<vector<double> > U,
                 const vector<vector<double> > Uinv,
-                const size_t a, const size_t b, const double T,
+                const size_t start_state, const size_t end_state, const double T,
                 std::mt19937 &gen, vector<double> &jump_times) {
 
   jump_times.clear();
-  size_t start_state = a;
-  double consumed_time = 0;
-  while (remaining_time > 0) {
 
-    const double current_wait =
-      end_cond_sample_first_jump(rates, eigen_vals, U, Uinv,
-                                 start_state, b, T - consumed_time, gen);
+  size_t current_state = start_state;
+  double consumed_time =
+    end_cond_sample_first_jump(rates, eigen_vals, U, Uinv,
+                               current_state, end_state, T, gen);
 
-    if (current_wait < remaining_time) {
-      jump_times.push_back(consumed_time + current_wait);
-      start_state = complement_state(start_state);
-    }
-    consumed_time += current_wait;
+  // ADS: the use of NUMERICAL_TOLERANCE below should be checked. We
+  // need to make sure that the sampling of a jump will return exactly
+  // the total time interval when it should, and not some
+  // approximation to it.
+  while (T - consumed_time < NUMERICAL_TOLERANCE) {
+    jump_times.push_back(consumed_time);
+    current_state = complement_state(current_state);
+    consumed_time +=
+      end_cond_sample_first_jump(rates, eigen_vals, U, Uinv, current_state,
+                                 end_state, T - consumed_time, gen);
   }
 }
 
