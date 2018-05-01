@@ -23,7 +23,7 @@
 
 #include "Path.hpp"
 #include "EpiEvoModel.hpp" /* model_param */
-#include "EndCondSampler.hpp"
+#include "EndCondSampling.hpp"
 
 void
 pruning(const std::vector<double> &triplet_rates,
