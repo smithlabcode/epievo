@@ -33,7 +33,7 @@
 #include "Path.hpp"  /* related to Path */
 #include "EpiEvoModel.hpp" /* model_param */
 #include "StateSeq.hpp"
-#include "SingleSampler.hpp"
+#include "SingleSampling.hpp"
 
 using std::vector;
 using std::endl;

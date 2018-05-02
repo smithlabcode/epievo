@@ -269,7 +269,7 @@ end_cond_sample(const vector<double> rates,
   // need to make sure that the sampling of a jump will return exactly
   // the total time interval when it should, and not some
   // approximation to it.
-  while (T - consumed_time < NUMERICAL_TOLERANCE) {
+  while (T - consumed_time > NUMERICAL_TOLERANCE) {
     jump_times.push_back(consumed_time);
     current_state = complement_state(current_state);
     consumed_time +=
