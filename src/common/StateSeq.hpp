@@ -82,12 +82,22 @@ inline bool get_left_bit(const size_t x)  {return x & 4ul;}
 inline bool get_mid_bit(const size_t x)   {return x & 2ul;}
 inline bool get_right_bit(const size_t x) {return x & 1ul;}
 
+inline bool get_left_bit_from_pair(const size_t x)  {return x & 2ul;}
+inline bool get_right_bit_from_pair(const size_t x) {return x & 1ul;}
+
 inline void
 get_bits_from_triple(const size_t x, bool &l, bool &m, bool &r) {
   l = get_left_bit(x);
   m = get_mid_bit(x);
   r = get_right_bit(x);
 }
+
+inline void
+get_bits_from_pair(const size_t x, bool &l, bool &r) {
+  l = get_left_bit_from_pair(x);
+  r = get_right_bit_from_pair(x);
+}
+
 
 #include <bitset>
 #include <sstream>
