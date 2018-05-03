@@ -283,8 +283,40 @@ rate_scaling_factor(const vector<double> &triplet_rates) {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// For new param format
-////////////////////////////////////////////////////////////////////////////////
+// read the model file without a tree
+void
+read_model(const string &param_file, EpiEvoModel &m) {
+
+  std::ifstream in(param_file.c_str());
+  if (!in)
+    throw std::runtime_error("Could not open file: " + param_file);
+
+  /* read the stationary distribution */
+  string dummy_label;
+  in >> dummy_label;
+  assert(dummy_label == "stationary");
+  m.T.resize(2, vector<double>(2, 0.0));
+  in >> m.T[0][0] >> m.T[1][1];
+  m.T[1][0] = 1.0 - m.T[1][1];
+  m.T[0][1] = 1.0 - m.T[0][0];
+
+  /* read the baseline */
+  in >> dummy_label;
+  assert(dummy_label == "baseline");
+  m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
+  in >> m.stationary_logbaseline[0][0]
+     >> m.stationary_logbaseline[1][1];
+
+  /* read the initial distribution (at root) */
+  in >> dummy_label;
+  assert(dummy_label == "init");
+  m.init_T.resize(2, vector<double>(2, 0.0));
+  in >> m.init_T[0][0] >> m.init_T[1][1];
+  m.init_T[1][0] = 1.0 - m.init_T[1][1];
+  m.init_T[0][1] = 1.0 - m.init_T[0][0];
+
+  m.initialize(false);
+}
 
 // 6-parameter input param_file
 // tree-newick
@@ -328,6 +360,7 @@ read_model(const bool SCALE, const string &param_file, const string &tree_file,
 
   m.initialize(SCALE);
 }
+
 
 
 void

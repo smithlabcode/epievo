@@ -79,6 +79,9 @@ read_model(const bool SCALE, const std::string &param_file,
            const std::string &tree_file, EpiEvoModel &m);
 
 void
+read_model(const std::string &param_file, EpiEvoModel &m);
+
+void
 potential_to_transition_prob(const two_by_two &Q, two_by_two &T);
 
 void
