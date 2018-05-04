@@ -42,6 +42,8 @@
 #include "EpiEvoModel.hpp" /* model_param */
 #include "StateSeq.hpp"
 
+#include <gsl/gsl_cdf.h>
+
 using std::vector;
 using std::endl;
 using std::cerr;
@@ -90,11 +92,12 @@ SummarySet::SummarySet(const vector<double> jumps) {
 }
 
 struct SummaryStatsFreq {
+  SummaryStatsFreq() {}
   SummaryStatsFreq(const size_t n, const vector<size_t> J_freq,
-                   const vector<size_t> mean_D_freq) :
-  num_samples(n), jumps_freq(J_freq), stay_time_freq(mean_D_freq) {}
+                   const vector<size_t> &mean_D_freq) :
+    num_samples(n), jumps_freq(J_freq), stay_time_freq(mean_D_freq) {}
 
-  SummaryStatsFreq(const vector<SummarySet> summary);
+  SummaryStatsFreq(const vector<SummarySet> &summary);
 
   size_t num_samples;
   size_t jumps_binsize;
@@ -103,7 +106,7 @@ struct SummaryStatsFreq {
   vector<size_t> stay_time_freq; // average stay time
 };
 
-SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> summary) {
+SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> &summary) {
 }
 
 
@@ -122,7 +125,9 @@ sample_jump_mid(const EpiEvoModel &the_model,
 
   // sample a holding time = time until next state change
   std::exponential_distribution<double> exp_distr(holding_rate);
-  const double holding_time = std::max(exp_distr(gen), TIME_TOL);
+  const double holding_time =
+    std::max(exp_distr(gen), std::numeric_limits<double>::min());
+
   // update the current time_value
   time_value += holding_time;
 
