@@ -69,7 +69,7 @@ EpiEvoModel::tostring() const {
   std::ostringstream oss;
 
   oss << "[TREE]" << '\n'
-      << t << '\n'
+      << the_tree << '\n'
       // << "[INIT HORIZ LOG POTENTIALS]\n"
       // << format_two_by_two(init_logfac) << '\n'
       << "[INIT HORIZ TRANSITION PROBS]\n"
@@ -329,7 +329,7 @@ read_model(const bool SCALE, const string &param_file, const string &tree_file,
   if (!tree_in)
     throw std::runtime_error("Could not open file: " + tree_file);
   string dummy_label;
-  tree_in >> m.t;
+  tree_in >> m.the_tree;
 
   std::ifstream in(param_file.c_str());
   if (!in)
@@ -387,11 +387,11 @@ EpiEvoModel::initialize(const bool SCALE) {
   // make sure every node has a name ADS: modify below so that all
   // nodes always have names; check for this rather than attempt to
   // fix it
-  t.assign_missing_node_names();
-  t.get_subtree_sizes(subtree_sizes);
-  t.get_node_names(node_names);
+  the_tree.assign_missing_node_names();
+  the_tree.get_subtree_sizes(subtree_sizes);
+  the_tree.get_node_names(node_names);
   get_parent_id(subtree_sizes, parent_ids);
-  t.get_branch_lengths(branches);
+  the_tree.get_branch_lengths(branches);
 
   // convert target transition probs into Gibbs pair-wise potentials
   Q = two_by_two(2, vector<double>(2, 0.0));

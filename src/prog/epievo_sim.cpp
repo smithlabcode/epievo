@@ -232,7 +232,7 @@ int main(int argc, const char **argv) {
     if (!pathfile.empty())
       write_root_to_pathfile_global(pathfile, the_model.node_names[0], s);
 
-    const size_t n_nodes = the_model.t.get_size();
+    const size_t n_nodes = the_model.the_tree.get_size();
 
     vector<StateSeq> sequences(n_nodes, s);
 

@@ -32,7 +32,7 @@ typedef std::vector<std::vector<double> > two_by_two;
 
 struct EpiEvoModel {
 
-  PhyloTreePreorder t; // tree topology and branch lengths
+  PhyloTreePreorder the_tree; // tree topology and branch lengths
 
   /* information we need quick access to, but implicit in the tree */
   std::vector<size_t> subtree_sizes;
