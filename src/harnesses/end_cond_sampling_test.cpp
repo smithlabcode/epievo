@@ -221,7 +221,7 @@ int main(int argc, const char **argv) {
       // iterate over (both) start points for the mid state
       for (size_t j = 0; j < 2; ++j) {
         const bool mid_state = (i & 1ul);
-        const size_t triplet_idx = triple2idx(left_state, mid_state,
+        size_t triplet_idx = triple2idx(left_state, mid_state,
                                               right_state);
         // simulate to obtain the desired number of paths
         vector<SummarySet> summary0, summary1;
@@ -236,6 +236,7 @@ int main(int argc, const char **argv) {
           while (time_value < tot_time) {
             sample_jump_mid(the_model, triplet_idx, evo_time, gen,
                             fs_jump_times, time_value);
+            triplet_idx = triple2idx(left_state, !mid_state, right_state);
           }
           const bool end_state = fs_jump_times.size() % 2 == 0 ?
                                  mid_state : !mid_state;
