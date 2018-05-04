@@ -31,8 +31,9 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <algorithm>
+#include <algorithm> /* count */
 #include <bitset>
+#include <gsl/gsl_randist.h> /* chi-squared test */
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -48,6 +49,71 @@ using std::cout;
 using std::string;
 using std::runtime_error;
 
+struct SummarySet {
+  SummarySet(const size_t J, const double D,
+             const double mean_D) :
+  num_jumps(J), total_stay_time(D), mean_stay_time(mean_D) {}
+  
+  SummarySet(const vector<double> jump_times);
+  
+  size_t num_jumps;
+  double total_stay_time;
+  double mean_stay_time;
+};
+
+SummarySet::SummarySet(const vector<double> jumps) {
+  for (size_t i = 1; i < jumps.size(); ++i) {
+    ++num_jumps;
+    total_stay_time += (jumps[i] - jumps[i-1]);
+  }
+  --num_jumps; // last break point is not a jump
+  mean_stay_time = total_stay_time / ((int) num_jumps / 2 + 1);
+}
+
+struct SummaryStatsFreq {
+  SummaryStatsFreq(const size_t n, const vector<size_t> J_freq,
+                   const vector<size_t> mean_D_freq) :
+  num_samples(n), jumps_freq(J_freq), stay_time_freq(mean_D_freq) {}
+  
+  SummaryStatsFreq(const vector<SummarySet> summary);
+  
+  size_t num_samples;
+  size_t jumps_binsize;
+  double time_binsize;
+  vector<size_t> jumps_freq;
+  vector<size_t> stay_time_freq; // average stay time
+};
+
+SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> summary) {
+}
+
+
+
+/* Forward sampling mid bit*/
+static void
+sample_jump_mid(const EpiEvoModel &the_model,
+                const size_t is, const double tot_time,
+                std::mt19937 &gen, vector<double> &jump_times,
+                double &time_value) {
+  
+  static const size_t n_triplets = 8;
+  
+  // holding_rate = c_{ijk}*lambda_{ijk}
+  const double holding_rate = the_model.triplet_rates[is];
+  
+  // sample a holding time = time until next state change
+  std::exponential_distribution<double> exp_distr(holding_rate);
+  const double holding_time = std::max(exp_distr(gen), TIME_TOL);
+  // update the current time_value
+  time_value += holding_time;
+  
+  // if the holding time ends before the total time interval, we can
+  // make a change to the state sequence
+  if (time_value < tot_time) {
+    /* add the changed position and change time to the path */
+    jump_times.push_back(time_value);
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -67,7 +133,7 @@ int main(int argc, const char **argv) {
 
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "test end-conditioned samplers",
-                           " <paths-file>");
+                           "");
     opt_parse.add_opt("param", 'p', "parameter file",
                       true, param_file);
     opt_parse.add_opt("evo-time", 't', "time to simulate",
@@ -77,7 +143,7 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
-    opt_parse.add_opt("outfile", 'o', "outfile for posterior-updated paths",
+    opt_parse.add_opt("outfile", 'o', "outfile (sampling statistics) prefix",
                       true, outfile);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -98,7 +164,6 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string pathsfile(leftover_args.front());
     ///////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
@@ -123,8 +188,8 @@ int main(int argc, const char **argv) {
       cerr << the_model << endl;
 
     // iterate over the possible contexts (left and right)
+    const size_t n_pairs = 4;
     for (size_t i = 0; i < n_pairs; ++i) {
-
       // extract the left and right states
       bool left_state = false, right_state = false;
       get_bits_from_pair(i, left_state, right_state);
@@ -132,7 +197,8 @@ int main(int argc, const char **argv) {
       // iterate over (both) start points for the mid state
       for (size_t j = 0; j < 2; ++j) {
         const bool mid_state = (i & 1ul);
-
+        const size_t triplet_idx = triple2idx(left_state, mid_state,
+                                              right_state);
         // simulate to obtain the desired number of paths
         vector<SummarySet> summary0, summary1;
         size_t iter = 0;
@@ -141,20 +207,30 @@ int main(int argc, const char **argv) {
                summary1.size() < n_paths_to_sample) {
 
           // simulate a path starting at mid_state using forward simulation
-
+          vector<double> fs_jump_times;
+          double time_value = 0;
+          while (time_value < tot_time) {
+            sample_jump_mid(the_model, triplet_idx, evo_time, gen,
+                            fs_jump_times, time_value);
+          }
+          const bool end_state = fs_jump_times.size() % 2 == 0 ?
+                                 mid_state : !mid_state;
+          
           // check end state
           if (end_state && summary1.size() < n_paths_to_sample) {
-            SummarySet current_summary;
+            SummarySet current_summary(fs_jump_times);
             // obtain the summary stats; but only if still needed
             summary1.push_back(current_summary);
           }
           if (!end_state && summary0.size() < n_paths_to_sample) {
-            SummarySet current_summary;
+            SummarySet current_summary(fs_jump_times);
             // obtain the summary stats; but only if still needed
             summary0.push_back(current_summary);
           }
         }
         // now get the summaries of the summaries...?
+        SummaryStatsFreq FS_report0;
+        SummaryStatsFreq FS_report1;
       }
     }
 
