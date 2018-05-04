@@ -42,6 +42,8 @@
 #include "EpiEvoModel.hpp" /* model_param */
 #include "StateSeq.hpp"
 
+#include <gsl/gsl_cdf.h>
+
 using std::vector;
 using std::endl;
 using std::cerr;
@@ -49,13 +51,32 @@ using std::cout;
 using std::string;
 using std::runtime_error;
 
+
+static double
+evaluate_histogram_fit(const vector<double> &reference,
+                       const vector<double> &to_evaluate) {
+
+  assert(reference.size() == to_evaluate.size());
+
+  double chi_squared_stat = 0.0;
+  for (size_t i = 0; i < reference.size(); ++i) {
+    chi_squared_stat +=
+      (to_evaluate[i] - reference[i])*
+      (to_evaluate[i] - reference[i])/reference[i];
+  }
+
+  const double degrees_of_freedom = reference.size() - 1;
+  return gsl_cdf_chisq_P(chi_squared_stat, degrees_of_freedom);
+}
+
+
 struct SummarySet {
   SummarySet(const size_t J, const double D,
              const double mean_D) :
   num_jumps(J), total_stay_time(D), mean_stay_time(mean_D) {}
-  
+
   SummarySet(const vector<double> jump_times);
-  
+
   size_t num_jumps;
   double total_stay_time;
   double mean_stay_time;
@@ -71,12 +92,13 @@ SummarySet::SummarySet(const vector<double> jumps) {
 }
 
 struct SummaryStatsFreq {
+  SummaryStatsFreq() {}
   SummaryStatsFreq(const size_t n, const vector<size_t> J_freq,
-                   const vector<size_t> mean_D_freq) :
-  num_samples(n), jumps_freq(J_freq), stay_time_freq(mean_D_freq) {}
-  
-  SummaryStatsFreq(const vector<SummarySet> summary);
-  
+                   const vector<size_t> &mean_D_freq) :
+    num_samples(n), jumps_freq(J_freq), stay_time_freq(mean_D_freq) {}
+
+  SummaryStatsFreq(const vector<SummarySet> &summary);
+
   size_t num_samples;
   size_t jumps_binsize;
   double time_binsize;
@@ -84,7 +106,7 @@ struct SummaryStatsFreq {
   vector<size_t> stay_time_freq; // average stay time
 };
 
-SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> summary) {
+SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> &summary) {
 }
 
 
@@ -95,18 +117,20 @@ sample_jump_mid(const EpiEvoModel &the_model,
                 const size_t is, const double tot_time,
                 std::mt19937 &gen, vector<double> &jump_times,
                 double &time_value) {
-  
+
   static const size_t n_triplets = 8;
-  
+
   // holding_rate = c_{ijk}*lambda_{ijk}
   const double holding_rate = the_model.triplet_rates[is];
-  
+
   // sample a holding time = time until next state change
   std::exponential_distribution<double> exp_distr(holding_rate);
-  const double holding_time = std::max(exp_distr(gen), TIME_TOL);
+  const double holding_time =
+    std::max(exp_distr(gen), std::numeric_limits<double>::min());
+
   // update the current time_value
   time_value += holding_time;
-  
+
   // if the holding time ends before the total time interval, we can
   // make a change to the state sequence
   if (time_value < tot_time) {
@@ -215,7 +239,7 @@ int main(int argc, const char **argv) {
           }
           const bool end_state = fs_jump_times.size() % 2 == 0 ?
                                  mid_state : !mid_state;
-          
+
           // check end state
           if (end_state && summary1.size() < n_paths_to_sample) {
             SummarySet current_summary(fs_jump_times);
