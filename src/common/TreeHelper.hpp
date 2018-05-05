@@ -37,7 +37,7 @@
 
 struct TreeHelper {
 
-  TreeHelper(const PhyloTreePreorder &t) {
+  TreeHelper(const PhyloTreePreorder &t) : the_tree(t) {
     the_tree.assign_missing_node_names();
     the_tree.get_subtree_sizes(subtree_sizes);
     the_tree.get_node_names(node_names);
