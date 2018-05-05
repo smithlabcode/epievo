@@ -27,11 +27,12 @@
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
-#include "PhyloTreePreorder.hpp"
 
+#include "PhyloTreePreorder.hpp"
 #include "GlobalJump.hpp"
 #include "StateSeq.hpp"
 #include "Path.hpp"
+#include "TreeHelper.hpp"
 
 using std::vector;
 using std::endl;
@@ -107,17 +108,8 @@ int main(int argc, const char **argv) {
     std::ifstream tree_in(treefile.c_str());
     if (!tree_in || !(tree_in >> the_tree))
       throw runtime_error("cannot read tree file: " + treefile);
-
-    vector<size_t> subtree_sizes;
-    the_tree.get_subtree_sizes(subtree_sizes);
-    vector<string> node_names;
-    the_tree.get_node_names(node_names);
-    vector<size_t> parent_ids;
-    get_parent_id(subtree_sizes, parent_ids);
-    vector<double> branch_lengths;
-    the_tree.get_branch_lengths(branch_lengths);
-
-    const size_t n_nodes = node_names.size();
+    const size_t n_nodes = the_tree.get_size();
+    const TreeHelper th(the_tree);
 
     if (VERBOSE)
       cerr << "[reading paths: " << pathsfile << "]" << endl;
@@ -126,7 +118,7 @@ int main(int argc, const char **argv) {
     vector<vector<GlobalJump> > the_paths; // along multiple branches
     read_pathfile_global(pathsfile, root, node_names_from_pathsfile, the_paths);
 
-    write_root_to_pathfile_local(outfile, node_names.front());
+    write_root_to_pathfile_local(outfile, th.node_names.front());
 
     if (VERBOSE)
       cerr << "[reading states: " << statesfile << "]" << endl;
@@ -134,15 +126,15 @@ int main(int argc, const char **argv) {
     vector<string> node_names_from_statesfile;
     read_states_file(statesfile, node_names_from_statesfile, the_states);
 
-    assert(node_names == node_names_from_statesfile &&
-           node_names == node_names_from_pathsfile);
+    assert(th.node_names == node_names_from_statesfile &&
+           th.node_names == node_names_from_pathsfile);
 
     const size_t n_sites = root.seq.size();
 
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
 
-      const size_t parent_id = parent_ids[node_id];
-      const double branch_len = branch_lengths[node_id];
+      const size_t parent_id = th.parent_ids[node_id];
+      const double branch_len = th.branches[node_id];
 
       vector<Path> path_by_site(n_sites);
       for (size_t j = 0; j < path_by_site.size(); ++j) {
@@ -151,7 +143,7 @@ int main(int argc, const char **argv) {
       }
       assign_changes_to_sites(the_paths[node_id], path_by_site);
 
-      append_to_pathfile_local(outfile, node_names[node_id], path_by_site);
+      append_to_pathfile_local(outfile, th.node_names[node_id], path_by_site);
 
     }
   }

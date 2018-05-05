@@ -27,12 +27,13 @@
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
-#include "PhyloTreePreorder.hpp"
 
+#include "PhyloTreePreorder.hpp"
 #include "GlobalJump.hpp"
 #include "StateSeq.hpp"
 #include "Path.hpp"
 #include "TripletSampler.hpp"
+#include "TreeHelper.hpp"
 
 using std::vector;
 using std::endl;
@@ -134,14 +135,7 @@ int main(int argc, const char **argv) {
     if (!tree_in || !(tree_in >> the_tree))
       throw runtime_error("cannot read tree file: " + treefile);
 
-    vector<size_t> subtree_sizes;
-    the_tree.get_subtree_sizes(subtree_sizes);
-    vector<string> node_names;
-    the_tree.get_node_names(node_names);
-    vector<size_t> parent_ids;
-    get_parent_id(subtree_sizes, parent_ids);
-    vector<double> branch_lengths;
-    the_tree.get_branch_lengths(branch_lengths);
+    const TreeHelper th(the_tree);
 
     if (VERBOSE)
       cerr << "[reading paths: " << pathsfile << "]" << endl;
@@ -156,18 +150,18 @@ int main(int argc, const char **argv) {
     vector<string> node_names_from_statesfile;
     read_states_file(statesfile, node_names_from_statesfile, the_states);
 
-    assert(node_names == node_names_from_statesfile &&
-           node_names == node_names_from_pathsfile);
+    assert(th.node_names == node_names_from_statesfile &&
+           th.node_names == node_names_from_pathsfile);
 
     // get the id for the desired node
     vector<string>::const_iterator name_idx =
-      find(begin(node_names), end(node_names), node_name);
-    if (name_idx == node_names.end())
+      find(begin(th.node_names), end(th.node_names), node_name);
+    if (name_idx == th.node_names.end())
       throw runtime_error("invalid node name: " + node_name);
 
-    const size_t node_id = name_idx - node_names.begin();
-    const size_t parent_id = parent_ids[node_id];
-    const double branch_length = branch_lengths[node_id];
+    const size_t node_id = name_idx - th.node_names.begin();
+    const size_t parent_id = th.parent_ids[node_id];
+    const double branch_length = th.branches[node_id];
 
     if (n_reports > 0)
       report_interval = branch_length/n_reports;
@@ -175,7 +169,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE) {
       cerr << "node name: " << node_name << endl
            << "node id: " << node_id << endl
-           << "parent name: " << node_names[parent_id] << endl
+           << "parent name: " << th.node_names[parent_id] << endl
            << "parent id: " << parent_id << endl
            << "branch length: " << branch_length << endl
            << "report interval: " << report_interval << endl
@@ -186,7 +180,7 @@ int main(int argc, const char **argv) {
     // add a fake jump to the end of the jump sequence above the
     // desired node; this will never coincide with a reporting time,
     // so the effect will not be observed.
-    the_paths[node_id].push_back(GlobalJump(branch_lengths[node_id], 1));
+    the_paths[node_id].push_back(GlobalJump(th.branches[node_id], 1));
 
     process_branch_above_node(report_interval, outfile,
                               the_states[parent_id], the_paths[node_id]);
