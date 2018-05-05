@@ -37,9 +37,6 @@
 #include "SingleSampler.hpp"
 #include "EndCondSampling.hpp"
 
-#include "TripletSampler.hpp"
-#include "GlobalJump.hpp"
-
 using std::vector;
 using std::endl;
 using std::cerr;
@@ -78,8 +75,6 @@ sample_jump_mid(const EpiEvoModel &the_model,
                 const size_t is, const double tot_time,
                 std::mt19937 &gen, vector<double> &jump_times,
                 double &time_value) {
-  
-  static const size_t n_triplets = 8;
   
   // holding_rate = c_{ijk}*lambda_{ijk}
   const double holding_rate = the_model.triplet_rates[is];
@@ -160,7 +155,6 @@ int main(int argc, const char **argv) {
       return  EXIT_SUCCESS;
     }
     
-    //const string pathsfile(leftover_args.front());
     ///////////////////////////////////////////////////////////////////////////
     /* standard mersenne_twister_engine seeded with rd() */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -171,7 +165,6 @@ int main(int argc, const char **argv) {
       cerr << "rng seed: " << rng_seed << endl;
     
     std::mt19937 gen(rng_seed);
-    
     
     /* load parameters and tree */
     if (VERBOSE)
@@ -202,7 +195,8 @@ int main(int argc, const char **argv) {
       const string init_triplet = bitset<3>(i).to_string();
       const string flip_triplet = bitset<3>(i_bar).to_string();
       
-      cerr <<  "---- TEST state: " << init_triplet << endl;
+      if (VERBOSE)
+          cerr <<  "---- TEST state: " << init_triplet << endl;
 
       const string outfile_summary = outfile + "." + init_triplet;
       std::ofstream outsummary(outfile_summary.c_str());
@@ -251,6 +245,7 @@ int main(int argc, const char **argv) {
         // (2) foward sampling
         const size_t MAX_ATTEMPTS = 1000;
         size_t num_sampled = 0;
+        size_t curr_state = i;
         
         bool fs_reach_target = false;
         vector<double> fs_jump_times;
@@ -260,12 +255,12 @@ int main(int argc, const char **argv) {
 
           double time_value = 0;
           while (time_value < tot_time) {
-            sample_jump_mid(the_model, i, tot_time, gen,
+            sample_jump_mid(the_model, curr_state, tot_time, gen,
                             fs_jump_times, time_value);
+            curr_state = flip_mid_bit(curr_state);
           }
           
-          const bool sampled_change = fs_jump_times.size() % 2 != 0;
-          const string sampled_end_state = sampled_change ? flip_triplet : init_triplet;
+          const bool sampled_change = curr_state == i;
           fs_reach_target = end_state_change == sampled_change;
           
           ++num_sampled;
@@ -301,17 +296,15 @@ int main(int argc, const char **argv) {
       }
       if (VERBOSE)
         cerr << "[NUM_SUCCESS_SAMPLES] " << num_success_samples
-             << " [AVG_FS_D] " << tot_fs_num_jumps / num_success_samples
-             << " [AVG_FS_D] " << tot_fs_stay_time / num_success_samples
-             << " [AVG_FS_D] " << tot_ds_num_jumps / num_success_samples
-             << " [AVG_FS_D] " << tot_ds_stay_time / num_success_samples
-            << endl;
+        << " [AVG_FS_D] " << tot_fs_num_jumps / num_success_samples
+        << " [AVG_FS_D] " << tot_fs_stay_time / num_success_samples
+        << " [AVG_FS_D] " << tot_ds_num_jumps / num_success_samples
+        << " [AVG_FS_D] " << tot_ds_stay_time / num_success_samples
+        << endl;
     }
-
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
     return EXIT_FAILURE;
   }
-
 }
