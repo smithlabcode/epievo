@@ -51,7 +51,8 @@ struct EpiEvoModel {
   void get_stationary_state_proportions(std::vector<double> &pi) const;
   void get_stationary_triplet_proportions(std::vector<double> &props) const;
 
-  void initialize(const bool SCALE);
+  void scale_triplet_rates();
+  void initialize(const bool scale_rates);
 
   void sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
                                   std::vector<char> &sequence) const;
@@ -71,9 +72,6 @@ private:
 std::ostream &
 operator<<(std::ostream &os, const EpiEvoModel &m);
 
-// void
-// read_model(const std::string &param_file, EpiEvoModel &m);
-
 void
 read_model(const bool SCALE, const std::string &param_file,
            const std::string &tree_file, EpiEvoModel &m);
@@ -92,6 +90,5 @@ scale_rates(const std::vector<double> &rates,
 
 double
 rate_scaling_factor(const std::vector<double> &triplet_rates);
-
 
 #endif

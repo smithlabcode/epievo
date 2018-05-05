@@ -374,7 +374,12 @@ transition_prob_to_potential(const two_by_two &T, two_by_two &Q) {
   Q[1][1] = 1.0 - T[1][0];
 }
 
-
+void
+EpiEvoModel::scale_triplet_rates() {
+  const double mu = rate_scaling_factor(triplet_rates);
+  for (size_t i = 0; i < n_triplets; ++i)
+    triplet_rates[i] /= mu;
+}
 
 /* This function takes the parameter values for the model, which were
    most likely read from a parameter file, and computes the initial
@@ -400,12 +405,8 @@ EpiEvoModel::initialize(const bool SCALE) {
   // get the 1D vector of rates for the triples
   compute_triplet_rates();
 
-  if (SCALE) {
-    const double mu = rate_scaling_factor(triplet_rates);
-    for (size_t i = 0; i < n_triplets; ++i)
-      triplet_rates[i] /= mu;
-  }
-
+  if (SCALE)
+    scale_triplet_rates();
 }
 
 
