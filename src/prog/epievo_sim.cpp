@@ -176,13 +176,14 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-
     const string param_file(leftover_args.front());
-    const string tree_file(leftover_args.back());
-
     if (!file_is_readable(param_file)) {
-      cerr << "cannot read file: "<< param_file << endl
-           << opt_parse.help_message() << endl;
+      cerr << "cannot read file: "<< param_file << endl;
+      return  EXIT_SUCCESS;
+    }
+    const string tree_file(leftover_args.back());
+    if (!file_is_readable(tree_file)) {
+      cerr << "cannot read file: "<< tree_file << endl;
       return  EXIT_SUCCESS;
     }
     ////////////////////////////////////////////////////////////////////////
