@@ -33,6 +33,7 @@
 #include "smithlab_os.hpp"
 
 #include "PhyloTreePreorder.hpp"
+#include "TreeHelper.hpp"
 #include "TripletSampler.hpp"
 #include "StateSeq.hpp"
 #include "EpiEvoModel.hpp"
@@ -45,8 +46,6 @@ using std::cerr;
 using std::cout;
 using std::to_string;
 using std::ostream_iterator;
-
-static const double TIME_TOL = 1e-5;
 
 bool
 file_is_readable(const string &param_file) {
@@ -101,7 +100,8 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
 
   // sample a holding time = time until next state change
   std::exponential_distribution<double> exp_distr(holding_rate);
-const double holding_time = std::max(exp_distr(gen), TIME_TOL);
+  const double holding_time = std::max(exp_distr(gen),
+                                       std::numeric_limits<double>::min());
 
   // update the current time_value
   time_value += holding_time;
@@ -140,7 +140,7 @@ int main(int argc, const char **argv) {
     string outfile;
     string pathfile;
     bool VERBOSE = false;
-    bool SCALE = true;
+    bool scale_the_rates = true;
     size_t n_sites = 100;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
@@ -190,16 +190,24 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "sequence length: " << n_sites << endl;
 
-    /* (1) INITIALIZING PARAMETERS */
+    /* (1) INITIALIZING PARAMETERS AND TREE */
     if (VERBOSE)
       cerr << "reading parameter file: " << param_file << endl;
-
     EpiEvoModel the_model;
-    read_model(SCALE, param_file, tree_file, the_model);
-    //read_model(param_file, the_model);
-
+    read_model(param_file, the_model);
+    if (scale_the_rates)
+      the_model.scale_triplet_rates();
     if (VERBOSE)
       cerr << the_model << endl;
+
+    if (VERBOSE)
+      cerr << "reading tree file: " << tree_file << endl;
+    PhyloTreePreorder the_tree; // tree topology and branch lengths
+    std::ifstream tree_in(tree_file.c_str());
+    if (!tree_in || !(tree_in >> the_tree))
+      throw std::runtime_error("bad tree file: " + tree_file);
+    const size_t n_nodes = the_tree.get_size();
+    const TreeHelper th(the_tree);
 
     /* standard mersenne_twister_engine seeded with rd()*/
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -210,9 +218,9 @@ int main(int argc, const char **argv) {
       cerr << "rng seed: " << rng_seed << endl;
     std::mt19937 gen(rng_seed);
 
-    /* (2) INITIALIZE THE ROOT SEQUENCE */
+    /* (2) SIMULATE THE ROOT SEQUENCE */
     if (VERBOSE)
-      cerr << "[SIMULATING: " << the_model.node_names[0] << " (ROOT)]" << endl;
+      cerr << "[SIMULATING: " << th.node_names[0] << " (ROOT)]" << endl;
     vector<char> root_seq;
     the_model.sample_state_sequence_init(n_sites, gen, root_seq);
 
@@ -230,20 +238,18 @@ int main(int argc, const char **argv) {
     }
 
     if (!pathfile.empty())
-      write_root_to_pathfile_global(pathfile, the_model.node_names[0], s);
-
-    const size_t n_nodes = the_model.the_tree.get_size();
+      write_root_to_pathfile_global(pathfile, th.node_names[0], s);
 
     vector<StateSeq> sequences(n_nodes, s);
 
     /* (3) ITERATE OVER THE NODES IN THE TREE */
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-      const double curr_branch_len = the_model.branches[node_id];
+      const double curr_branch_len = th.branches[node_id];
       if (VERBOSE)
-        cerr << "[SIMULATING: " << the_model.node_names[node_id]
+        cerr << "[SIMULATING: " << th.node_names[node_id]
              << " (" << curr_branch_len << ")]" << endl;
 
-      TripletSampler ts(sequences[the_model.parent_ids[node_id]]);
+      TripletSampler ts(sequences[th.parent_ids[node_id]]);
       double time_value = 0;
       vector<GlobalJump> the_path;
 
@@ -251,11 +257,11 @@ int main(int argc, const char **argv) {
       while (time_value < curr_branch_len)
         sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value);
 
+      /* (5) EXTRACT THE SEQUENCE AT THE NODE */
       ts.get_sequence(sequences[node_id]);
 
       if (!pathfile.empty())
-        append_to_pathfile_global(pathfile,
-                                  the_model.node_names[node_id], the_path);
+        append_to_pathfile_global(pathfile, th.node_names[node_id], the_path);
 
       if (VERBOSE)
         cerr << "[SUMMARY:]" << endl
@@ -263,7 +269,7 @@ int main(int argc, const char **argv) {
     }
 
     if (!outfile.empty())
-      write_output(outfile, the_model.node_names, sequences);
+      write_output(outfile, th.node_names, sequences);
 
   }
   catch (const std::exception &e) {
