@@ -89,7 +89,7 @@ SummarySet::SummarySet(const vector<double> &jumps, const double tot_time,
   h_time = gsl_histogram_alloc(n_bins);
   gsl_histogram_set_ranges_uniform(h_time, 0, tot_time+1);
   
-  num_jumps = 0;
+  num_jumps = 0;   // number of jump-backs in init state
   total_stay_time = 0;
   
   // retrieve N-1 intervals/jumps in init state
@@ -262,6 +262,8 @@ int main(int argc, const char **argv) {
                       false, evo_time);
     opt_parse.add_opt("paths", 'n', "number of paths to sample",
                       false, n_paths_to_sample);
+    opt_parse.add_opt("bins", 'b', "number of bins of holding time histogram",
+                      false, n_hist_time_bins);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
@@ -371,7 +373,7 @@ int main(int argc, const char **argv) {
         
         // 2. end-conditioned samplers
         cerr <<  "DIRECT SAMPLING INIT STATE: "
-        << std::bitset<3>(triplet_idx).to_string() << endl;
+             << std::bitset<3>(triplet_idx).to_string() << endl;
         
         vector<SummarySet> ds_summary0, ds_summary1;
         
@@ -391,13 +393,13 @@ int main(int argc, const char **argv) {
           vector<double> ds_jump_times0, ds_jump_times1;
           
           end_cond_sample(rates, eigen_vals, U, Uinv,
-                          0, 0, evo_time, gen, ds_jump_times0);
+                          0, mid_state, evo_time, gen, ds_jump_times0);
           SummarySet current_summary0(ds_jump_times0, evo_time,
                                      n_hist_time_bins);
           ds_summary0.push_back(current_summary0);
           
           end_cond_sample(rates, eigen_vals, U, Uinv,
-                          0, 1, evo_time, gen, ds_jump_times1);
+                          0, !mid_state, evo_time, gen, ds_jump_times1);
           SummarySet current_summary1(ds_jump_times1, evo_time,
                                       n_hist_time_bins);
           ds_summary1.push_back(current_summary1);
