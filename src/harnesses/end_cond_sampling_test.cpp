@@ -45,6 +45,10 @@
 #include "StateSeq.hpp"
 #include "EndCondSampling.hpp"
 
+/* test TripletSampler
+#include "TripletSampler.hpp"
+#include "GlobalJump.hpp"
+*/
 
 using std::vector;
 using std::endl;
@@ -236,6 +240,42 @@ sample_jump_mid(const EpiEvoModel &the_model,
   }
 }
 
+/* Forward sampling mid bit using TripletSampler
+static void
+sample_jump_mid(const EpiEvoModel &the_model, const double total_time,
+                std::mt19937 &gen, TripletSampler &ts, vector<GlobalJump> &the_path,
+                double &time_value) {
+  
+  // triplet_count = c_{ijk} for current sequence (encoded in the
+  // TripletSampler object)
+  vector<size_t> triplet_counts;
+  ts.get_triplet_counts(triplet_counts);
+  
+  // holding_rate = c_{ijk}*lambda_{ijk}
+  const double holding_rate =
+  std::inner_product(triplet_counts.begin(), triplet_counts.end(),
+                     the_model.triplet_rates.begin(), 0.0);
+  
+  // sample a holding time = time until next state change
+  std::exponential_distribution<double> exp_distr(holding_rate);
+  const double holding_time = std::max(exp_distr(gen),
+                                       std::numeric_limits<double>::min());
+  time_value += holding_time;
+ 
+  if (time_value < total_time) {
+ 
+    size_t context;
+    for(size_t i=0; i < triplet_counts.size(); i++) {
+      if (triplet_counts[i] > 0)
+        context = i;
+    }
+    
+    const size_t change_position = ts.random_mutate(context, gen);
+    the_path.push_back(GlobalJump(time_value, change_position));
+  }
+}
+*/
+
 ////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, const char **argv) {
@@ -347,11 +387,29 @@ int main(int argc, const char **argv) {
           vector<double> fs_jump_times;
           double time_value = 0;
           size_t curr_state = triplet_idx;
+          
+          /* test TripletSampler
+          vector<char> seq = {left_state, mid_state, right_state};
+          TripletSampler ts(seq);
+          vector<GlobalJump> the_path;
+          */
           while (time_value < evo_time) {
             sample_jump_mid(the_model, curr_state, evo_time, gen,
                             fs_jump_times, time_value);
             curr_state = flip_mid_bit(curr_state);
+            /* test TripletSampler
+            sample_jump_mid(the_model, evo_time, gen, ts,
+                            the_path, time_value);
+            */
+            
           }
+          /* testTripletSampler
+          ts.get_sequence(seq);
+          const bool end_state = seq[1];
+          for(size_t k = 0; k < the_path.size(); k++)
+            fs_jump_times.push_back(the_path[k].timepoint);
+          */
+          
           const bool end_state = fs_jump_times.size() % 2 == 0 ?
                                  mid_state : !mid_state;
 
