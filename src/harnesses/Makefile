@@ -51,7 +51,7 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
 end_cond_sampling_test triplet_end_cond_sampling: $(addprefix $(COMMON_DIR)/, StateSeq.o \
-	EpiEvoModel.o SingleSampler.o EndCondSampling.o)
+	EpiEvoModel.o SingleSampler.o EndCondSampling.o TripletSampler.o GlobalJump.o)
 
 
 install: all
