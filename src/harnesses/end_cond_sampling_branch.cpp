@@ -48,6 +48,7 @@ using std::runtime_error;
 using std::bitset;
 
 static const size_t N_TRIPLETS = 8;
+static const double MINWAIT = 1e-8;
 
 ////////////////////////////////////////////////////////////////////////////////
 //////////   Record summary statistics                                //////////
@@ -73,7 +74,7 @@ SummarySet::SummarySet(const Path l, const Path m, const Path r,
   
   for(size_t k = 0; k < N_TRIPLETS; ++k) {
     gsl_histogram * h_time_k = gsl_histogram_alloc(n_bins);
-    gsl_histogram_set_ranges_uniform(h_time_k, 0, m.tot_time+1);
+    gsl_histogram_set_ranges_uniform(h_time_k, 0, m.tot_time+MINWAIT);
     h_time.push_back(h_time_k);
   }
   

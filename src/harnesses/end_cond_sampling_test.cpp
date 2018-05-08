@@ -58,6 +58,9 @@ using std::string;
 using std::runtime_error;
 
 
+static const double MINWAIT = 1e-8;
+
+
 static double
 evaluate_fit(const vector<double> &reference,
              const vector<double> &to_evaluate) {
@@ -91,7 +94,7 @@ SummarySet::SummarySet(const vector<double> &jumps, const double tot_time,
                        const size_t n_bins) {
   // initialize histogram
   h_time = gsl_histogram_alloc(n_bins);
-  gsl_histogram_set_ranges_uniform(h_time, 0, tot_time+1);
+  gsl_histogram_set_ranges_uniform(h_time, 0, tot_time+MINWAIT);
   
   num_jumps = 0;   // number of jump-backs in init state
   total_stay_time = 0;
@@ -357,8 +360,6 @@ int main(int argc, const char **argv) {
         << "HIST_JUMPS_FS" << '\t' << "HIST_JUMPS_DS" << '\t'
         << "HIST_TIME_FS" << '\t' << "HIST_TIME_DS" << endl;
     
-    
-    
     // iterate over the possible contexts (left and right)
     const size_t n_pairs = 4;
     for (size_t i = 0; i < n_pairs; ++i) {
@@ -401,7 +402,6 @@ int main(int argc, const char **argv) {
             sample_jump_mid(the_model, evo_time, gen, ts,
                             the_path, time_value);
             */
-            
           }
           /* testTripletSampler
           ts.get_sequence(seq);
