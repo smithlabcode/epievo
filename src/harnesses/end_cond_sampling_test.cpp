@@ -45,6 +45,8 @@
 #include "StateSeq.hpp"
 #include "EndCondSampling.hpp"
 
+#include "ContinuousTimeMarkovModel.hpp"
+
 /* test TripletSampler
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
@@ -439,27 +441,30 @@ int main(int argc, const char **argv) {
         vector<double> rates(2, 0.0);
         rates[0] = the_model.triplet_rates[triplet_idx];
         rates[1] = the_model.triplet_rates[flip_mid_bit(triplet_idx)];
-        vector<double> eigen_vals;
-        vector<vector<double> > U;
-        vector<vector<double> > Uinv;
+        const CTMarkovModel vertical_model(rates);
+
+        // vector<double> eigen_vals;
+        // vector<vector<double> > U;
+        // vector<vector<double> > Uinv;
         vector<vector<double> > PT;
 
-        decompose(rates, eigen_vals, U, Uinv);
-        continuous_time_trans_prob_mat(rates[0], rates[1], evo_time, PT);
+        // decompose(rates, eigen_vals, U, Uinv);
+        vertical_model.get_trans_prob_mat(evo_time, PT);
 
         while (ds_summary0.size() < n_paths_to_sample) {
           vector<double> ds_jump_times0, ds_jump_times1;
 
-          end_cond_sample(rates, eigen_vals, U, Uinv,
-                          0, mid_state, evo_time, gen, ds_jump_times0);
-          SummarySet current_summary0(ds_jump_times0, evo_time,
-                                     n_hist_time_bins);
+          end_cond_sample(vertical_model, 0, mid_state, evo_time,
+                          gen, ds_jump_times0);
+
+          const SummarySet current_summary0(ds_jump_times0, evo_time,
+                                      n_hist_time_bins);
           ds_summary0.push_back(current_summary0);
 
-          end_cond_sample(rates, eigen_vals, U, Uinv,
-                          0, !mid_state, evo_time, gen, ds_jump_times1);
-          SummarySet current_summary1(ds_jump_times1, evo_time,
-                                      n_hist_time_bins);
+          end_cond_sample(vertical_model, 0, complement_state(mid_state),
+                          evo_time, gen, ds_jump_times1);
+          const SummarySet current_summary1(ds_jump_times1, evo_time,
+                                            n_hist_time_bins);
           ds_summary1.push_back(current_summary1);
         }
 

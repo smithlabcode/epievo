@@ -203,42 +203,38 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
 
   const size_t n_intervals = interval_rates.size();
 
-  size_t par_state = new_path[node_id].init_state;
+  size_t parent_state = new_path[node_id].init_state;
   double time_passed = 0;
+
   // end-conditioned sampling helpers
-  vector<double> eigen_vals;
-  vector<vector<double> > U;
-  vector<vector<double> > Uinv;
   for (size_t m = 0; m < n_intervals - 1; ++m) {
 
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
     continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
                                    interval_lengths[m], P);
-    double p0 = (all_p[node_id][m+1][0] * P[par_state][0] /
-                 all_p[node_id][m][par_state]);
+    double p0 = (all_p[node_id][m+1][0] * P[parent_state][0] /
+                 all_p[node_id][m][parent_state]);
 
     // generate random state at break point
     std::uniform_real_distribution<double> unif(0.0, 1.0);
     bool new_state = (unif(gen) > p0);
 
     // prepare helper values
-    decompose(interval_rates[m], eigen_vals, U, Uinv);
+    const CTMarkovModel ctmm(interval_rates[m]);
 
     // generate path
     vector<double> jump_times;
-    end_cond_sample(interval_rates[m], eigen_vals, U, Uinv,
-                    par_state, (size_t)(new_state),
+    end_cond_sample(ctmm, parent_state, (size_t)(new_state),
                     interval_lengths[m], gen, jump_times);
 
     // append jump_times to new_path
-    for (size_t i = 0; i < jump_times.size(); ++i) {
-      new_path[node_id].jumps.push_back(time_passed + jump_times[i]) ;
-    }
+    for (size_t i = 0; i < jump_times.size(); ++i)
+      new_path[node_id].jumps.push_back(time_passed + jump_times[i]);
 
     // prepare for next interval
     time_passed += interval_lengths[m];
-    par_state = new_state;
+    parent_state = new_state;
   }
 
   if (is_leaf(subtree_sizes[node_id])) {
@@ -247,17 +243,16 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
     vector<double> jump_times;
     const size_t m = n_intervals - 1;
     // prepare helper values
-    decompose(interval_rates[m], eigen_vals, U, Uinv);
-    end_cond_sample(interval_rates[m], eigen_vals, U, Uinv, par_state, leaf_state,
+    const CTMarkovModel ctmm(interval_rates[m]);
+    end_cond_sample(ctmm, parent_state, leaf_state,
                     interval_lengths[m], gen, jump_times);
     // append jump_times to new_path
-    for (size_t i = 0; i < jump_times.size(); ++i) {
-      new_path[node_id].jumps.push_back(time_passed + jump_times[i]) ;
-    }
+    for (size_t i = 0; i < jump_times.size(); ++i)
+      new_path[node_id].jumps.push_back(time_passed + jump_times[i]);
 
     assert(new_path[node_id].end_state() == leaf_state);
-
-  } else {
+  }
+  else {
     // last interval requires information from children
     vector<size_t> children;
     get_children(node_id, subtree_sizes, children);
@@ -269,7 +264,7 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
     double p0 = 1.0;
     for (size_t idx = 0; idx < children.size(); ++idx)
       p0 *= all_p[children[idx]][0][0];
-    p0 *= P[par_state][0] / all_p[node_id][m][par_state];
+    p0 *= P[parent_state][0] / all_p[node_id][m][parent_state];
 
     assert(p0 > 0 && p0 < 1);
 
@@ -284,11 +279,10 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
     }
 
     // prepare helper values
-    decompose(interval_rates[m], eigen_vals, U, Uinv);
+    const CTMarkovModel ctmm(interval_rates[m]);
     // generate path
     vector<double> jump_times;
-    end_cond_sample(interval_rates[m], eigen_vals, U, Uinv,
-                    par_state, (size_t)(new_state),
+    end_cond_sample(ctmm, parent_state, (size_t)(new_state),
                     interval_lengths[m], gen, jump_times);
     // append jump_times to new_path
     for (size_t i = 0; i < jump_times.size(); ++i) {
@@ -417,7 +411,7 @@ proposal_prob_branch(const vector<vector<double> > &interval_rates,
     prob *= (b == 0) ? p0: 1.0 - p0;
 
     // prepare helper values
-    decompose(interval_rates[m], eigen_vals, U, Uinv);
+    const CTMarkovModel ctmm(interval_rates[m]);
 
     // get jumps between time interval (time_passed, time_passed + interval_lengths[m])
     vector<double> subset_jumps;
@@ -425,8 +419,7 @@ proposal_prob_branch(const vector<vector<double> > &interval_rates,
                  time_passed + interval_lengths[m], subset_jumps);
 
     // compute end_cond_sample prob
-    prob *= end_cond_sample_prob(interval_rates[m], eigen_vals, U, Uinv,
-                                 a, b, interval_lengths[m], subset_jumps);
+    prob *= end_cond_sample_prob(ctmm, a, b, interval_lengths[m], subset_jumps);
 
     // prepare for next interval
     time_passed += interval_lengths[m];
@@ -436,25 +429,30 @@ proposal_prob_branch(const vector<vector<double> > &interval_rates,
   if (is_leaf(subtree_sizes[node_id])) {
     const size_t b = all_paths[node_id][site].end_state();
     const size_t m = n_intervals - 1;
-    // prepare helper values
-    decompose(interval_rates[m], eigen_vals, U, Uinv);
 
     vector<double> subset_jumps;
     select_jumps(path.jumps, time_passed,
                  time_passed + interval_lengths[m], subset_jumps);
+
+    // prepare helper values
+    const CTMarkovModel ctmm(interval_rates[m]);
+
     // compute end_cond_sample prob
-    prob *= end_cond_sample_prob(interval_rates[m], eigen_vals, U, Uinv,
-                                 a, b, interval_lengths[m], subset_jumps);
-  } else {
+    prob *= end_cond_sample_prob(ctmm, a, b, interval_lengths[m], subset_jumps);
+  }
+  else {
     // last interval requires information from children
     vector<size_t> children;
     get_children(node_id, subtree_sizes, children);
     const size_t m = n_intervals - 1;
 
+    // prepare helper values
+    const CTMarkovModel ctmm(interval_rates[m]);
+
     // compute conditional posterior probability
     vector<vector<double> > P; // transition matrix
-    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
-                                   interval_lengths[m], P);
+    ctmm.get_trans_prob_mat(interval_lengths[m], P);
+
     double p0 = 1.0;
     for (size_t idx = 0; idx < children.size(); ++idx)
       p0 *= all_p[children[idx]][0][0];
@@ -463,17 +461,13 @@ proposal_prob_branch(const vector<vector<double> > &interval_rates,
     size_t b = (size_t)(path.end_state());
     prob *= (b == 0) ? p0 : 1.0 - p0;
 
-    // prepare helper values
-    decompose(interval_rates[m], eigen_vals, U, Uinv);
-
     // select jumps
     vector<double> subset_jumps;
     select_jumps(path.jumps, time_passed,
                  time_passed + interval_lengths[m], subset_jumps);
 
-    // compute end_cond_sample prob
-    prob *= end_cond_sample_prob(interval_rates[m], eigen_vals, U, Uinv,
-                                 a, b, interval_lengths[m], subset_jumps);
+    // compute the end-conditioned sampling probability
+    prob *= end_cond_sample_prob(ctmm, a, b, interval_lengths[m], subset_jumps);
   }
 }
 
