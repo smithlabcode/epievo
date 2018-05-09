@@ -45,18 +45,19 @@ static const double MINWAIT = 1e-8;
 
 /* pdf function of end-conditioned time of first jump within the interval*/
 double
-pdf(const vector<double> &rates,
-    const vector<double> &eigen_vals,
-    const vector<vector<double> > &U,
-    const vector<vector<double> > &Uinv,
+pdf(const CTMarkovModel &the_model,
     const vector<vector<double> > &PT,
     const double T, const size_t a, const size_t b, const double x) {
+
   double f = 0.0;
   const size_t a_bar = complement_state(a);
   for (size_t i = 0; i < 2; ++i)
-    f += U[a_bar][i] * Uinv[i][b] * exp(T * eigen_vals[i]) * exp(-x * (eigen_vals[i] + rates[a]));
-
-  f *= rates[a] / PT[a][b];
+    f += (the_model.U[a_bar][i] *
+          the_model.Uinv[i][b] *
+          exp(T  *  the_model.eigen_values[i]) *
+          exp(-x * (the_model.eigen_values[i] + the_model.get_rate(a)))
+          );
+  f *= the_model.get_rate(a)/PT[a][b];
   return f;
 }
 
@@ -90,22 +91,19 @@ transformed_cdf_integrand_helper(const double total_time,  // T (HS2009)
    values of 0 or 1 for our binary state space.
  */
 double
-transformed_cdf(const vector<double> &rates,
-                const vector<double> &eigen_vals,
-                const vector<vector<double> > &U,
-                const vector<vector<double> > &Uinv,
+transformed_cdf(const CTMarkovModel &the_model,
                 const double T, const size_t a, const size_t b, const double x) {
 
   const size_t a_bar = complement_state(a);
-  const double a_rate = rates[a];
+  const double a_rate = the_model.get_rate(a);
 
   const double integrand_0 =
-    transformed_cdf_integrand_helper(T, eigen_vals[0], a_rate, x);
-  const double intermediate_factor_0 = U[a_bar][0] * Uinv[0][b];
+    transformed_cdf_integrand_helper(T, the_model.eigen_values[0], a_rate, x);
+  const double intermediate_factor_0 = the_model.U[a_bar][0] * the_model.Uinv[0][b];
 
   const double integrand_1 =
-    transformed_cdf_integrand_helper(T, eigen_vals[1], a_rate, x);
-  const double intermediate_factor_1 = U[a_bar][1] * Uinv[1][b];
+    transformed_cdf_integrand_helper(T, the_model.eigen_values[1], a_rate, x);
+  const double intermediate_factor_1 = the_model.U[a_bar][1] * the_model.Uinv[1][b];
 
   return std::max(intermediate_factor_0*integrand_0 +
                   intermediate_factor_1*integrand_1,
@@ -114,24 +112,18 @@ transformed_cdf(const vector<double> &rates,
 
 
 static double
-cumulative_density(const vector<double> &rates,
-                   const vector<double> &eigen_vals,
-                   const vector<vector<double> > &U,
-                   const vector<vector<double> > &Uinv,
+cumulative_density(const CTMarkovModel &the_model,
                    const vector<vector<double> > &PT,
                    const double T, const size_t a, const size_t b,
                    const double x) {
 
-  return transformed_cdf(rates, eigen_vals, U, Uinv, T, a, b, x)*
-    rates[a]/PT[a][b];
+  return transformed_cdf(the_model, T, a, b, x)*
+    the_model.get_rate(a)/PT[a][b];
 }
 
 
 static double
-bisection_search_cumulative_density(const vector<double> &rates,
-                                    const vector<double> &eigen_vals,
-                                    const vector<vector<double> > &U,
-                                    const vector<vector<double> > &Uinv,
+bisection_search_cumulative_density(const CTMarkovModel &the_model,
                                     const vector<vector<double> > &PT,
                                     const double T,
                                     const size_t a, const size_t b,
@@ -140,20 +132,20 @@ bisection_search_cumulative_density(const vector<double> &rates,
   double lo_val = 0.0; // equals transformed_cdf for a value of 0.0
 
   double hi = T;
-  double hi_val = transformed_cdf(rates, eigen_vals, U, Uinv, T, a, b, hi);
+  double hi_val = transformed_cdf(the_model, T, a, b, hi);
 
   // ADS: the target cdf value sampled from (0, x), where x is the
   // cumulative density for the -end-conditioned exponential is
   // transformed here to avoid the operations on mi_val below each
   // iteration, which also keeps values more centered.
-  const double transformed_target = target/(rates[a]/PT[a][b]);
+  const double transformed_target = target/(the_model.get_rate(a)/PT[a][b]);
 
   assert(lo_val <= transformed_target && hi_val >= transformed_target);
 
   while (hi - lo > NUMERICAL_TOLERANCE) {
     const double mi = (lo + hi)/2.0;
     const double mi_val =
-      transformed_cdf(rates, eigen_vals, U, Uinv, T, a, b, mi);
+      transformed_cdf(the_model, T, a, b, mi);
     if (mi_val >= transformed_target) {
       hi = mi;
       hi_val = mi_val;
@@ -172,10 +164,7 @@ bisection_search_cumulative_density(const vector<double> &rates,
    given state at time 0 being a, and state at T being b.
 */
 double
-end_cond_sample_first_jump(const vector<double> rates,
-                           const vector<double> eigen_vals,
-                           const vector<vector<double> > U,
-                           const vector<vector<double> > Uinv,
+end_cond_sample_first_jump(const CTMarkovModel &the_model,
                            const size_t a, const size_t b,
                            const double T, std::mt19937 &gen) {
 
@@ -183,9 +172,9 @@ end_cond_sample_first_jump(const vector<double> rates,
     return (a == b) ? T : T/2.0;
 
   vector<vector<double> > PT;  // PT = exp(QT)
-  continuous_time_trans_prob_mat(rates[0], rates[1], T, PT);
+  the_model.get_trans_prob_mat(T, PT);
 
-  const double pr_no_jump = (a == b) ? exp(-rates[a]*T)/PT[a][a] : 0.0;
+  const double pr_no_jump = (a == b) ? exp(-the_model.get_rate(a)*T)/PT[a][a] : 0.0;
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   if (a == b && unif(gen) < pr_no_jump)
@@ -196,13 +185,13 @@ end_cond_sample_first_jump(const vector<double> rates,
   // avoid calling cumulative_density for a value of 0.0
 
   const double upperbound =
-    cumulative_density(rates, eigen_vals, U, Uinv, PT, T, a, b, T);
+    cumulative_density(the_model, PT, T, a, b, T);
 
   std::uniform_real_distribution<double> unif_lu(lowerbound, upperbound);
   const double sampled_cdf_value = unif_lu(gen);
 
   const double w =
-    bisection_search_cumulative_density(rates, eigen_vals, U, Uinv,
+    bisection_search_cumulative_density(the_model,
                                         PT, T, a, b, sampled_cdf_value);
   return w;
 }
@@ -210,10 +199,7 @@ end_cond_sample_first_jump(const vector<double> rates,
 
 /* Endpoint-conditioned sampling of path witin time interval T */
 void
-end_cond_sample(const vector<double> rates,
-                const vector<double> eigen_vals,
-                const vector<vector<double> > U,
-                const vector<vector<double> > Uinv,
+end_cond_sample(const CTMarkovModel &the_model,
                 const size_t start_state, const size_t end_state, const double T,
                 std::mt19937 &gen, vector<double> &jump_times) {
 
@@ -221,7 +207,7 @@ end_cond_sample(const vector<double> rates,
 
   size_t current_state = start_state;
   double consumed_time =
-    end_cond_sample_first_jump(rates, eigen_vals, U, Uinv,
+    end_cond_sample_first_jump(the_model,
                                current_state, end_state, T, gen);
 
   // ADS: the use of NUMERICAL_TOLERANCE below should be checked. We
@@ -232,7 +218,7 @@ end_cond_sample(const vector<double> rates,
     jump_times.push_back(consumed_time);
     current_state = complement_state(current_state);
     consumed_time +=
-      end_cond_sample_first_jump(rates, eigen_vals, U, Uinv, current_state,
+      end_cond_sample_first_jump(the_model, current_state,
                                  end_state, T - consumed_time, gen);
   }
 }
@@ -240,22 +226,19 @@ end_cond_sample(const vector<double> rates,
 
 /* Endpoint-conditioned probability density*/
 double
-end_cond_sample_prob(const vector<double> rates,
-                     const vector<double> eigen_vals,
-                     const vector<vector<double> > U,
-                     const vector<vector<double> > Uinv,
+end_cond_sample_prob(const CTMarkovModel &the_model,
                      size_t a, const size_t b, double T,
                      vector<double> jump_times) {
-  double p = 1.0;
-
   // jump_times are between 0 and T
   assert(jump_times.size() == 0 || jump_times.back() < T);
   assert(jump_times.size() > 0 || a == b);
 
+  double p = 1.0;
+
   while (jump_times.size()) {
     vector<vector<double> > PT;  // PT = exp(QT)
-    continuous_time_trans_prob_mat(rates[0], rates[1], T, PT);
-    p *= pdf(rates, eigen_vals, U, Uinv, PT, T, a, b, jump_times[0]);
+    the_model.get_trans_prob_mat(T, PT);
+    p *= pdf(the_model, PT, T, a, b, jump_times[0]);
 
     a = complement_state(a);
     const double w = jump_times[0];
@@ -267,7 +250,7 @@ end_cond_sample_prob(const vector<double> rates,
 
   assert(a == b);
   vector<vector<double> > PT;  // PT = exp(QT)
-  continuous_time_trans_prob_mat(rates[0], rates[1], T, PT);
-  const double pr_no_jump = exp(-rates[a] * T) / PT[a][a];
+  the_model.get_trans_prob_mat(T, PT);
+  const double pr_no_jump = exp(-the_model.get_rate(a) * T) / PT[a][a];
   return p * pr_no_jump;
 }

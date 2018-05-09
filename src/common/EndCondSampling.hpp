@@ -21,22 +21,19 @@
 #ifndef END_COND_SAMPLING_HPP
 #define END_COND_SAMPLING_HPP
 
+#include "ContinuousTimeMarkovModel.hpp"
 #include <vector>
 
 void
-end_cond_sample(const std::vector<double> rates,
-                const std::vector<double> eigen_vals,
-                const std::vector<std::vector<double> > U,
-                const std::vector<std::vector<double> > Uinv,
-                const size_t a, const size_t b, const double T,
+end_cond_sample(const CTMarkovModel &the_model,
+                const size_t start_state, const size_t end_state,
+                const double time_interval,
                 std::mt19937 &gen, std::vector<double> &jump_times);
 
 double
-end_cond_sample_prob(const std::vector<double> rates,
-                     const std::vector<double> eigen_vals,
-                     const std::vector<std::vector<double> > U,
-                     const std::vector<std::vector<double> > Uinv,
-                     size_t a, const size_t b, double T,
+end_cond_sample_prob(const CTMarkovModel &the_model,
+                     size_t start_state, const size_t end_state,
+                     double time_interval,
                      std::vector<double> jump_times);
 
 #endif
