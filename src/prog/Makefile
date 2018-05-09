@@ -19,8 +19,8 @@
 # 02110-1301 USA
 
 PROGS = epievo_sim global_jumps_to_paths \
-	extract_state_sequences test_sampling epievo_est_complete \
-        test_sampling_branch
+	extract_state_sequences epievo_est_complete \
+	test_sampling_branch
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
