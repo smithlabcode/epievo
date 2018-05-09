@@ -59,11 +59,11 @@ static void
 stats_from_jumps(const size_t is, const double tot_time,
                  const vector<double> &mid_jumps,
                  size_t &J, double &D) {
-  
+
   Path l(get_left_bit(is), tot_time);
   Path r(get_right_bit(is), tot_time);
   Path m(get_mid_bit(is), tot_time, mid_jumps);
-  
+
   PathContextStat pcs(l, m, r);
   J = pcs.jumps_in_context[is];
   D = pcs.time_in_context[is];
@@ -75,16 +75,16 @@ sample_jump_mid(const EpiEvoModel &the_model,
                 const size_t is, const double tot_time,
                 std::mt19937 &gen, vector<double> &jump_times,
                 double &time_value) {
-  
+
   // holding_rate = c_{ijk}*lambda_{ijk}
   const double holding_rate = the_model.triplet_rates[is];
-  
+
   // sample a holding time = time until next state change
   std::exponential_distribution<double> exp_distr(holding_rate);
   const double holding_time = std::max(exp_distr(gen), TIME_TOL);
   // update the current time_value
   time_value += holding_time;
-  
+
   // if the holding time ends before the total time interval, we can
   // make a change to the state sequence
   if (time_value < tot_time) {
@@ -104,7 +104,7 @@ int main(int argc, const char **argv) {
 
     size_t num_samples = 1000;
     size_t branch_to_sample = 1;
-    
+
     string param_file;
     string tree_file;
 
@@ -154,7 +154,7 @@ int main(int argc, const char **argv) {
       << opt_parse.help_message() << endl;
       return  EXIT_SUCCESS;
     }
-    
+
     ///////////////////////////////////////////////////////////////////////////
     /* standard mersenne_twister_engine seeded with rd() */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -163,51 +163,51 @@ int main(int argc, const char **argv) {
     }
     if (VERBOSE)
       cerr << "rng seed: " << rng_seed << endl;
-    
+
     std::mt19937 gen(rng_seed);
-    
+
     /* load parameters and tree */
     if (VERBOSE)
       cerr << "reading parameter file: " << param_file << endl;
-    
+
     EpiEvoModel the_model;
     read_model(SCALE, param_file, tree_file, the_model);
     const double tot_time = the_model.branches[branch_to_sample];
-    
+
     if (VERBOSE)
       cerr << the_model << endl;
-    
+
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
     const size_t test_pos = 1; // test mid bit of triplet
-    
+
     if (VERBOSE) {
       cerr << "total time: " << tot_time << endl;
       cerr << "number of samples for each init state: " << num_samples << endl;
     }
-    
+
     cerr << "----- COMPARE forward / direct sampling ---------" << endl;
     vector<size_t> all_states_idx(8);
     std::iota(all_states_idx.begin()+1, all_states_idx.end(), 1);
-    
+
     for(size_t i = 0; i < all_states_idx.size(); ++i) {
       const size_t i_bar = flip_mid_bit(i);
       const string init_triplet = bitset<3>(i).to_string();
       const string flip_triplet = bitset<3>(i_bar).to_string();
-      
+
       if (VERBOSE)
           cerr <<  "---- TEST state: " << init_triplet << endl;
 
       const string outfile_summary = outfile + "." + init_triplet;
       std::ofstream outsummary(outfile_summary.c_str());
-      
+
       vector<double> triplet_props;
       the_model.get_stationary_triplet_proportions(triplet_props);
       outsummary << "TOT_TIME" << '\t' << tot_time << '\t'
                  << 1.0 / the_model.triplet_rates[i] << endl;
       outsummary << "INIT_STATE" << '\t' << init_triplet << '\t'
                  << triplet_props[i] << endl;
-      
+
       // (0) set up rates and helper variables
       vector<double> rates(2, 0.0);
       rates[0] = the_model.triplet_rates[i];
@@ -216,21 +216,21 @@ int main(int argc, const char **argv) {
       vector<vector<double> > U;
       vector<vector<double> > Uinv;
       vector<vector<double> > PT;
-      
+
       std::uniform_real_distribution<double> unif(0.0, 1.0);
-      
+
       decompose(rates, eigen_vals, U, Uinv);
-      trans_prob_mat(rates[0], rates[1], tot_time, PT);
-      
+      continuous_time_trans_prob_mat(rates[0], rates[1], tot_time, PT);
+
       outsummary << "END_STATE_DISTR" << '\t'
                  << init_triplet << '\t' << PT[0][0] << '\t'
                  << flip_triplet << '\t' << PT[0][1] << endl;
-      
+
       outsummary << "SAMPLE_IDX" << '\t' << "STATE_CHANGE" << '\t'
                  << "FS_SUCCEED" << '\t' << "NUM_FS_ATTEMPTS" << '\t'
                  << "J_FS" << '\t' << "D_FS" << '\t'
                  << "J_DS" << '\t' << "D_DS" << endl;
-      
+
       //// statistics
       size_t num_success_samples = 0;
       size_t tot_fs_num_jumps = 0;
@@ -241,12 +241,12 @@ int main(int argc, const char **argv) {
       for (size_t n = 0; n < num_samples; ++n) {
         // (1) sample an end_state according to transition rate
         const bool end_state_change = unif(gen) > PT[0][0];
-        
+
         // (2) foward sampling
         const size_t MAX_ATTEMPTS = 1000;
         size_t num_sampled = 0;
         size_t curr_state = i;
-        
+
         bool fs_reach_target = false;
         vector<double> fs_jump_times;
 
@@ -259,10 +259,10 @@ int main(int argc, const char **argv) {
                             fs_jump_times, time_value);
             curr_state = flip_mid_bit(curr_state);
           }
-          
+
           const bool sampled_change = curr_state == i;
           fs_reach_target = end_state_change == sampled_change;
-          
+
           ++num_sampled;
         }
 
@@ -270,7 +270,7 @@ int main(int argc, const char **argv) {
         double fs_stay_time;
         stats_from_jumps(i, tot_time, fs_jump_times, fs_num_jumps, fs_stay_time);
 
-        
+
         // (3) direct sampling
         vector<double> ds_jump_times;
         size_t ds_num_jumps;
@@ -279,13 +279,13 @@ int main(int argc, const char **argv) {
                         0, (size_t)(end_state_change),
                         tot_time, gen, ds_jump_times);
         stats_from_jumps(i, tot_time, ds_jump_times, ds_num_jumps, ds_stay_time);
-        
+
         // (4) output line only when FS succeeds
         outsummary << n << '\t' << end_state_change << '\t'
                    << fs_reach_target << '\t' << num_sampled << '\t'
                    << fs_num_jumps << '\t' << fs_stay_time << '\t'
                    << ds_num_jumps << '\t' << ds_stay_time << endl;
-        
+
         if (fs_reach_target) {
           ++num_success_samples;
           tot_fs_num_jumps += fs_num_jumps;

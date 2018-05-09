@@ -22,9 +22,10 @@
 #include <vector>
 
 void
-trans_prob_mat(const double rate0, const double rate1,
-               const double time_interval,
-               std::vector<std::vector<double> > &transition_matrix);
+continuous_time_trans_prob_mat(const double rate0, const double rate1,
+                               const double time_interval,
+                               std::vector<std::vector<double> >
+                               &transition_matrix);
 
 void
 decompose(const std::vector<double> &rates,

@@ -44,9 +44,9 @@ static const double MINWAIT = 1e-8;
 
 /* 2x2 rate matrix to transition prob. matrix */
 void
-trans_prob_mat(const double rate0, const double rate1,
-               const double time_interval,
-               vector<vector<double> > &transition_matrix) {
+continuous_time_trans_prob_mat(const double rate0, const double rate1,
+                               const double time_interval,
+                               vector<vector<double> > &transition_matrix) {
 
   assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
 
@@ -224,7 +224,7 @@ end_cond_sample_first_jump(const vector<double> rates,
     return (a == b) ? T : T/2.0;
 
   vector<vector<double> > PT;  // PT = exp(QT)
-  trans_prob_mat(rates[0], rates[1], T, PT);
+  continuous_time_trans_prob_mat(rates[0], rates[1], T, PT);
 
   const double pr_no_jump = (a == b) ? exp(-rates[a]*T)/PT[a][a] : 0.0;
 
@@ -295,7 +295,7 @@ end_cond_sample_prob(const vector<double> rates,
 
   while (jump_times.size()) {
     vector<vector<double> > PT;  // PT = exp(QT)
-    trans_prob_mat(rates[0], rates[1], T, PT);
+    continuous_time_trans_prob_mat(rates[0], rates[1], T, PT);
     p *= pdf(rates, eigen_vals, U, Uinv, PT, T, a, b, jump_times[0]);
 
     a = complement_state(a);
@@ -308,7 +308,7 @@ end_cond_sample_prob(const vector<double> rates,
 
   assert(a == b);
   vector<vector<double> > PT;  // PT = exp(QT)
-  trans_prob_mat(rates[0], rates[1], T, PT);
+  continuous_time_trans_prob_mat(rates[0], rates[1], T, PT);
   const double pr_no_jump = exp(-rates[a] * T) / PT[a][a];
   return p * pr_no_jump;
 }

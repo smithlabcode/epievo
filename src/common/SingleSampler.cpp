@@ -45,7 +45,7 @@ using std::string;
 ////////////////////////////////////////////////////////////////////////////////
 
 // rates are two muation rates for pattern x0y, and x1y
-void
+static void
 upward(const vector<double> &rates,
        const double T,
        const vector<double> &q, // auxiliary values
@@ -55,7 +55,7 @@ upward(const vector<double> &rates,
 
   p = vector<double>(2, 0.0);
   vector<vector<double> > P; // transition matrix
-  trans_prob_mat(rates[0], rates[1], T, P);
+  continuous_time_trans_prob_mat(rates[0], rates[1], T, P);
   for (size_t j = 0; j < 2; ++j) {
     for (size_t k = 0; k < 2; ++k) {
       p[j] += P[j][k]*q[k];
@@ -213,8 +213,8 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
 
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
-    trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
-                   interval_lengths[m], P);
+    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+                                   interval_lengths[m], P);
     double p0 = (all_p[node_id][m+1][0] * P[par_state][0] /
                  all_p[node_id][m][par_state]);
 
@@ -264,8 +264,8 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
     const size_t m = n_intervals - 1;
     // compute conditional posterior probability
     vector<vector<double> > P; // transition matrix
-    trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
-                   interval_lengths[m], P);
+    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+                                   interval_lengths[m], P);
     double p0 = 1.0;
     for (size_t idx = 0; idx < children.size(); ++idx)
       p0 *= all_p[children[idx]][0][0];
@@ -406,8 +406,8 @@ proposal_prob_branch(const vector<vector<double> > &interval_rates,
 
     // compute conditional posterior probability
     vector<vector<double> > P; // transition matrix
-    trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
-                   interval_lengths[m], P);
+    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+                                   interval_lengths[m], P);
     double p0 = (all_p[node_id][m+1][0] * P[a][0] /
                  all_p[node_id][m][a]);
 
@@ -453,8 +453,8 @@ proposal_prob_branch(const vector<vector<double> > &interval_rates,
 
     // compute conditional posterior probability
     vector<vector<double> > P; // transition matrix
-    trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
-                   interval_lengths[m], P);
+    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+                                   interval_lengths[m], P);
     double p0 = 1.0;
     for (size_t idx = 0; idx < children.size(); ++idx)
       p0 *= all_p[children[idx]][0][0];

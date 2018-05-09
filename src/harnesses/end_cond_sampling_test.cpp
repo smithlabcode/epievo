@@ -95,10 +95,10 @@ SummarySet::SummarySet(const vector<double> &jumps, const double tot_time,
   // initialize histogram
   h_time = gsl_histogram_alloc(n_bins);
   gsl_histogram_set_ranges_uniform(h_time, 0, tot_time+MINWAIT);
-  
+
   num_jumps = 0;   // number of jump-backs in init state
   total_stay_time = 0;
-  
+
   // retrieve N-1 intervals/jumps in init state
   double elapsed_time = 0;
   for (size_t i = 1; i < jumps.size(); i += 2) {
@@ -107,7 +107,7 @@ SummarySet::SummarySet(const vector<double> &jumps, const double tot_time,
     gsl_histogram_increment(h_time, jumps[i-1] - elapsed_time);
     elapsed_time = jumps[i];
   }
-  
+
   // last interval
   if (jumps.size() % 2 == 0) {
     total_stay_time += (tot_time - elapsed_time);
@@ -133,20 +133,20 @@ struct SummaryStatsFreq {
 
 SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> &summary) {
   num_samples = summary.size();
-  
+
   if (num_samples > 0) {
     // initialize time_freq
     const size_t nbins_time = summary.back().h_time->n;
     time_freq.resize(nbins_time, 0);
-    
+
     // initialize jumps_freq
     auto it = max_element(summary.begin(), summary.end(),
                           [] (SummarySet const& s1, SummarySet const& s2) {
                             return s1.num_jumps < s2.num_jumps;
                           });
-    
+
     jumps_freq.resize(it->num_jumps+1, 0);
-    
+
     // merge summaries
     for (size_t i = 0; i < num_samples; i++) {
       for (size_t j = 0; j < nbins_time; j++) {
@@ -154,12 +154,12 @@ SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> &summary) {
       }
       jumps_freq[summary[i].num_jumps]++;
     }
-    
+
     // normalize to frequency
     const double sum_time = accumulate(time_freq.begin(), time_freq.end(), 0.0);
     const double sum_jumps = accumulate(jumps_freq.begin(), jumps_freq.end(),
                                         0.0);
-    
+
     for (size_t i = 0; i < time_freq.size(); i++) {
       time_freq[i] /= sum_time;
     }
@@ -204,7 +204,7 @@ test_summary(SummaryStatsFreq &a, SummaryStatsFreq &b,
     }
   }
   pval_time = evaluate_fit(time_exp, time_obs);
-  
+
   for(size_t i = 0; i < std::min(a.jumps_freq.size(), b.jumps_freq.size()); i++) {
     if (a.jumps_freq[i] > 0) {
       jump_exp.push_back(a.jumps_freq[i]);
@@ -224,7 +224,7 @@ sample_jump_mid(const EpiEvoModel &the_model,
                 const size_t is, const double tot_time,
                 std::mt19937 &gen, vector<double> &jump_times,
                 double &time_value) {
-  
+
   const double holding_rate = the_model.triplet_rates[is];
 
   // sample a holding time = time until next state change
@@ -248,31 +248,31 @@ static void
 sample_jump_mid(const EpiEvoModel &the_model, const double total_time,
                 std::mt19937 &gen, TripletSampler &ts, vector<GlobalJump> &the_path,
                 double &time_value) {
-  
+
   // triplet_count = c_{ijk} for current sequence (encoded in the
   // TripletSampler object)
   vector<size_t> triplet_counts;
   ts.get_triplet_counts(triplet_counts);
-  
+
   // holding_rate = c_{ijk}*lambda_{ijk}
   const double holding_rate =
   std::inner_product(triplet_counts.begin(), triplet_counts.end(),
                      the_model.triplet_rates.begin(), 0.0);
-  
+
   // sample a holding time = time until next state change
   std::exponential_distribution<double> exp_distr(holding_rate);
   const double holding_time = std::max(exp_distr(gen),
                                        std::numeric_limits<double>::min());
   time_value += holding_time;
- 
+
   if (time_value < total_time) {
- 
+
     size_t context;
     for(size_t i=0; i < triplet_counts.size(); i++) {
       if (triplet_counts[i] > 0)
         context = i;
     }
-    
+
     const size_t change_position = ts.random_mutate(context, gen);
     the_path.push_back(GlobalJump(time_value, change_position));
   }
@@ -291,7 +291,7 @@ int main(int argc, const char **argv) {
     size_t max_iterations = 1000000;
     size_t n_paths_to_sample = 1000;
     size_t n_hist_time_bins = 10;
-    
+
     double evo_time = 1.0;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
@@ -359,7 +359,7 @@ int main(int argc, const char **argv) {
         << "PVAL_JUMPS" << '\t' << "PVAL_TIME" << '\t'
         << "HIST_JUMPS_FS" << '\t' << "HIST_JUMPS_DS" << '\t'
         << "HIST_TIME_FS" << '\t' << "HIST_TIME_DS" << endl;
-    
+
     // iterate over the possible contexts (left and right)
     const size_t n_pairs = 4;
     for (size_t i = 0; i < n_pairs; ++i) {
@@ -372,7 +372,7 @@ int main(int argc, const char **argv) {
         const bool mid_state = (j & 1ul);
         size_t triplet_idx = triple2idx(left_state, mid_state,
                                         right_state);
-        
+
         if (VERBOSE)
           cerr <<  "FORWARD SAMPLING INIT STATE: "
                << std::bitset<3>(triplet_idx).to_string() << endl;
@@ -388,7 +388,7 @@ int main(int argc, const char **argv) {
           vector<double> fs_jump_times;
           double time_value = 0;
           size_t curr_state = triplet_idx;
-          
+
           /* test TripletSampler
           vector<char> seq = {left_state, mid_state, right_state};
           TripletSampler ts(seq);
@@ -409,7 +409,7 @@ int main(int argc, const char **argv) {
           for(size_t k = 0; k < the_path.size(); k++)
             fs_jump_times.push_back(the_path[k].timepoint);
           */
-          
+
           const bool end_state = fs_jump_times.size() % 2 == 0 ?
                                  mid_state : !mid_state;
 
@@ -428,13 +428,13 @@ int main(int argc, const char **argv) {
         // now get the summaries of the summaries...?
         SummaryStatsFreq FS_report0(fs_summary0);
         SummaryStatsFreq FS_report1(fs_summary1);
-        
+
         // 2. end-conditioned samplers
         cerr <<  "DIRECT SAMPLING INIT STATE: "
              << std::bitset<3>(triplet_idx).to_string() << endl;
-        
+
         vector<SummarySet> ds_summary0, ds_summary1;
-        
+
         // 2.0 set up rates and helper variables
         vector<double> rates(2, 0.0);
         rates[0] = the_model.triplet_rates[triplet_idx];
@@ -445,17 +445,17 @@ int main(int argc, const char **argv) {
         vector<vector<double> > PT;
 
         decompose(rates, eigen_vals, U, Uinv);
-        trans_prob_mat(rates[0], rates[1], evo_time, PT);
-        
+        continuous_time_trans_prob_mat(rates[0], rates[1], evo_time, PT);
+
         while (ds_summary0.size() < n_paths_to_sample) {
           vector<double> ds_jump_times0, ds_jump_times1;
-          
+
           end_cond_sample(rates, eigen_vals, U, Uinv,
                           0, mid_state, evo_time, gen, ds_jump_times0);
           SummarySet current_summary0(ds_jump_times0, evo_time,
                                      n_hist_time_bins);
           ds_summary0.push_back(current_summary0);
-          
+
           end_cond_sample(rates, eigen_vals, U, Uinv,
                           0, !mid_state, evo_time, gen, ds_jump_times1);
           SummarySet current_summary1(ds_jump_times1, evo_time,
@@ -465,7 +465,7 @@ int main(int argc, const char **argv) {
 
         SummaryStatsFreq DS_report0(ds_summary0);
         SummaryStatsFreq DS_report1(ds_summary1);
-        
+
         // 3. statistical testing and output
         double pval_time0, pval_jumps0, pval_time1, pval_jumps1;
         test_summary(FS_report0, DS_report0, pval_time0, pval_jumps0);
@@ -477,7 +477,7 @@ int main(int argc, const char **argv) {
         << DS_report0.print_jumps() << '\t'
         << FS_report0.print_time() << '\t'
         << DS_report0.print_time() << endl;
-        
+
         out << std::bitset<3>(triplet_idx).to_string() << '\t'
         << std::bitset<3>(flip_mid_bit(triplet_idx)).to_string() << '\t'
         << pval_jumps1 << '\t' << pval_time1 << '\t'
