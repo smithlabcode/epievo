@@ -18,7 +18,11 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = end_cond_sampling_test end_cond_sampling_branch pruning_test
+PROGS = end_cond_sampling_test \
+	end_cond_sampling_branch \
+	pruning_test \
+	test_sampling
+
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -50,8 +54,10 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-end_cond_sampling_test end_cond_sampling_branch pruning_test: $(addprefix $(COMMON_DIR)/, StateSeq.o \
-	EpiEvoModel.o SingleSampler.o EndCondSampling.o TripletSampler.o GlobalJump.o)
+end_cond_sampling_test end_cond_sampling_branch pruning_test test_sampling: \
+	$(addprefix $(COMMON_DIR)/, StateSeq.o \
+	EpiEvoModel.o SingleSampler.o EndCondSampling.o \
+	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o)
 
 
 install: all
