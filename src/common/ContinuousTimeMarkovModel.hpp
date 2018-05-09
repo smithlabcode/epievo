@@ -34,6 +34,13 @@ struct CTMarkovModel {
                           two_by_two &prob_mat) const;
   std::string tostring() const;
 
+  double get_rate(const bool the_state) const {
+    return the_state ? rate1 : rate0;
+  }
+  double get_rate(const size_t the_state) const {
+    return (the_state == 0ul) ? rate0 : rate1;
+  }
+
   double rate0;
   double rate1;
   two_by_two U;
