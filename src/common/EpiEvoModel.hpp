@@ -80,9 +80,6 @@ void
 read_model(const std::string &param_file, EpiEvoModel &m);
 
 void
-potential_to_transition_prob(const two_by_two &Q, two_by_two &T);
-
-void
 scale_rates(const std::vector<double> &rates,
             const std::vector<double> &branches,
             std::vector<double> &scaled_rates,

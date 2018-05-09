@@ -102,7 +102,7 @@ operator<<(std::ostream &os, const EpiEvoModel &m) {
 
 
 void
-potential_to_transition_prob(const two_by_two &Q, two_by_two &T) {
+horizontal_potential_to_transition_prob(const two_by_two &Q, two_by_two &T) {
 
   const double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
 
@@ -165,7 +165,7 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
 
   // transition probability matrix
   two_by_two trans_mat;
-  potential_to_transition_prob(rate_mat, trans_mat);
+  horizontal_potential_to_transition_prob(rate_mat, trans_mat);
 
   // proportions of triplets at stationarity
   vector<double> stationary_triplet_props;
@@ -272,7 +272,7 @@ rate_scaling_factor(const vector<double> &triplet_rates) {
 
   // transition probability matrix T from Q
   two_by_two T;
-  potential_to_transition_prob(Q, T);
+  horizontal_potential_to_transition_prob(Q, T);
 
   // stationary rates pi from T
   vector<double> pi;
