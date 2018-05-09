@@ -419,3 +419,46 @@ EpiEvoModel::compute_triplet_rates() {
         triplet_rates[triple2idx(i, j, k)] =
           Q[i][1-j] * Q[1-j][k] * std::exp(stationary_logbaseline[i][k]);
 }
+
+
+/* 2x2 rate matrix to transition prob. matrix */
+void
+continuous_time_trans_prob_mat(const double rate0, const double rate1,
+                               const double time_interval,
+                               vector<vector<double> > &transition_matrix) {
+
+  assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
+
+  const double h = 1.0 / exp(time_interval * (rate0 + rate1));
+
+  transition_matrix = vector<vector<double> >(2, vector<double>(2, 0.0));
+
+  const double denominator = rate0 + rate1;
+  transition_matrix[0][0] = (rate0*h + rate1)/denominator;
+  transition_matrix[0][1] = 1.0 - transition_matrix[0][0];
+
+  transition_matrix[1][1] = (rate0 + rate1*h)/denominator;
+  transition_matrix[1][0] = 1.0 - transition_matrix[1][1];
+}
+
+void
+decompose(const vector<double> &rates, // rate0 and rate1
+          vector<double> &eigen_vals,
+          vector<vector<double> > &U,
+          vector<vector<double> > &Uinv) {
+
+  // Q = U*D*Uinv
+  eigen_vals = vector<double>(2, 0.0);
+  const double sum_rate = rates[0] + rates[1];
+  eigen_vals[1] = -sum_rate;
+  U = vector<vector<double> >(2, vector<double>(2, 0.0));
+  U[0][0] = 1.0;
+  U[0][1] = rates[0];
+  U[1][0] = 1;
+  U[1][1] = -rates[1];
+  Uinv = vector<vector<double> >(2, vector<double>(2, 0.0));
+  Uinv[0][0] = rates[1] / sum_rate;
+  Uinv[0][1] = rates[0] / sum_rate;
+  Uinv[1][0] = 1.0 / sum_rate;
+  Uinv[1][1] = -1.0 / sum_rate;
+}

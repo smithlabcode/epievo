@@ -69,6 +69,7 @@ private:
   void compute_triplet_rates();
 };
 
+
 std::ostream &
 operator<<(std::ostream &os, const EpiEvoModel &m);
 
@@ -88,4 +89,18 @@ scale_rates(const std::vector<double> &rates,
 double
 rate_scaling_factor(const std::vector<double> &triplet_rates);
 
+void
+continuous_time_trans_prob_mat(const double rate0, const double rate1,
+                               const double time_interval,
+                               std::vector<std::vector<double> >
+                               &transition_matrix);
+
+void
+decompose(const std::vector<double> &rates,
+          std::vector<double> &eigen_vals,
+          std::vector<std::vector<double> > &U,
+          std::vector<std::vector<double> > &Uinv);
+
+
 #endif
+

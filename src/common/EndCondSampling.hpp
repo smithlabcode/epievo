@@ -18,20 +18,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA
  */
+#ifndef END_COND_SAMPLING_HPP
+#define END_COND_SAMPLING_HPP
 
 #include <vector>
-
-void
-continuous_time_trans_prob_mat(const double rate0, const double rate1,
-                               const double time_interval,
-                               std::vector<std::vector<double> >
-                               &transition_matrix);
-
-void
-decompose(const std::vector<double> &rates,
-          std::vector<double> &eigen_vals,
-          std::vector<std::vector<double> > &U,
-          std::vector<std::vector<double> > &Uinv);
 
 void
 end_cond_sample(const std::vector<double> rates,
@@ -48,3 +38,5 @@ end_cond_sample_prob(const std::vector<double> rates,
                      const std::vector<std::vector<double> > Uinv,
                      size_t a, const size_t b, double T,
                      std::vector<double> jump_times);
+
+#endif
