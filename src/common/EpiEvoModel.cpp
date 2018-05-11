@@ -68,9 +68,7 @@ string
 EpiEvoModel::tostring() const {
   std::ostringstream oss;
 
-  oss << "[TREE]" << '\n'
-      << the_tree << '\n'
-      // << "[INIT HORIZ LOG POTENTIALS]\n"
+  oss // << "[INIT HORIZ LOG POTENTIALS]\n"
       // << format_two_by_two(init_logfac) << '\n'
       << "[INIT HORIZ TRANSITION PROBS]\n"
       << format_two_by_two(init_T) << '\n'
