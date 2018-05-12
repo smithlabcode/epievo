@@ -372,20 +372,15 @@ int main(int argc, const char **argv) {
     std::ofstream out(outfile.c_str());
     out << "BREAK" << '\t'
         << "LEFT_INIT_STATE" << '\t' << "RIGHT_INIT_STATE" << '\t'
-        << "MID_STATE_CHANGE" << '\t'
         << "PROP_MID_END_0_FS" << '\t' << "PROP_MID_END_0_PR" << endl;
   
     Environment env(all_paths[1][test_site-1], all_paths[1][test_site+1]);
-    double total_counts_fs = accumulate(bp_state0_fs.begin(),
-                                        bp_state0_fs.end(), 0.0);
-    double total_counts = accumulate(bp_state0.begin(),
-                                     bp_state0.end(), 0.0);
     
     for (size_t i = 0; i < all_interval_lengths[1].size()-1; ++i) {
       out << i+1 << '\t'
           << env.left[i] << '\t' << env.right[i] << '\t'
-          << bp_state0_fs[i+1] / total_counts_fs << '\t'
-          << bp_state0[i+1] / total_counts << endl;
+          << 1.0 * bp_state0_fs[i+1] / n_paths_sampled << '\t'
+          << 1.0 * bp_state0[i+1] / n_paths_sampled << endl;
     }
   }
   catch (const std::exception &e) {
