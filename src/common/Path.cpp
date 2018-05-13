@@ -71,6 +71,13 @@ get_seq_end(const vector<Path> &paths, vector<bool> &seq) {
     seq[i] = paths[i].end_state();
 }
 
+void
+Path::scale_to_unit_length() {
+  for (size_t i = 0; i < jumps.size(); ++i)
+    jumps[i] /= tot_time;
+  tot_time = 1.0;
+}
+
 bool
 Path::state_at_time(const double t) const {
   const size_t idx =

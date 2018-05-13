@@ -46,6 +46,7 @@ struct Path {
   bool end_state() const {
     return (jumps.size() % 2 == 0) ? init_state : !init_state;
   }
+  void scale_to_unit_length();
 };
 
 std::ostream &
