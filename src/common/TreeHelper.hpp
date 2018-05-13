@@ -37,12 +37,20 @@
 
 struct TreeHelper {
 
+  TreeHelper() {}
   TreeHelper(const PhyloTreePreorder &t) : the_tree(t) {
     the_tree.assign_missing_node_names();
     the_tree.get_subtree_sizes(subtree_sizes);
     the_tree.get_node_names(node_names);
     get_parent_id(subtree_sizes, parent_ids);
     the_tree.get_branch_lengths(branches);
+  }
+  TreeHelper(const double &evo_time) {
+    // the_tree is left untouched
+    subtree_sizes = {1ul, 0ul};
+    node_names = {"root", "leaf"};
+    parent_ids = {0, 0};
+    branches = {0.0, evo_time};
   }
 
   PhyloTreePreorder the_tree; // tree topology and branch lengths
