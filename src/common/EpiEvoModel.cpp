@@ -29,12 +29,24 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
+#include <functional>
 #include <bitset>
 
 using std::vector;
 using std::string;
 using std::transform;
 using std::bitset;
+using std::bind;
+using std::placeholders::_1;
+
+using std::cerr;
+using std::endl;
+
+static bool
+is_probability_distribution(const vector<double> &v) {
+  return std::all_of(begin(v), end(v), bind(std::greater<double>(), _1, 0.0)) &&
+    std::accumulate(begin(v), end(v), 0.0) == 1.0;
+}
 
 
 string
@@ -64,43 +76,38 @@ format_vector(const vector<T> &v) {
 }
 
 
-string
-EpiEvoModel::tostring() const {
-  std::ostringstream oss;
+void
+horiz_trans_prob_to_horiz_potential(const two_by_two &T, two_by_two &Q) {
 
-  oss // << "[INIT HORIZ LOG POTENTIALS]\n"
-      // << format_two_by_two(init_logfac) << '\n'
-      << "[INIT HORIZ TRANSITION PROBS]\n"
-      << format_two_by_two(init_T) << '\n'
-      // << "[STATIONARY HORIZ LOG POTENTIALS]\n"
-      // << format_two_by_two(stationary_logfac) << '\n'
-      << "[STATIONARY HORIZ TRANSITION PROBS]\n"
-      << format_two_by_two(T) << '\n'
-      << "[STATIONARY LOG BASELINE VALUES]\n"
-      << format_two_by_two(stationary_logbaseline) << '\n'
-      << "[STATIONARY POTENTIALS]\n"
-      << format_two_by_two(Q) << '\n'
-      << "[TRIPLE RATES]\n";
+  assert(is_probability_distribution(T[0]) &&
+         is_probability_distribution(T[1]));
 
-  oss << bitset<3>(0) << '\t' << triplet_rates[0];
-  for (size_t i = 1; i < triplet_rates.size(); ++i)
-    oss << '\n' << bitset<3>(i) << '\t' << triplet_rates[i];
-
-  const double mu = rate_scaling_factor(triplet_rates);
-  oss << "\n[UNIT TIME TRANSITIONS]\n" << mu;
-
-  return oss.str();
+  // Gibbs measure pair-wise potentials
+  Q = T;
+  Q[0][0] = 1.0 - T[0][1];
+  Q[0][1] = sqrt(T[0][1]*T[1][0]);
+  Q[1][0] = Q[0][1];
+  Q[1][1] = 1.0 - T[1][0];
 }
 
-
-std::ostream &
-operator<<(std::ostream &os, const EpiEvoModel &m) {
-  return os << m.tostring();
+/* This function assumes phi(0,1) = 0, and will produce Q that can be
+ * used for some computations, but will not always recover the Q that
+ * might be expected.
+ */
+void
+triplet_rates_to_horiz_potential(const vector<double> &triplet_rates,
+                                 two_by_two &Q) {
+  // pair-wise potentials Q from rates lambda_ijk
+  Q = vector<vector<double> >(2, vector<double>(2, 1.0));
+  const double death_birth_ratio = triplet_rates[2]/triplet_rates[0];
+  const double expand_contract_ratio = triplet_rates[1]/triplet_rates[3];
+  Q[0][0] = Q[0][1] * sqrt(death_birth_ratio);
+  Q[1][1] = Q[0][1] * sqrt(death_birth_ratio) * expand_contract_ratio;
 }
 
 
 void
-horizontal_potential_to_transition_prob(const two_by_two &Q, two_by_two &T) {
+horiz_potential_to_horiz_trans_prob(const two_by_two &Q, two_by_two &T) {
 
   const double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
 
@@ -113,9 +120,97 @@ horizontal_potential_to_transition_prob(const two_by_two &Q, two_by_two &T) {
   T[0][0] = 2*Q[0][0]/diag_denom;
 
   // now compute the anti-diagonal entries
-  const double anti_numer = 4*Q[0][1]*Q[1][0];
-  T[0][1] = anti_numer/(pow(Q[0][0] + delta, 2) - Q[1][1]*Q[1][1]);
-  T[1][0] = anti_numer/(pow(Q[1][1] + delta, 2) - Q[0][0]*Q[0][0]);
+  // const double anti_numer = 4*Q[0][1]*Q[1][0];
+  T[0][1] = 1.0 - T[0][0]; //anti_numer/(pow(Q[0][0] + delta, 2) - Q[1][1]*Q[1][1]);
+  T[1][0] = 1.0 - T[1][1]; //anti_numer/(pow(Q[1][1] + delta, 2) - Q[0][0]*Q[0][0]);
+
+  assert(is_probability_distribution(T[0]) &&
+         is_probability_distribution(T[1]));
+}
+
+
+void
+triplet_rates_to_horiz_trans_prob(const vector<double> &triplet_rates,
+                                  two_by_two &T) {
+
+  // first compute approximation to pair-wise potentials Q from the triplet rates
+  two_by_two Q_proportional;
+  triplet_rates_to_horiz_potential(triplet_rates, Q_proportional);
+
+  // now use that approx. to get the exact T
+  horiz_potential_to_horiz_trans_prob(Q_proportional, T);
+}
+
+
+
+void
+horiz_trans_prob_to_horiz_stationary(const two_by_two &T, vector<double> &pi) {
+  pi = vector<double>(2, 0.0);
+  pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
+  pi[0] = 1.0 - pi[1];
+}
+
+double
+rate_scaling_factor(const vector<double> &pi,
+                    const two_by_two &T,
+                    const vector<double> &triplet_rates) {
+
+  double mu_rate_value = 0.0;
+  for (size_t i = 0; i < triplet_rates.size(); ++i) {
+    const size_t l = get_left_bit(i);
+    const size_t m = get_mid_bit(i);
+    const size_t r = get_right_bit(i);
+    mu_rate_value += (pi[l]*T[l][m]*T[m][r]) * triplet_rates[i];
+  }
+  return mu_rate_value;
+}
+
+double
+rate_scaling_factor(const vector<double> &triplet_rates) {
+
+  // first compute approximation to pair-wise potentials Q from the triplet rates
+  two_by_two Q_proportional;
+  triplet_rates_to_horiz_potential(triplet_rates, Q_proportional);
+
+  // now use that approx. to get the exact T
+  two_by_two T;
+  horiz_potential_to_horiz_trans_prob(Q_proportional, T);
+
+  // stationary rates pi from T
+  vector<double> pi;
+  horiz_trans_prob_to_horiz_stationary(T, pi);
+
+  return rate_scaling_factor(pi, T, triplet_rates);
+}
+
+
+string
+EpiEvoModel::tostring() const {
+  std::ostringstream oss;
+
+  oss << "[INIT HORIZ TRANSITION PROBS]\n"
+      << format_two_by_two(init_T) << '\n'
+      << "[STATIONARY HORIZ TRANSITION PROBS]\n"
+      << format_two_by_two(T) << '\n'
+      << "[STATIONARY LOG BASELINE VALUES]\n"
+      << format_two_by_two(stationary_logbaseline) << '\n'
+      << "[STATIONARY POTENTIALS]\n"
+      << format_two_by_two(Q) << '\n'
+      << "[TRIPLE RATES]\n";
+  oss << bitset<3>(0) << '\t' << triplet_rates[0];
+  for (size_t i = 1; i < triplet_rates.size(); ++i)
+    oss << '\n' << bitset<3>(i) << '\t' << triplet_rates[i];
+
+  const double mu = rate_scaling_factor(triplet_rates);
+  oss << "\n[UNIT TIME TRANSITIONS: " << mu << "]";
+
+  return oss.str();
+}
+
+
+std::ostream &
+operator<<(std::ostream &os, const EpiEvoModel &m) {
+  return os << m.tostring();
 }
 
 
@@ -163,7 +258,7 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
 
   // transition probability matrix
   two_by_two trans_mat;
-  horizontal_potential_to_transition_prob(rate_mat, trans_mat);
+  horiz_potential_to_horiz_trans_prob(rate_mat, trans_mat);
 
   // proportions of triplets at stationarity
   vector<double> stationary_triplet_props;
@@ -227,59 +322,6 @@ EpiEvoModel::substitutions_per_site(const vector<double> &triplet_props) const {
 }
 
 
-void
-pairwise_potentials_from_triplet_rates(const vector<double> &triplet_rates,
-                                       two_by_two &Q) {
-  // pair-wise potentials Q from rates lambda_ijk
-  Q = vector<vector<double> >(2, vector<double>(2, 1.0));
-  const double death_birth_ratio = triplet_rates[2]/triplet_rates[0];
-  const double expand_contract_ratio = triplet_rates[1]/triplet_rates[3];
-  Q[0][0] = Q[0][1] * sqrt(death_birth_ratio);
-  Q[1][1] = Q[0][1] * sqrt(death_birth_ratio) * expand_contract_ratio;
-}
-
-
-void
-stationary_from_horiz_trans_prob(const two_by_two &T, vector<double> &pi) {
-  pi = vector<double>(2, 0.0);
-  pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
-  pi[0] = 1.0 - pi[1];
-}
-
-double
-rate_scaling_factor(const vector<double> &pi,
-                    const two_by_two &T,
-                    const vector<double> &triplet_rates) {
-
-  double mu_rate_value = 0.0;
-  for (size_t i = 0; i < triplet_rates.size(); ++i) {
-    const size_t l = get_left_bit(i);
-    const size_t m = get_mid_bit(i);
-    const size_t r = get_right_bit(i);
-    mu_rate_value += (pi[l]*T[l][m]*T[m][r]) * triplet_rates[i];
-  }
-  return mu_rate_value;
-}
-
-double
-rate_scaling_factor(const vector<double> &triplet_rates) {
-
-  // pair-wise potentials Q from lambda_ijk
-  two_by_two Q;
-  pairwise_potentials_from_triplet_rates(triplet_rates, Q);
-
-  // transition probability matrix T from Q
-  two_by_two T;
-  horizontal_potential_to_transition_prob(Q, T);
-
-  // stationary rates pi from T
-  vector<double> pi;
-  stationary_from_horiz_trans_prob(T, pi);
-
-  return rate_scaling_factor(pi, T, triplet_rates);
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // read the model file without a tree
 void
@@ -298,6 +340,9 @@ read_model(const string &param_file, EpiEvoModel &m) {
   m.T[1][0] = 1.0 - m.T[1][1];
   m.T[0][1] = 1.0 - m.T[0][0];
 
+  assert(is_probability_distribution(m.T[0]) &&
+         is_probability_distribution(m.T[1]));
+
   /* read the baseline */
   in >> dummy_label;
   assert(dummy_label == "baseline");
@@ -313,7 +358,10 @@ read_model(const string &param_file, EpiEvoModel &m) {
   m.init_T[1][0] = 1.0 - m.init_T[1][1];
   m.init_T[0][1] = 1.0 - m.init_T[0][0];
 
-  m.initialize(false);
+  assert(is_probability_distribution(m.init_T[0]) &&
+         is_probability_distribution(m.init_T[1]));
+
+  m.initialize();
 }
 
 // 6-parameter input param_file
@@ -356,21 +404,9 @@ read_model(const bool SCALE, const string &param_file, const string &tree_file,
   m.init_T[1][0] = 1.0 - m.init_T[1][1];
   m.init_T[0][1] = 1.0 - m.init_T[0][0];
 
-  m.initialize(SCALE);
+  m.initialize();
 }
 
-
-
-void
-transition_prob_to_potential(const two_by_two &T, two_by_two &Q) {
-
-  // Gibbs measure pair-wise potentials
-  Q = T;
-  Q[0][0] = 1.0 - T[0][1];
-  Q[0][1] = sqrt(T[0][1]*T[1][0]);
-  Q[1][0] = Q[0][1];
-  Q[1][1] = 1.0 - T[1][0];
-}
 
 void
 EpiEvoModel::scale_triplet_rates() {
@@ -385,7 +421,7 @@ EpiEvoModel::scale_triplet_rates() {
    transitions (T), the stationary rates (Q), and the rates
    for triples */
 void
-EpiEvoModel::initialize(const bool SCALE) {
+EpiEvoModel::initialize() {
 
   // make sure every node has a name ADS: modify below so that all
   // nodes always have names; check for this rather than attempt to
@@ -398,13 +434,17 @@ EpiEvoModel::initialize(const bool SCALE) {
 
   // convert target transition probs into Gibbs pair-wise potentials
   Q = two_by_two(2, vector<double>(2, 0.0));
-  transition_prob_to_potential(T, Q);
+  horiz_trans_prob_to_horiz_potential(T, Q);
 
   // get the 1D vector of rates for the triples
   compute_triplet_rates();
 
-  if (SCALE)
-    scale_triplet_rates();
+  // scale for one change per site per unit time
+  scale_triplet_rates();
+
+  // scale for one change per site per unit time
+  scale_triplet_rates();
+
 }
 
 
@@ -416,6 +456,38 @@ EpiEvoModel::compute_triplet_rates() {
       for (size_t k = 0; k < 2; ++k)
         triplet_rates[triple2idx(i, j, k)] =
           Q[i][1-j] * Q[1-j][k] * std::exp(stationary_logbaseline[i][k]);
+}
+
+
+void
+EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
+  assert(updated_rates.size() == n_triplets);
+  assert(updated_rates[1] == updated_rates[4]);
+  assert(updated_rates[3] == updated_rates[6]);
+
+  triplet_rates = updated_rates;
+
+  scale_triplet_rates();
+
+  // recompute T using the updated triplet rates
+  triplet_rates_to_horiz_trans_prob(triplet_rates, T);
+
+  // recompute Q using the updated T
+  horiz_trans_prob_to_horiz_potential(T, Q);
+
+  // recompute stationary log baseline
+  stationary_logbaseline[0][0] = log(triplet_rates[0]) - (log(Q[0][1]) + log(Q[1][0]));
+  stationary_logbaseline[0][1] = log(triplet_rates[1]) - (log(Q[0][1]) + log(Q[1][1]));
+  stationary_logbaseline[1][0] = log(triplet_rates[4]) - (log(Q[1][1]) + log(Q[1][0]));
+  stationary_logbaseline[1][1] = log(triplet_rates[7]) - (log(Q[1][0]) + log(Q[0][1]));
+
+  const double centering_point = stationary_logbaseline[0][1];
+  stationary_logbaseline[0][0] -= centering_point;
+  stationary_logbaseline[0][1] -= centering_point;
+  stationary_logbaseline[1][0] -= centering_point;
+  stationary_logbaseline[1][1] -= centering_point;
+
+  assert(stationary_logbaseline[0][1] == stationary_logbaseline[1][0]);
 }
 
 

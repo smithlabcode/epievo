@@ -32,6 +32,9 @@ typedef std::vector<std::vector<double> > two_by_two;
 
 struct EpiEvoModel {
 
+  void
+  rebuild_from_triplet_rates(const std::vector<double> &triplet_rates);
+
   PhyloTreePreorder the_tree; // tree topology and branch lengths
 
   /* information we need quick access to, but implicit in the tree */
@@ -52,7 +55,8 @@ struct EpiEvoModel {
   void get_stationary_triplet_proportions(std::vector<double> &props) const;
 
   void scale_triplet_rates();
-  void initialize(const bool scale_rates);
+  void initialize(); // assuming rates are always scaled to one change
+                     // per site per unit time
 
   void sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
                                   std::vector<char> &sequence) const;
@@ -103,4 +107,3 @@ decompose(const std::vector<double> &rates,
 
 
 #endif
-
