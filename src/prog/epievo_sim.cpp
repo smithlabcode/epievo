@@ -46,6 +46,7 @@ using std::cerr;
 using std::cout;
 using std::to_string;
 using std::ostream_iterator;
+using std::numeric_limits;
 
 bool
 file_is_readable(const string &param_file) {
@@ -101,7 +102,7 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
   // sample a holding time = time until next state change
   std::exponential_distribution<double> exp_distr(holding_rate);
   const double holding_time = std::max(exp_distr(gen),
-                                       std::numeric_limits<double>::min());
+                                       numeric_limits<double>::min());
 
   // update the current time_value
   time_value += holding_time;
@@ -139,24 +140,28 @@ int main(int argc, const char **argv) {
 
     string outfile;
     string pathfile;
+    string tree_file;
     bool VERBOSE = false;
-    bool scale_the_rates = true;
     size_t n_sites = 100;
 
-    size_t rng_seed = std::numeric_limits<size_t>::max();
+    double evolutionary_time = numeric_limits<double>::lowest();
+
+    size_t rng_seed = numeric_limits<size_t>::max();
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "simulate methylome evolution",
-                           "<params-file> <tree-file>");
+                           "<params-file>");
     opt_parse.add_opt("output", 'o', "name of output file for methylomes"
                       "(default: stdout)", false, outfile);
-    opt_parse.add_opt("n-sites", 'n', "length of sequence to simulate"
+    opt_parse.add_opt("n-sites", 'n', "length of sequence to simulate "
                       "(default: " + to_string(n_sites) + ")", false, n_sites);
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths"
                       "as sorted jump times (default: stdout)", false, pathfile);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
-    opt_parse.add_opt("verbose", 'v', "print more run info",
-                      false, VERBOSE);
+    opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
+    opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
+                      evolutionary_time);
+    opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -172,7 +177,7 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() < 2) {
+    if (leftover_args.size() != 1) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
@@ -181,9 +186,18 @@ int main(int argc, const char **argv) {
       cerr << "cannot read file: "<< param_file << endl;
       return  EXIT_SUCCESS;
     }
-    const string tree_file(leftover_args.back());
-    if (!file_is_readable(tree_file)) {
-      cerr << "cannot read file: "<< tree_file << endl;
+    if (!tree_file.empty()) {
+      if (evolutionary_time != numeric_limits<double>::lowest()) {
+        cerr << "specify exactly one of: tree or time" << endl;
+        return  EXIT_SUCCESS;
+      }
+      if (!file_is_readable(tree_file)) {
+        cerr << "cannot read file: "<< tree_file << endl;
+        return  EXIT_SUCCESS;
+      }
+    }
+    else if (evolutionary_time == numeric_limits<double>::lowest()) {
+      cerr << "specify exactly one of: tree or time" << endl;
       return  EXIT_SUCCESS;
     }
     ////////////////////////////////////////////////////////////////////////
@@ -196,19 +210,29 @@ int main(int argc, const char **argv) {
       cerr << "reading parameter file: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
-    if (scale_the_rates)
-      the_model.scale_triplet_rates();
+    the_model.scale_triplet_rates();
     if (VERBOSE)
       cerr << the_model << endl;
 
-    if (VERBOSE)
-      cerr << "reading tree file: " << tree_file << endl;
-    PhyloTreePreorder the_tree; // tree topology and branch lengths
-    std::ifstream tree_in(tree_file.c_str());
-    if (!tree_in || !(tree_in >> the_tree))
-      throw std::runtime_error("bad tree file: " + tree_file);
-    const size_t n_nodes = the_tree.get_size();
-    const TreeHelper th(the_tree);
+    size_t n_nodes = 0;
+    TreeHelper th;
+    if (!tree_file.empty()) {
+      if (VERBOSE)
+        cerr << "reading tree file: " << tree_file << endl;
+      PhyloTreePreorder the_tree; // tree topology and branch lengths
+      std::ifstream tree_in(tree_file.c_str());
+      if (!tree_in || !(tree_in >> the_tree))
+        throw std::runtime_error("bad tree file: " + tree_file);
+      n_nodes = the_tree.get_size();
+      th = TreeHelper(the_tree);
+    }
+    else {
+      if (VERBOSE)
+        cerr << "initializing two node tree with time: "
+             << evolutionary_time << endl;
+      n_nodes = 2;
+      th = TreeHelper(evolutionary_time);
+    }
 
     /* standard mersenne_twister_engine seeded with rd()*/
     if (rng_seed == std::numeric_limits<size_t>::max()) {
