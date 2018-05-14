@@ -114,18 +114,17 @@ static void update_states_counts(const Path &m,
 ////////////////////////////////////////////////////////////////////////////////
 static void
 forward_sample_interval(const vector<double> &rates,
-                        const bool is, bool &es,
-                        const double tot_time,
-                        std::mt19937 &gen) {
+                        const bool initial_state, const double tot_time,
+                        std::mt19937 &gen, bool &end_state) {
 
   double time_value = 0;
-  size_t curr_state = is;
+
+  end_state = initial_state;
 
   while (time_value < tot_time) {
-    const double holding_rate = rates[curr_state];
-    std::exponential_distribution<double> exp_distr(holding_rate);
+    std::exponential_distribution<double> exp_distr(rates[curr_state]);
     const double holding_time =
-    std::max(exp_distr(gen), std::numeric_limits<double>::min());
+      std::max(exp_distr(gen), std::numeric_limits<double>::min());
 
     time_value += holding_time;
 
@@ -133,7 +132,6 @@ forward_sample_interval(const vector<double> &rates,
       curr_state = complement_state(curr_state);
     }
   }
-  es = curr_state;
 }
 
 
@@ -160,10 +158,8 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
     double time_passed = 0;
 
     for (size_t m = 0; m < n_intervals; ++m) {
-      forward_sample_interval(interval_rates[m],
-                              par_state, new_state,
-                              interval_lengths[m],
-                              gen);
+      forward_sample_interval(interval_rates[m], par_state,
+                              interval_lengths[m], gen, new_state);
       time_passed += interval_lengths[m];
       par_state = new_state;
       state_proposed.push_back(new_state);
