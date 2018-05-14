@@ -64,6 +64,7 @@ struct EpiEvoModel {
                                         std::vector<char> &sequence) const;
 
   std::string tostring() const;
+  std::string format_for_param_file() const;
 
   std::string root_name() const {return node_names[0];}
 

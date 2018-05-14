@@ -165,6 +165,7 @@ rate_scaling_factor(const vector<double> &pi,
   return mu_rate_value;
 }
 
+
 double
 rate_scaling_factor(const vector<double> &triplet_rates) {
 
@@ -181,6 +182,18 @@ rate_scaling_factor(const vector<double> &triplet_rates) {
   horiz_trans_prob_to_horiz_stationary(T, pi);
 
   return rate_scaling_factor(pi, T, triplet_rates);
+}
+
+
+std::string
+EpiEvoModel::format_for_param_file() const {
+  std::ostringstream oss;
+  oss << "stationary\t" << T[0][0] << '\t' << T[1][1] << endl
+      << "baseline\t"
+      << stationary_logbaseline[0][0] << '\t'
+      << stationary_logbaseline[1][1] << endl
+      << "init\t" << init_T[0][0] << '\t' << init_T[1][1];
+  return oss.str();
 }
 
 
