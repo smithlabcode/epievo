@@ -64,7 +64,7 @@ rates_on_branch(const vector<double> &triplet_rates,
   const size_t n_intervals = env.left.size();
   interval_rates = vector<vector<double> > (n_intervals, vector<double>(2, 0.0));
   interval_lengths = vector<double>(n_intervals, 0.0);
-  
+
   for (size_t i = 0; i < n_intervals; ++i) {
     const size_t pattern0 = 4 * (size_t)(env.left[i]) + (size_t)(env.right[i]);
     const size_t pattern1 = pattern0 + 2;
@@ -88,7 +88,7 @@ root_post_prob0(const size_t site,
   double p1 = root_trans_prob[lstate][1] * root_trans_prob[1][rstate];
   p0 *= all_p[1][0][0];
   p1 *= all_p[1][0][1];
-  
+
   double root_p0 = p0 / (p0+p1);
   return root_p0;
 }
@@ -117,18 +117,18 @@ forward_sample_interval(const vector<double> &rates,
                         const bool is, bool &es,
                         const double tot_time, const double time_passed,
                         std::mt19937 &gen) {
-  
+
   double time_value = 0;
   size_t curr_state = is;
-  
+
   while (time_value < tot_time) {
     const double holding_rate = rates[curr_state];
     std::exponential_distribution<double> exp_distr(holding_rate);
     const double holding_time =
     std::max(exp_distr(gen), std::numeric_limits<double>::min());
-    
+
     time_value += holding_time;
-    
+
     if (time_value < tot_time) {
       curr_state = complement_state(curr_state);
     }
@@ -145,7 +145,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
                             std::mt19937 &gen,
                             vector<size_t> &state_counts,
                             const size_t max_iterations) {
-  
+
   const size_t n_intervals = interval_rates.size();
   bool reach_leaf_state = false;
   size_t num_sampled = 0;
@@ -158,7 +158,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
     bool new_state;
 
     double time_passed = 0;
-    
+
     for (size_t m = 0; m < n_intervals; ++m) {
       forward_sample_interval(interval_rates[m],
                               par_state, new_state,
@@ -171,7 +171,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
     ++num_sampled;
     reach_leaf_state = new_state == leaf_state;
   }
-  
+
   // if success append jump_times to new_path
   if (reach_leaf_state)
     for (size_t i = 0; i < n_intervals; ++i)
@@ -189,10 +189,10 @@ posterior_sampling(const vector<vector<double> > &interval_rates,
                    const bool is, const bool leaf_state,
                    std::mt19937 &gen,
                    vector<size_t> &state_counts) {
-  
+
   const size_t n_intervals = interval_rates.size();
   size_t par_state = is;
-  
+
   for (size_t m = 0; m < n_intervals; ++m) {
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
@@ -201,13 +201,13 @@ posterior_sampling(const vector<vector<double> > &interval_rates,
     double p0_post = m < n_intervals - 1 ? all_p[m+1][0] : leaf_state == false;
     double p0 = (p0_post * P[par_state][0] /
                  all_p[m][par_state]);
-    
+
     // generate random state at break point
     std::uniform_real_distribution<double> unif(0.0, 1.0);
     bool new_state = (unif(gen) > p0);
     if (!new_state)
       state_counts[m]++;
-    
+
     par_state = new_state;
   }
 }
@@ -226,7 +226,7 @@ int main(int argc, const char **argv) {
     size_t n_paths_to_sample = 1000;
     size_t test_site = 2; // we test 5-site path
     size_t test_branch = 1; // branch to test in the tree
-    
+
     string param_file;
     string tree_file;
 
@@ -267,12 +267,12 @@ int main(int argc, const char **argv) {
     }
     const string pathsfile(leftover_args.front());
     ///////////////////////////////////////////////////////////////////////////
-    
-    
+
+
     if (VERBOSE)
       cerr << "[READING PARAMETER FILE: " << param_file << ", "
       << tree_file << "]" << endl;
-    
+
     EpiEvoModel the_model;
     read_model(SCALE, param_file, tree_file, the_model);
     // remove undesired branch
@@ -280,10 +280,10 @@ int main(int argc, const char **argv) {
     the_model.node_names.erase(the_model.node_names.begin()+2);
     the_model.parent_ids.erase(the_model.parent_ids.begin()+2);
     the_model.branches.erase(the_model.branches.begin()+2);
-    
+
     if (VERBOSE)
       cerr << the_model << endl;
-    
+
 
     if (VERBOSE)
       cerr << "[READING PATHS: " << pathsfile << "]" << endl;
@@ -293,7 +293,7 @@ int main(int argc, const char **argv) {
     // remove undesired branch
     all_paths.erase(all_paths.begin()+2);
     node_names.erase(node_names.begin()+2);
-    
+
     if (VERBOSE)
       cerr << "TEST BRANCH: " << test_branch << endl
            << "TEST SITE: " << test_site << endl
@@ -311,7 +311,7 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
     cerr << "----- TEST upward downward sampling BELOW ---------" << endl;
-  
+
     const size_t n_nodes = the_model.subtree_sizes.size();
     vector<vector<vector<double> > > all_interval_rates(n_nodes);
     vector<vector<double> > all_interval_lengths(n_nodes);
@@ -320,62 +320,62 @@ int main(int argc, const char **argv) {
                     all_paths[1][test_site + 1],
                     all_interval_rates[1],
                     all_interval_lengths[1]);
-    
+
     // (1) Upward pruning
     vector<vector<vector<double> > > all_p;
     all_p.resize(the_model.subtree_sizes.size());
     pruning(the_model.triplet_rates, the_model.subtree_sizes, test_site,
             all_paths, all_interval_rates, all_interval_lengths, all_p);
-    
+
     // counts of mid state 0 at breakpoints
     vector<size_t> bp_state0_fs, bp_state0;
     bp_state0_fs.resize(all_interval_rates[1].size(), 0);
     bp_state0.resize(all_interval_rates[1].size(), 0);
-    
+
     size_t n_paths_sampled = 0;
-    
+
     while (n_paths_sampled < n_paths_to_sample) {
       if (VERBOSE && n_paths_sampled * 10 % n_paths_to_sample == 0)
         cerr << "FINISHED: " << n_paths_sampled * 100 / n_paths_to_sample
              << '%' << endl;
-      
+
       // (2) Foward sample a path conditioned on given leaf state
       Path new_path_fs;
-      
+
       // sample new root state
       const size_t root_id = 0; //all_paths[0] is empty
       const double root_p0 = root_post_prob0(test_site, all_paths,
                                              the_model.init_T, all_p);
       std::uniform_real_distribution<double> unif(0.0, 1.0);
       bool new_root_state = (unif(gen) > root_p0);
-      
+
       new_path_fs.init_state = new_root_state;
       new_path_fs.tot_time = all_paths[1][test_site - 1].tot_time;
-      
+
       downward_sampling_branch_fs(all_interval_rates[1],
                                   all_interval_lengths[1],
                                   new_root_state,
                                   all_paths[1][test_site].end_state(),
                                   gen, bp_state0_fs, max_iterations);
-      
+
       // (3) Posterior sampling:
       posterior_sampling(all_interval_rates[1],
                          all_interval_lengths[1], all_p[1],
                          new_root_state,
                          all_paths[1][test_site].end_state(),
                          gen, bp_state0);
-      
+
       ++n_paths_sampled;
     }
     cerr << "FINISHED: " << n_paths_sampled * 100 / n_paths_to_sample
                          << '%' << endl;
-    
+
     // write output
     std::ofstream out(outfile.c_str());
     out << "BREAK" << '\t'
         << "LEFT_INIT_STATE" << '\t' << "RIGHT_INIT_STATE" << '\t'
         << "PROP_MID_END_0_FS" << '\t' << "PROP_MID_END_0_PR" << endl;
-  
+
     Environment env(all_paths[1][test_site-1], all_paths[1][test_site+1]);
     for (size_t i = 0; i < all_interval_lengths[1].size(); ++i) {
       out << i+1 << '\t'
