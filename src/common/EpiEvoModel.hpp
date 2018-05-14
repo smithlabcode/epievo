@@ -26,22 +26,12 @@
 #include <vector>
 #include <random>
 
-#include "PhyloTreePreorder.hpp"
-
 typedef std::vector<std::vector<double> > two_by_two;
 
 struct EpiEvoModel {
 
   void
   rebuild_from_triplet_rates(const std::vector<double> &triplet_rates);
-
-  PhyloTreePreorder the_tree; // tree topology and branch lengths
-
-  /* information we need quick access to, but implicit in the tree */
-  std::vector<size_t> subtree_sizes;
-  std::vector<std::string> node_names;
-  std::vector<size_t> parent_ids;
-  std::vector<double> branches;
 
   two_by_two stationary_logbaseline; // symmetric part in J-P model
   two_by_two T;       // horizontal transition probs (stationary)
@@ -65,8 +55,6 @@ struct EpiEvoModel {
 
   std::string tostring() const;
   std::string format_for_param_file() const;
-
-  std::string root_name() const {return node_names[0];}
 
   static const size_t n_triplets = 8;
 
@@ -105,6 +93,5 @@ decompose(const std::vector<double> &rates,
           std::vector<double> &eigen_vals,
           std::vector<std::vector<double> > &U,
           std::vector<std::vector<double> > &Uinv);
-
 
 #endif

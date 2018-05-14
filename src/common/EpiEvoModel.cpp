@@ -335,8 +335,8 @@ EpiEvoModel::substitutions_per_site(const vector<double> &triplet_props) const {
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-// read the model file without a tree
+/* read the model file
+ */
 void
 read_model(const string &param_file, EpiEvoModel &m) {
 
@@ -377,24 +377,17 @@ read_model(const string &param_file, EpiEvoModel &m) {
   m.initialize();
 }
 
-// 6-parameter input param_file
-// tree-newick
+/* Read model file
+ */
 void
-read_model(const bool SCALE, const string &param_file, const string &tree_file,
-           EpiEvoModel &m) {
-
-  /* read the phylogenetic tree */
-  std::ifstream tree_in(tree_file.c_str());
-  if (!tree_in)
-    throw std::runtime_error("Could not open file: " + tree_file);
-  string dummy_label;
-  tree_in >> m.the_tree;
+read_model(const bool SCALE, const string &param_file, EpiEvoModel &m) {
 
   std::ifstream in(param_file.c_str());
   if (!in)
     throw std::runtime_error("Could not open file: " + param_file);
 
   /* read the stationary distribution */
+  string dummy_label;
   in >> dummy_label;
   assert(dummy_label == "stationary");
   m.T.resize(2, vector<double>(2, 0.0));
@@ -435,15 +428,6 @@ EpiEvoModel::scale_triplet_rates() {
    for triples */
 void
 EpiEvoModel::initialize() {
-
-  // make sure every node has a name ADS: modify below so that all
-  // nodes always have names; check for this rather than attempt to
-  // fix it
-  the_tree.assign_missing_node_names();
-  the_tree.get_subtree_sizes(subtree_sizes);
-  the_tree.get_node_names(node_names);
-  get_parent_id(subtree_sizes, parent_ids);
-  the_tree.get_branch_lengths(branches);
 
   // convert target transition probs into Gibbs pair-wise potentials
   Q = two_by_two(2, vector<double>(2, 0.0));
@@ -489,10 +473,17 @@ EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
   horiz_trans_prob_to_horiz_potential(T, Q);
 
   // recompute stationary log baseline
-  stationary_logbaseline[0][0] = log(triplet_rates[0]) - (log(Q[0][1]) + log(Q[1][0]));
-  stationary_logbaseline[0][1] = log(triplet_rates[1]) - (log(Q[0][1]) + log(Q[1][1]));
-  stationary_logbaseline[1][0] = log(triplet_rates[4]) - (log(Q[1][1]) + log(Q[1][0]));
-  stationary_logbaseline[1][1] = log(triplet_rates[7]) - (log(Q[1][0]) + log(Q[0][1]));
+  stationary_logbaseline[0][0] =
+    log(triplet_rates[0]) - (log(Q[0][1]) + log(Q[1][0]));
+
+  stationary_logbaseline[0][1] =
+    log(triplet_rates[1]) - (log(Q[0][1]) + log(Q[1][1]));
+
+  stationary_logbaseline[1][0] =
+    log(triplet_rates[4]) - (log(Q[1][1]) + log(Q[1][0]));
+
+  stationary_logbaseline[1][1] =
+    log(triplet_rates[7]) - (log(Q[1][0]) + log(Q[0][1]));
 
   const double centering_point = stationary_logbaseline[0][1];
   stationary_logbaseline[0][0] -= centering_point;
