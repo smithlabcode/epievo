@@ -76,8 +76,8 @@ rates_on_branch(const vector<double> &triplet_rates,
   interval_lengths = vector<double>(n_intervals, 0.0);
 
   for (size_t i = 0; i < n_intervals; ++i) {
-    const size_t pattern0 = 4 * (size_t)(env.left[i]) + (size_t)(env.right[i]);
-    const size_t pattern1 = pattern0 + 2;
+    const size_t pattern0 = triple2idx(env.left[i], false, env.right[i]);
+    const size_t pattern1 = triple2idx(env.left[i], true, env.right[i]);
     interval_rates[i][0] = triplet_rates[pattern0];
     interval_rates[i][1] = triplet_rates[pattern1];
     interval_lengths[i] = (i == 0) ? env.breaks[0] : env.breaks[i] - env.breaks[i-1];
