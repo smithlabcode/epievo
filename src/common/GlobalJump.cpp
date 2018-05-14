@@ -60,9 +60,13 @@ operator>>(std::istream &is, GlobalJump &s) {
   return is >> s.timepoint >> s.position;
 }
 
+#include <iomanip>
+#include <limits>
+
 std::ostream &
 operator<<(std::ostream &os, const GlobalJump &s) {
-  return os << s.timepoint << '\t' << s.position;
+  return os << std::setprecision(std::numeric_limits<double>::max_digits10)
+            << s.timepoint << '\t' << s.position;
 }
 
 void
