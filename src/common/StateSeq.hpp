@@ -25,6 +25,7 @@
 #include <vector>
 #include <cstdlib>
 #include <string>
+#include <cassert>
 
 struct StateSeq {
 
@@ -59,8 +60,6 @@ inline size_t
 pair2idx(const bool i, const bool j) {
   return i*2 + j;
 }
-
-#include <cassert>
 
 // complementing a state
 inline size_t complement_state(const size_t x) {
@@ -101,7 +100,6 @@ get_bits_from_pair(const size_t x, bool &l, bool &r) {
 
 #include <bitset>
 #include <sstream>
-#include <cassert>
 
 template <class T> std::string
 triplet_info_to_string(const std::vector<T> &v) {
