@@ -44,6 +44,7 @@ struct TreeHelper {
     the_tree.get_node_names(node_names);
     get_parent_id(subtree_sizes, parent_ids);
     the_tree.get_branch_lengths(branches);
+    n_nodes = subtree_sizes.size();
   }
   TreeHelper(const double &evo_time) {
     // the_tree is left untouched
@@ -51,6 +52,7 @@ struct TreeHelper {
     node_names = {"root", "leaf"};
     parent_ids = {0, 0};
     branches = {0.0, evo_time};
+    n_nodes = 2;
   }
 
   PhyloTreePreorder the_tree; // tree topology and branch lengths
@@ -60,6 +62,7 @@ struct TreeHelper {
   std::vector<std::string> node_names;
   std::vector<size_t> parent_ids;
   std::vector<double> branches;
+  size_t n_nodes;
 };
 
 
