@@ -48,9 +48,6 @@ using std::min;
 using std::runtime_error;
 using std::bitset;
 
-static const size_t N_TRIPLETS = 8;
-static const double MINWAIT = 1e-8;
-
 ////////////////////////////////////////////////////////////////////////////////
 //////////   copied/modified from SingleSampler.cpp                   //////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +68,7 @@ rates_on_branch(const vector<double> &triplet_rates,
 
   for (size_t i = 0; i < n_intervals; ++i) {
 
-    const size_t pattern0 = triple2idx(env.left[i], 0, env.right[i]);
+    const size_t pattern0 = triple2idx(env.left[i], 0ul, env.right[i]);
     const size_t pattern1 = flip_mid_bit(pattern0);
 
     interval_rates[i][0] = triplet_rates[pattern0];
@@ -102,22 +99,7 @@ root_post_prob0(const size_t site,
   double root_p0 = p0 / (p0+p1);
   return root_p0;
 }
-////////////////////////////////////////////////////////////////////////////////
-//////////   Extract states from paths                                //////////
-////////////////////////////////////////////////////////////////////////////////
-/*
-static void update_states_counts(const Path &m,
-                                 const vector<double> &interval_lengths,
-                                 vector<size_t> &state_counts) {
-  double time_passed = 0;
-  for (size_t i = 1; i < interval_lengths.size(); ++i) {
-    time_passed += interval_lengths[i-1];
-    const bool mid_state = m.state_at_time(time_passed);
-    if (!mid_state)
-      state_counts[i]++;
-  }
-}
-*/
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //////////   Downward_sampling_branch Forward sampling                //////////
@@ -132,14 +114,14 @@ forward_sample_interval(const vector<double> &rates,
   end_state = initial_state;
 
   while (time_value < tot_time) {
-    std::exponential_distribution<double> exp_distr(rates[curr_state]);
+    std::exponential_distribution<double> exp_distr(rates[end_state]);
     const double holding_time =
       std::max(exp_distr(gen), std::numeric_limits<double>::min());
 
     time_value += holding_time;
 
     if (time_value < tot_time) {
-      curr_state = complement_state(curr_state);
+      end_state = complement_state(end_state);
     }
   }
 }
@@ -187,7 +169,6 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
 
 
 // posterior sampling
-
 static void
 posterior_sampling(const vector<vector<double> > &interval_rates,
                    const vector<double> &interval_lengths,
@@ -217,8 +198,8 @@ posterior_sampling(const vector<vector<double> > &interval_rates,
   }
 }
 
-////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
 int main(int argc, const char **argv) {
   try {
 
@@ -346,7 +327,6 @@ int main(int argc, const char **argv) {
       Path new_path_fs;
 
       // sample new root state
-      const size_t root_id = 0; //all_paths[0] is empty
       const double root_p0 = root_post_prob0(test_site, all_paths,
                                              the_model.init_T, all_p);
       std::uniform_real_distribution<double> unif(0.0, 1.0);
