@@ -115,7 +115,7 @@ static void update_states_counts(const Path &m,
 static void
 forward_sample_interval(const vector<double> &rates,
                         const bool is, bool &es,
-                        const double tot_time, const double time_passed,
+                        const double tot_time,
                         std::mt19937 &gen) {
 
   double time_value = 0;
@@ -162,7 +162,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
     for (size_t m = 0; m < n_intervals; ++m) {
       forward_sample_interval(interval_rates[m],
                               par_state, new_state,
-                              interval_lengths[m], time_passed,
+                              interval_lengths[m],
                               gen);
       time_passed += interval_lengths[m];
       par_state = new_state;
