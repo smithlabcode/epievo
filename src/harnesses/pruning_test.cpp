@@ -166,8 +166,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
                               gen);
       time_passed += interval_lengths[m];
       par_state = new_state;
-      if (m < n_intervals - 1)
-        state_proposed.push_back(new_state);
+      state_proposed.push_back(new_state);
     }
     ++num_sampled;
     reach_leaf_state = new_state == leaf_state;
@@ -175,7 +174,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
   
   // if success append jump_times to new_path
   if (reach_leaf_state)
-    for (size_t i = 1; i < state_proposed.size(); ++i)
+    for (size_t i = 0; i < n_intervals; ++i)
       state_counts[i] += !state_proposed[i];
 }
 
@@ -187,26 +186,27 @@ static void
 posterior_sampling(const vector<vector<double> > &interval_rates,
                    const vector<double> &interval_lengths,
                    const vector<vector<double> > &all_p,
-                   const bool is,
+                   const bool is, const bool leaf_state,
                    std::mt19937 &gen,
                    vector<size_t> &state_counts) {
   
   const size_t n_intervals = interval_rates.size();
   size_t par_state = is;
   
-  for (size_t m = 0; m < n_intervals - 1; ++m) {
+  for (size_t m = 0; m < n_intervals; ++m) {
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
     const CTMarkovModel ctmm(interval_rates[m]);
     ctmm.get_trans_prob_mat(interval_lengths[m], P);
-    double p0 = (all_p[m+1][0] * P[par_state][0] /
+    double p0_post = m < n_intervals - 1 ? all_p[m+1][0] : leaf_state == false;
+    double p0 = (p0_post * P[par_state][0] /
                  all_p[m][par_state]);
     
     // generate random state at break point
     std::uniform_real_distribution<double> unif(0.0, 1.0);
     bool new_state = (unif(gen) > p0);
     if (!new_state)
-      state_counts[m+1]++;
+      state_counts[m]++;
     
     par_state = new_state;
   }
@@ -361,7 +361,9 @@ int main(int argc, const char **argv) {
       // (3) Posterior sampling:
       posterior_sampling(all_interval_rates[1],
                          all_interval_lengths[1], all_p[1],
-                         new_root_state, gen, bp_state0);
+                         new_root_state,
+                         all_paths[1][test_site].end_state(),
+                         gen, bp_state0);
       
       ++n_paths_sampled;
     }
@@ -375,12 +377,11 @@ int main(int argc, const char **argv) {
         << "PROP_MID_END_0_FS" << '\t' << "PROP_MID_END_0_PR" << endl;
   
     Environment env(all_paths[1][test_site-1], all_paths[1][test_site+1]);
-    
-    for (size_t i = 0; i < all_interval_lengths[1].size()-1; ++i) {
+    for (size_t i = 0; i < all_interval_lengths[1].size(); ++i) {
       out << i+1 << '\t'
           << env.left[i] << '\t' << env.right[i] << '\t'
-          << 1.0 * bp_state0_fs[i+1] / n_paths_sampled << '\t'
-          << 1.0 * bp_state0[i+1] / n_paths_sampled << endl;
+          << 1.0 * bp_state0_fs[i] / n_paths_sampled << '\t'
+          << 1.0 * bp_state0[i] / n_paths_sampled << endl;
     }
   }
   catch (const std::exception &e) {
