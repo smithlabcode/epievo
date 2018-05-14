@@ -57,23 +57,33 @@ static const double MINWAIT = 1e-8;
 // collect rates and interval lengths
 static void
 rates_on_branch(const vector<double> &triplet_rates,
-                const Path &l, const Path &r,
+                const Path &left_neighbor_path,
+                const Path &right_neighbor_path,
                 vector<vector<double> > &interval_rates,
                 vector<double> &interval_lengths) {
-  Environment env(l, r);
+
+  const Environment env(left_neighbor_path, right_neighbor_path);
+
   const size_t n_intervals = env.left.size();
+
   interval_rates = vector<vector<double> > (n_intervals, vector<double>(2, 0.0));
   interval_lengths = vector<double>(n_intervals, 0.0);
 
   for (size_t i = 0; i < n_intervals; ++i) {
-    const size_t pattern0 = 4 * (size_t)(env.left[i]) + (size_t)(env.right[i]);
-    const size_t pattern1 = pattern0 + 2;
+
+    const size_t pattern0 = triple2idx(env.left[i], 0, env.right[i]);
+    const size_t pattern1 = flip_mid_bit(pattern0);
+
     interval_rates[i][0] = triplet_rates[pattern0];
     interval_rates[i][1] = triplet_rates[pattern1];
-    interval_lengths[i] = (i == 0) ? env.breaks[0] : env.breaks[i] - env.breaks[i-1];
+
+    interval_lengths[i] = (i == 0) ?
+      env.breaks[0] : env.breaks[i] - env.breaks[i - 1];
+
     assert(interval_lengths[i] > 0);
   }
 }
+
 
 static double
 root_post_prob0(const size_t site,
@@ -165,7 +175,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
       state_proposed.push_back(new_state);
     }
     ++num_sampled;
-    reach_leaf_state = new_state == leaf_state;
+    reach_leaf_state = (new_state == leaf_state);
   }
 
   // if success append jump_times to new_path
@@ -195,8 +205,7 @@ posterior_sampling(const vector<vector<double> > &interval_rates,
     const CTMarkovModel ctmm(interval_rates[m]);
     ctmm.get_trans_prob_mat(interval_lengths[m], P);
     double p0_post = m < n_intervals - 1 ? all_p[m+1][0] : leaf_state == false;
-    double p0 = (p0_post * P[par_state][0] /
-                 all_p[m][par_state]);
+    double p0 = p0_post*P[par_state][0]/all_p[m][par_state];
 
     // generate random state at break point
     std::uniform_real_distribution<double> unif(0.0, 1.0);
@@ -230,7 +239,7 @@ int main(int argc, const char **argv) {
 
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "test triple path",
-                           " <paths-file>");
+                           "<paths-file>");
     opt_parse.add_opt("param", 'p', "parameter file",
                       true, param_file);
     opt_parse.add_opt("tree", 't', "tree file in newick format",
@@ -264,10 +273,9 @@ int main(int argc, const char **argv) {
     const string pathsfile(leftover_args.front());
     ///////////////////////////////////////////////////////////////////////////
 
-
     if (VERBOSE)
       cerr << "[READING PARAMETER FILE: " << param_file << ", "
-      << tree_file << "]" << endl;
+           << tree_file << "]" << endl;
 
     EpiEvoModel the_model;
     read_model(SCALE, param_file, tree_file, the_model);
@@ -279,7 +287,6 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << the_model << endl;
-
 
     if (VERBOSE)
       cerr << "[READING PATHS: " << pathsfile << "]" << endl;
