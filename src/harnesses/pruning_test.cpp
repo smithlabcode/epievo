@@ -29,8 +29,8 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "PhyloTreePreorder.hpp"
-#include "Path.hpp"  /* related to Path */
-#include "EpiEvoModel.hpp" /* model_param */
+#include "Path.hpp"
+#include "EpiEvoModel.hpp"
 #include "StateSeq.hpp"
 #include "SingleSampler.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
@@ -78,21 +78,23 @@ rates_on_branch(const vector<double> &triplet_rates,
 
 
 static double
-root_post_prob0(const size_t site,
-                const vector<vector<Path> > &all_paths,
+root_post_prob0(const size_t the_site,
+                const vector<Path> &the_paths,
                 const vector<vector<double> > &root_trans_prob,
-                const vector<vector<vector<double> > > &all_p) {
+                const vector<vector<double> > &all_p) {
+
   // compute posterior probability at root node
   // (i.e. the init_state of all children)
-  size_t lstate = all_paths[1][site - 1].init_state;
-  size_t rstate = all_paths[1][site + 1].init_state;
+  const size_t lstate = the_paths[the_site - 1].init_state;
+  const size_t rstate = the_paths[the_site + 1].init_state;
+
   double p0 = root_trans_prob[lstate][0] * root_trans_prob[0][rstate];
   double p1 = root_trans_prob[lstate][1] * root_trans_prob[1][rstate];
-  p0 *= all_p[1][0][0];
-  p1 *= all_p[1][0][1];
 
-  double root_p0 = p0 / (p0+p1);
-  return root_p0;
+  p0 *= all_p[0][0];
+  p1 *= all_p[0][1];
+
+  return p0/(p0 + p1);
 }
 
 
@@ -140,7 +142,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
     state_proposed.clear();
     // propose a new path
     bool par_state = is;
-    bool new_state;
+    bool new_state = false;
 
     double time_passed = 0;
 
@@ -198,14 +200,14 @@ posterior_sampling(const vector<vector<double> > &interval_rates,
 int main(int argc, const char **argv) {
   try {
 
+    static const size_t test_site = 2;
+
     bool VERBOSE = false;
     string outfile;
     string outstatefile;
 
     size_t max_iterations = 1000000;
     size_t n_paths_to_sample = 1000;
-    size_t test_site = 2; // we test 5-site path
-    size_t test_branch = 1; // branch to test in the tree
 
     string param_file;
     string tree_file;
@@ -249,42 +251,35 @@ int main(int argc, const char **argv) {
     ///////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
-      cerr << "[READING PARAMETER FILE: " << param_file << ", "
-           << tree_file << "]" << endl;
-
+      cerr << "[READING PARAMETER FILE: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
-    
+
     if (VERBOSE)
       cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
     std::ifstream tree_in(tree_file.c_str());
     if (!tree_in || !(tree_in >> the_tree))
       throw std::runtime_error("bad tree file: " + tree_file);
-    const size_t n_nodes = the_tree.get_size();
     TreeHelper th(the_tree);
-    // remove undesired branch
-    th.subtree_sizes.erase(th.subtree_sizes.begin()+2);
-    th.node_names.erase(th.node_names.begin()+2);
-    th.parent_ids.erase(th.parent_ids.begin()+2);
-    th.branches.erase(th.branches.begin()+2);
-
+    assert(th.n_nodes == 3ul);
 
     if (VERBOSE)
       cerr << "[READING PATHS: " << pathsfile << "]" << endl;
     vector<vector<Path> > all_paths; // along multiple branches
     vector<string> node_names;
     read_paths(pathsfile, node_names, all_paths);
-    // remove undesired branch
-    all_paths.erase(all_paths.begin()+2);
-    node_names.erase(node_names.begin()+2);
+    assert(node_names.size() == th.n_nodes &&
+           all_paths.size() == th.n_nodes);
+    assert(all_paths.back().size() == 5); // require 5 sites
+
+    vector<Path> the_paths(all_paths[1]);
 
     if (VERBOSE)
-      cerr << "TEST BRANCH: " << test_branch << endl
-           << "TEST SITE: " << test_site << endl
-           << "PATHS TO SIMULATE: " << n_paths_to_sample << endl;
+      cerr << "number of paths to simulate: " << n_paths_to_sample << endl;
+
     // standard mersenne_twister_engine seeded with rd()
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
@@ -299,8 +294,8 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     cerr << "----- TEST upward downward sampling BELOW ---------" << endl;
 
-    vector<vector<vector<double> > > all_interval_rates(n_nodes);
-    vector<vector<double> > all_interval_lengths(n_nodes);
+    vector<vector<vector<double> > > all_interval_rates(th.n_nodes);
+    vector<vector<double> > all_interval_lengths(th.n_nodes);
     rates_on_branch(the_model.triplet_rates,
                     all_paths[1][test_site - 1],
                     all_paths[1][test_site + 1],
@@ -319,7 +314,7 @@ int main(int argc, const char **argv) {
     bp_state1_fs.resize(all_interval_rates[1].size(), 0);
     bp_state0.resize(all_interval_rates[1].size(), 0);
     bp_state1.resize(all_interval_rates[1].size(), 0);
-    
+
     size_t n_paths_from_zero = 0, n_paths_sampled = 0;
 
     while (n_paths_sampled < n_paths_to_sample) {
@@ -331,8 +326,8 @@ int main(int argc, const char **argv) {
       Path new_path_fs;
 
       // sample new root state
-      const double root_p0 = root_post_prob0(test_site, all_paths,
-                                             the_model.init_T, all_p);
+      const double root_p0 = root_post_prob0(test_site, all_paths[1],
+                                             the_model.init_T, all_p[1]);
       std::uniform_real_distribution<double> unif(0.0, 1.0);
       bool new_root_state = (unif(gen) > root_p0);
 
@@ -345,7 +340,7 @@ int main(int argc, const char **argv) {
                                     new_root_state,
                                     all_paths[1][test_site].end_state(),
                                     gen, bp_state1_fs, max_iterations);
-        
+
         posterior_sampling(all_interval_rates[1],
                            all_interval_lengths[1], all_p[1],
                            new_root_state,
@@ -357,7 +352,7 @@ int main(int argc, const char **argv) {
                                     new_root_state,
                                     all_paths[1][test_site].end_state(),
                                     gen, bp_state0_fs, max_iterations);
-        
+
         posterior_sampling(all_interval_rates[1],
                            all_interval_lengths[1], all_p[1],
                            new_root_state,
@@ -365,7 +360,7 @@ int main(int argc, const char **argv) {
                            gen, bp_state0);
         ++n_paths_from_zero;
       }
-      
+
       ++n_paths_sampled;
     }
     cerr << "FINISHED: " << n_paths_sampled * 100 / n_paths_to_sample
