@@ -377,8 +377,8 @@ int main(int argc, const char **argv) {
         << "LEFT_INIT_STATE" << '\t' << "RIGHT_INIT_STATE" << '\t'
         << "START0_MID_0_PROB_FS" << '\t'
         << "START0_MID_0_PROB_PR" << '\t'
-        << "START0_MID_1_PROB_FS" << '\t'
-        << "START0_MID_1_PROB_PR" << endl;
+        << "START1_MID_1_PROB_FS" << '\t'
+        << "START1_MID_1_PROB_PR" << endl;
 
     Environment env(all_paths[1][test_site-1], all_paths[1][test_site+1]);
     for (size_t i = 0; i < all_interval_lengths[1].size(); ++i) {
