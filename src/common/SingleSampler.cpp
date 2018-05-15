@@ -44,23 +44,22 @@ using std::string;
 ///////////////////           UPWARD PRUNING           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// rates are two muation rates for pattern x0y, and x1y
+/* rates are 2 muation rates, for patterns L0R and L1R. The "q" and
+ * "p" values are as defined for Felsenstein's algorithm generally.
+ */
 static void
-upward(const vector<double> &rates,
-       const double T,
-       const vector<double> &q, // auxiliary values
-       vector<double> &p) {
+pruning(const vector<double> &rates, const double time_interval,
+        const vector<double> &q, vector<double> &p) {
 
-  assert(T > 0);
+  assert(time_interval > 0);
 
-  p = vector<double>(2, 0.0);
   vector<vector<double> > P; // transition matrix
-  continuous_time_trans_prob_mat(rates[0], rates[1], T, P);
-  for (size_t j = 0; j < 2; ++j) {
-    for (size_t k = 0; k < 2; ++k) {
-      p[j] += P[j][k]*q[k];
-    }
-  }
+  continuous_time_trans_prob_mat(rates[0], rates[1], time_interval, P);
+
+  // p <- P*q
+  p.resize(2);
+  p[0] = P[0][0]*q[0] + P[0][1]*q[1];
+  p[1] = P[1][0]*q[0] + P[1][1]*q[1];
 }
 
 
