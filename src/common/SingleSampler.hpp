@@ -27,13 +27,13 @@
 #include "EndCondSampling.hpp"
 
 void
-pruning(const std::vector<double> &triplet_rates,
-        const std::vector<size_t> &subtree_sizes,
-        const size_t site_id,
-        const std::vector<std::vector<Path> > &paths_all_sites_branches,
-        const std::vector<std::vector<std::vector<double> > > &all_interval_rates,
-        const std::vector<std::vector<double> > & all_interval_lengths,
-        std::vector<std::vector<std::vector<double> > > &all_p);
+upward(const std::vector<double> &triplet_rates,
+       const std::vector<size_t> &subtree_sizes,
+       const size_t site_id,
+       const std::vector<std::vector<Path> > &paths_all_sites_branches,
+       const std::vector<std::vector<std::vector<double> > > &all_interval_rates,
+       const std::vector<std::vector<double> > & all_interval_lengths,
+       std::vector<std::vector<std::vector<double> > > &all_p);
 
 void
 downward_sampling(const std::vector<double> &triplet_rates,
