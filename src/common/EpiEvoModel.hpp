@@ -67,8 +67,7 @@ std::ostream &
 operator<<(std::ostream &os, const EpiEvoModel &m);
 
 void
-read_model(const bool SCALE, const std::string &param_file,
-           const std::string &tree_file, EpiEvoModel &m);
+read_model(const bool SCALE, const std::string &param_file, EpiEvoModel &m);
 
 void
 read_model(const std::string &param_file, EpiEvoModel &m);

@@ -35,6 +35,7 @@
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"  /* related to Path */
 #include "EpiEvoModel.hpp" /* model_param */
+#include "TreeHelper.hpp"
 #include "StateSeq.hpp"
 #include "SingleSampler.hpp"
 
@@ -323,7 +324,7 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
   for (size_t m = 0; m < n_intervals - 1; ++m) {
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
-    trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
                    interval_lengths[m], P);
     double p0 = (all_p[m+1][0] * P[par_state][0] /
                  all_p[m][par_state]);
@@ -370,7 +371,6 @@ int main(int argc, const char **argv) {
   try {
 
     bool VERBOSE = false;
-    bool SCALE = false;
     string outfile;
     string outstatefile;
 
@@ -429,11 +429,18 @@ int main(int argc, const char **argv) {
       << tree_file << "]" << endl;
     
     EpiEvoModel the_model;
-    read_model(SCALE, param_file, tree_file, the_model);
-    
+    read_model(param_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
     
+    if (VERBOSE)
+      cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
+    PhyloTreePreorder the_tree; // tree topology and branch lengths
+    std::ifstream tree_in(tree_file.c_str());
+    if (!tree_in || !(tree_in >> the_tree))
+      throw std::runtime_error("bad tree file: " + tree_file);
+    const size_t n_nodes = the_tree.get_size();
+    TreeHelper th(the_tree);
 
     if (VERBOSE)
       cerr << "[READING PATHS: " << pathsfile << "]" << endl;
@@ -463,7 +470,6 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     cerr << "----- TEST upward downward sampling BELOW ---------" << endl;
   
-    const size_t n_nodes = the_model.subtree_sizes.size();
     vector<vector<vector<double> > > all_interval_rates(n_nodes);
     vector<vector<double> > all_interval_lengths(n_nodes);
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
@@ -484,14 +490,14 @@ int main(int argc, const char **argv) {
       
       // (1) Upward pruning
       vector<vector<vector<double> > > all_p;
-      all_p.resize(the_model.subtree_sizes.size());
-      pruning(the_model.triplet_rates, the_model.subtree_sizes, test_site,
+      all_p.resize(th.subtree_sizes.size());
+      pruning(the_model.triplet_rates, th.subtree_sizes, test_site,
               all_paths, all_interval_rates, all_interval_lengths, all_p);
       
       
       // (2) Downward sampling: Direct sampling
       vector<Path> new_path_ds_all;
-      downward_sampling(the_model.triplet_rates, the_model.subtree_sizes,
+      downward_sampling(the_model.triplet_rates, th.subtree_sizes,
                         test_site, all_paths, the_model.init_T, all_p, gen,
                         new_path_ds_all);
       
@@ -507,7 +513,7 @@ int main(int argc, const char **argv) {
       // sample new root state
       const size_t root_id = 0; //all_paths[0] is empty
       vector<size_t> children;
-      get_children(root_id, the_model.subtree_sizes, children);
+      get_children(root_id, th.subtree_sizes, children);
       const double root_p0 = root_post_prob0(children, test_site, all_paths,
                                              the_model.init_T, all_p);
       std::uniform_real_distribution<double> unif(0.0, 1.0);

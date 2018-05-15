@@ -32,6 +32,7 @@
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"  /* related to Path */
 #include "EpiEvoModel.hpp" /* model_param */
+#include "TreeHelper.hpp"
 #include "StateSeq.hpp"
 #include "SingleSampler.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
@@ -189,10 +190,18 @@ int main(int argc, const char **argv) {
            << tree_file << "]" << endl;
 
     EpiEvoModel the_model;
-    read_model(SCALE, param_file, tree_file, the_model);
-
+    read_model(param_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
+    // Liz: how to scale branch lengths now?
+      
+    if (VERBOSE)
+      cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
+    PhyloTreePreorder the_tree; // tree topology and branch lengths
+    std::ifstream tree_in(tree_file.c_str());
+    if (!tree_in || !(tree_in >> the_tree))
+      throw std::runtime_error("bad tree file: " + tree_file);
+    TreeHelper th(the_tree);
 
     /* standard mersenne_twister_engine seeded with rd() */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -248,14 +257,13 @@ int main(int argc, const char **argv) {
       }
     */
 
-
     for (size_t k = 0; k < rounds; ++k) {
       cerr << "pass " << k+1 << endl;
       for (size_t i = 2; i < n_sites - 2; ++i) {
         std::uniform_int_distribution<> dis(2, n_sites - 3);
         size_t site = dis(gen);
         vector<Path> new_path;
-        gibbs_site(the_model, site, all_paths, gen, new_path);
+        gibbs_site(the_model, th, site, all_paths, gen, new_path);
         for (size_t node_id = 1; node_id < n_nodes; ++node_id)
           all_paths[node_id][site] = new_path[node_id];
       }
@@ -268,10 +276,10 @@ int main(int argc, const char **argv) {
     }
     cerr << endl;
 
-    write_root_to_pathfile_local(outfile, the_model.node_names.front());
+    write_root_to_pathfile_local(outfile, th.node_names.front());
 
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-      append_to_pathfile_local(outfile, the_model.node_names[node_id],
+      append_to_pathfile_local(outfile, th.node_names[node_id],
                                all_paths[node_id]);
     }
 

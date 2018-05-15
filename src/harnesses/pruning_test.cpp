@@ -24,10 +24,6 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
-#include <bitset>
-#include <gsl/gsl_histogram.h>
-#include <gsl/gsl_randist.h> /* chi-squared test */
-#include <gsl/gsl_cdf.h>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -46,7 +42,6 @@ using std::cout;
 using std::string;
 using std::min;
 using std::runtime_error;
-using std::bitset;
 
 ////////////////////////////////////////////////////////////////////////////////
 //////////   copied/modified from SingleSampler.cpp                   //////////
@@ -204,7 +199,6 @@ int main(int argc, const char **argv) {
   try {
 
     bool VERBOSE = false;
-    bool SCALE = false;
     string outfile;
     string outstatefile;
 
@@ -259,15 +253,24 @@ int main(int argc, const char **argv) {
            << tree_file << "]" << endl;
 
     EpiEvoModel the_model;
-    read_model(SCALE, param_file, tree_file, the_model);
-    // remove undesired branch
-    the_model.subtree_sizes.erase(the_model.subtree_sizes.begin()+2);
-    the_model.node_names.erase(the_model.node_names.begin()+2);
-    the_model.parent_ids.erase(the_model.parent_ids.begin()+2);
-    the_model.branches.erase(the_model.branches.begin()+2);
-
+    read_model(param_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
+    
+    if (VERBOSE)
+      cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
+    PhyloTreePreorder the_tree; // tree topology and branch lengths
+    std::ifstream tree_in(tree_file.c_str());
+    if (!tree_in || !(tree_in >> the_tree))
+      throw std::runtime_error("bad tree file: " + tree_file);
+    const size_t n_nodes = the_tree.get_size();
+    TreeHelper th(the_tree);
+    // remove undesired branch
+    th.subtree_sizes.erase(th.subtree_sizes.begin()+2);
+    th.node_names.erase(th.node_names.begin()+2);
+    th.parent_ids.erase(th.parent_ids.begin()+2);
+    th.branches.erase(th.branches.begin()+2);
+
 
     if (VERBOSE)
       cerr << "[READING PATHS: " << pathsfile << "]" << endl;
@@ -296,7 +299,6 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     cerr << "----- TEST upward downward sampling BELOW ---------" << endl;
 
-    const size_t n_nodes = the_model.subtree_sizes.size();
     vector<vector<vector<double> > > all_interval_rates(n_nodes);
     vector<vector<double> > all_interval_lengths(n_nodes);
     rates_on_branch(the_model.triplet_rates,
@@ -307,8 +309,8 @@ int main(int argc, const char **argv) {
 
     // (1) Upward pruning
     vector<vector<vector<double> > > all_p;
-    all_p.resize(the_model.subtree_sizes.size());
-    pruning(the_model.triplet_rates, the_model.subtree_sizes, test_site,
+    all_p.resize(th.subtree_sizes.size());
+    pruning(the_model.triplet_rates, th.subtree_sizes, test_site,
             all_paths, all_interval_rates, all_interval_lengths, all_p);
 
     // counts of mid state 0 at breakpoints

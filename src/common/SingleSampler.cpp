@@ -144,8 +144,8 @@ pruning_branch(const vector<double> &triplet_rates,
         const size_t interval = n_intervals - 1 - i;
         if (i == 0) {
           // at the end of the last interval, i.e. an internal species
+          q = vector<double>(2, 1.0);
           for (size_t k = 0; k < 2; ++k) {
-            q = vector<double>(2, 1.0);
             for (size_t idx = 0; idx < children.size(); ++idx)
               q[k] *= all_p[children[idx]][0][k];
           }
@@ -537,19 +537,19 @@ log_lik_ratio(const vector<double> &rates,
 
 // compute acceptance rate
 double
-log_accept_rate(const EpiEvoModel &the_model,
+log_accept_rate(const EpiEvoModel &the_model, const TreeHelper &th,
                 const size_t site,
                 const vector<vector<Path> > &all_paths,
                 const vector<vector<vector<double> > > &all_p,
                 const vector<Path> &new_path) {
   double pro_old, pro_new;
-  proposal_prob(the_model.triplet_rates, the_model.subtree_sizes,
+  proposal_prob(the_model.triplet_rates, th.subtree_sizes,
                 site, all_paths, the_model.init_T, all_p, new_path,
                 pro_old, pro_new);
 
   double lr = log(pro_old) - log(pro_new);
 
-  for (size_t i = 1; i < the_model.subtree_sizes.size(); ++i) {
+  for (size_t i = 1; i < th.subtree_sizes.size(); ++i) {
     Path l = all_paths[i][site - 1];
     Path ll = all_paths[i][site - 2];
     Path r = all_paths[i][site + 1];
@@ -571,14 +571,14 @@ log_accept_rate(const EpiEvoModel &the_model,
 
 
 void
-gibbs_site(const EpiEvoModel &the_model,
+gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
            const size_t site,
            vector<vector<Path> > &all_paths,
            std::mt19937 &gen,
            vector<Path> &new_path) {
 
   // collect relevant transition rates for each interval
-  const size_t n_nodes = the_model.subtree_sizes.size();
+  const size_t n_nodes = th.subtree_sizes.size();
   vector<vector<vector<double> > > all_interval_rates(n_nodes);
   vector<vector<double> > all_interval_lengths(n_nodes);
   for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
@@ -591,18 +591,18 @@ gibbs_site(const EpiEvoModel &the_model,
 
   // upward pruning and downward sampling
   vector<vector<vector<double> > > all_p;
-  pruning(the_model.triplet_rates, the_model.subtree_sizes, site, all_paths,
+  pruning(the_model.triplet_rates, th.subtree_sizes, site, all_paths,
           all_interval_rates, all_interval_lengths, all_p);
 
-  downward_sampling(the_model.triplet_rates, the_model.subtree_sizes, site,
+  downward_sampling(the_model.triplet_rates, th.subtree_sizes, site,
                     all_paths, the_model.init_T, all_p, gen, new_path);
 
   // acceptance rate
-  const double log_acc_rate = log_accept_rate(the_model, site, all_paths,
+  const double log_acc_rate = log_accept_rate(the_model, th, site, all_paths,
                                               all_p, new_path);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
   if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate))
-    for (size_t i = 1; i < the_model.subtree_sizes.size(); ++i)
+    for (size_t i = 1; i < th.subtree_sizes.size(); ++i)
       all_paths[i][site] = new_path[i];
 }

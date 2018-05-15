@@ -23,6 +23,8 @@
 
 #include "Path.hpp"
 #include "EpiEvoModel.hpp" /* model_param */
+#include "TreeHelper.hpp"
+
 #include "EndCondSampling.hpp"
 
 void
@@ -46,7 +48,7 @@ downward_sampling(const std::vector<double> &triplet_rates,
 
 
 void
-gibbs_site(const EpiEvoModel &the_model,
+gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
            const size_t site,
            std::vector<std::vector<Path> > &all_paths,
            std::mt19937 &gen,
