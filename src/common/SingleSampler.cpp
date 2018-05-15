@@ -44,23 +44,22 @@ using std::string;
 ///////////////////           UPWARD PRUNING           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// rates are two muation rates for pattern x0y, and x1y
+/* rates are 2 muation rates, for patterns L0R and L1R. The "q" and
+ * "p" values are as defined for Felsenstein's algorithm generally.
+ */
 static void
-upward(const vector<double> &rates,
-       const double T,
-       const vector<double> &q, // auxiliary values
-       vector<double> &p) {
+upward(const vector<double> &rates, const double time_interval,
+       const vector<double> &q, vector<double> &p) {
 
-  assert(T > 0);
+  assert(time_interval > 0);
 
-  p = vector<double>(2, 0.0);
   vector<vector<double> > P; // transition matrix
-  continuous_time_trans_prob_mat(rates[0], rates[1], T, P);
-  for (size_t j = 0; j < 2; ++j) {
-    for (size_t k = 0; k < 2; ++k) {
-      p[j] += P[j][k]*q[k];
-    }
-  }
+  continuous_time_trans_prob_mat(rates[0], rates[1], time_interval, P);
+
+  // p <- P*q
+  p.resize(2);
+  p[0] = P[0][0]*q[0] + P[0][1]*q[1];
+  p[1] = P[1][0]*q[0] + P[1][1]*q[1];
 }
 
 
@@ -68,18 +67,18 @@ upward(const vector<double> &rates,
 void
 rates_on_branch(const vector<double> &triplet_rates,
                 const Path &l, const Path &r,
-                vector<vector<double> > &interval_rates,
+                vector<pair<double, double> > &interval_rates,
                 vector<double> &interval_lengths) {
   Environment env(l, r);
   const size_t n_intervals = env.left.size();
-  interval_rates = vector<vector<double> > (n_intervals, vector<double>(2, 0.0));
+  interval_rates = vector<pair<double, double> >(n_intervals, make_pair(0.0, 0.0));
   interval_lengths = vector<double>(n_intervals, 0.0);
 
   for (size_t i = 0; i < n_intervals; ++i) {
     const size_t pattern0 = triple2idx(env.left[i], false, env.right[i]);
     const size_t pattern1 = triple2idx(env.left[i], true, env.right[i]);
-    interval_rates[i][0] = triplet_rates[pattern0];
-    interval_rates[i][1] = triplet_rates[pattern1];
+    interval_rates[i].first = triplet_rates[pattern0];
+    interval_rates[i].second = triplet_rates[pattern1];
     interval_lengths[i] = (i == 0) ? env.breaks[0] : env.breaks[i] - env.breaks[i-1];
     assert(interval_lengths[i] > 0);
   }
@@ -93,8 +92,8 @@ pruning_branch(const vector<double> &triplet_rates,
                const size_t site,
                const size_t node_id,
                const vector<vector<Path> > &all_paths,
-               const vector<vector<vector<double> > > &all_interval_rates,
-               const vector<vector<double> > & all_interval_lengths,
+               const vector<vector<pair<double, double> > > &all_interval_rates,
+               const vector<vector<double> > &all_interval_lengths,
                vector<vector<vector<double> > > &all_p) {
 
   // excluding the top end, i.e. including only the lower end of each time interval
