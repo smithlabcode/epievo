@@ -314,11 +314,13 @@ int main(int argc, const char **argv) {
             all_paths, all_interval_rates, all_interval_lengths, all_p);
 
     // counts of mid state 0 at breakpoints
-    vector<size_t> bp_state0_fs, bp_state0;
+    vector<size_t> bp_state0_fs, bp_state1_fs, bp_state0, bp_state1;
     bp_state0_fs.resize(all_interval_rates[1].size(), 0);
+    bp_state1_fs.resize(all_interval_rates[1].size(), 0);
     bp_state0.resize(all_interval_rates[1].size(), 0);
-
-    size_t n_paths_sampled = 0;
+    bp_state1.resize(all_interval_rates[1].size(), 0);
+    
+    size_t n_paths_from_zero = 0, n_paths_sampled = 0;
 
     while (n_paths_sampled < n_paths_to_sample) {
       if (VERBOSE && n_paths_sampled * 10 % n_paths_to_sample == 0)
@@ -337,19 +339,33 @@ int main(int argc, const char **argv) {
       new_path_fs.init_state = new_root_state;
       new_path_fs.tot_time = all_paths[1][test_site - 1].tot_time;
 
-      downward_sampling_branch_fs(all_interval_rates[1],
-                                  all_interval_lengths[1],
-                                  new_root_state,
-                                  all_paths[1][test_site].end_state(),
-                                  gen, bp_state0_fs, max_iterations);
-
-      // (3) Posterior sampling:
-      posterior_sampling(all_interval_rates[1],
-                         all_interval_lengths[1], all_p[1],
-                         new_root_state,
-                         all_paths[1][test_site].end_state(),
-                         gen, bp_state0);
-
+      if (new_root_state) {
+        downward_sampling_branch_fs(all_interval_rates[1],
+                                    all_interval_lengths[1],
+                                    new_root_state,
+                                    all_paths[1][test_site].end_state(),
+                                    gen, bp_state1_fs, max_iterations);
+        
+        posterior_sampling(all_interval_rates[1],
+                           all_interval_lengths[1], all_p[1],
+                           new_root_state,
+                           all_paths[1][test_site].end_state(),
+                           gen, bp_state1);
+      } else {
+        downward_sampling_branch_fs(all_interval_rates[1],
+                                    all_interval_lengths[1],
+                                    new_root_state,
+                                    all_paths[1][test_site].end_state(),
+                                    gen, bp_state0_fs, max_iterations);
+        
+        posterior_sampling(all_interval_rates[1],
+                           all_interval_lengths[1], all_p[1],
+                           new_root_state,
+                           all_paths[1][test_site].end_state(),
+                           gen, bp_state0);
+        ++n_paths_from_zero;
+      }
+      
       ++n_paths_sampled;
     }
     cerr << "FINISHED: " << n_paths_sampled * 100 / n_paths_to_sample
@@ -359,14 +375,20 @@ int main(int argc, const char **argv) {
     std::ofstream out(outfile.c_str());
     out << "BREAK" << '\t'
         << "LEFT_INIT_STATE" << '\t' << "RIGHT_INIT_STATE" << '\t'
-        << "PROP_MID_END_0_FS" << '\t' << "PROP_MID_END_0_PR" << endl;
+        << "START0_MID_0_PROB_FS" << '\t'
+        << "START0_MID_0_PROB_PR" << '\t'
+        << "START0_MID_1_PROB_FS" << '\t'
+        << "START0_MID_1_PROB_PR" << endl;
 
     Environment env(all_paths[1][test_site-1], all_paths[1][test_site+1]);
     for (size_t i = 0; i < all_interval_lengths[1].size(); ++i) {
       out << i+1 << '\t'
-          << env.left[i] << '\t' << env.right[i] << '\t'
-          << 1.0 * bp_state0_fs[i] / n_paths_sampled << '\t'
-          << 1.0 * bp_state0[i] / n_paths_sampled << endl;
+          << env.left[i] << '\t' << env.right[i] << '\t' << "0\t"
+          << 1.0 * bp_state0_fs[i] / n_paths_from_zero << '\t'
+          << 1.0 * bp_state0[i] / n_paths_from_zero << '\t'
+          << 1.0 * bp_state1_fs[i] / (n_paths_sampled - n_paths_from_zero)
+          << '\t' << 1.0 * bp_state1[i] / (n_paths_sampled - n_paths_from_zero)
+          << endl;
     }
   }
   catch (const std::exception &e) {
