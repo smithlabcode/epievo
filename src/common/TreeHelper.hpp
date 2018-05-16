@@ -48,7 +48,7 @@ struct TreeHelper {
   }
   TreeHelper(const double &evo_time) {
     // the_tree is left untouched
-    subtree_sizes = {1ul, 0ul};
+    subtree_sizes = {2ul, 1ul};
     node_names = {"root", "leaf"};
     parent_ids = {0, 0};
     branches = {0.0, evo_time};

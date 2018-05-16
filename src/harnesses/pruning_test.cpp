@@ -29,8 +29,9 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "PhyloTreePreorder.hpp"
-#include "Path.hpp"
-#include "EpiEvoModel.hpp"
+#include "Path.hpp"  /* related to Path */
+#include "EpiEvoModel.hpp" /* model_param */
+#include "TreeHelper.hpp"
 #include "StateSeq.hpp"
 #include "SingleSampler.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
@@ -208,6 +209,7 @@ int main(int argc, const char **argv) {
 
     size_t max_iterations = 1000000;
     size_t n_paths_to_sample = 1000;
+    size_t test_site = 2; // we test 5-site path
 
     string param_file;
     string tree_file;
@@ -220,7 +222,7 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("param", 'p', "parameter file",
                       true, param_file);
     opt_parse.add_opt("tree", 't', "tree file in newick format",
-                      true, tree_file);
+                      false, tree_file);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
@@ -251,11 +253,44 @@ int main(int argc, const char **argv) {
     ///////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
-      cerr << "[READING PARAMETER FILE: " << param_file << endl;
+      cerr << "[READING PARAMETER FILE: " << param_file << "]" << endl;
+
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
+    
+    vector<vector<Path> > all_paths; // n_nodes * n_intervals
+    vector<string> node_names;
+    read_paths(pathsfile, node_names, all_paths);
+    
+    TreeHelper th;
+    
+    if (tree_file.empty()) {
+      // test single edge
+      if (VERBOSE)
+        cerr << "[TREE NOT SPECIFIED: WILL LOAD FIRST PATH AS SINGLE BRANCH]"
+             << endl;
+      
+      all_paths.resize(2);
+      node_names.resize(2);
+      
+      th = TreeHelper(all_paths.back()[test_site].tot_time);
+      th.node_names = node_names;
+    } else {
+      // test whole tree
+      if (VERBOSE)
+        cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
+      std::ifstream tree_in(tree_file.c_str());
+      PhyloTreePreorder the_tree;
+      if (!tree_in || !(tree_in >> the_tree))
+        throw std::runtime_error("bad tree file: " + tree_file);
+      th = TreeHelper(the_tree);
+    }
+
+    if (VERBOSE)
+      cerr << "TEST SITE: " << test_site << endl
+           << "PATHS TO SIMULATE: " << n_paths_to_sample << endl;
 
     if (VERBOSE)
       cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
@@ -293,6 +328,8 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
     cerr << "----- TEST upward downward sampling BELOW ---------" << endl;
+    
+    const size_t n_nodes = th.n_nodes;
 
     vector<vector<vector<double> > > all_interval_rates(th.n_nodes);
     vector<vector<double> > all_interval_lengths(th.n_nodes);
@@ -307,7 +344,7 @@ int main(int argc, const char **argv) {
     all_p.resize(th.subtree_sizes.size());
     pruning(the_model.triplet_rates, th.subtree_sizes, test_site,
             all_paths, all_interval_rates, all_interval_lengths, all_p);
-
+    
     // counts of mid state 0 at breakpoints
     vector<size_t> bp_state0_fs, bp_state1_fs, bp_state0, bp_state1;
     bp_state0_fs.resize(all_interval_rates[1].size(), 0);
