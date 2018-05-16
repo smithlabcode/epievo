@@ -227,30 +227,29 @@ end_cond_sample(const CTMarkovModel &the_model,
 /* Endpoint-conditioned probability density*/
 double
 end_cond_sample_prob(const CTMarkovModel &the_model,
-                     size_t a, const size_t b, double T,
-                     vector<double> jump_times) {
-  // jump_times are between 0 and T
-  assert(jump_times.size() == 0 || jump_times.back() < T);
-  assert(jump_times.size() > 0 || a == b);
+                     size_t a, const size_t b,
+                     const double end_time,
+                     const vector<double> &jump_times,
+                     const double start_time) {
+  // jump_times are between start_time and end_time
+  assert(jump_times.empty() || (jump_times.back() < end_time &&
+                                jump_times.front() > start_time));
+  assert(jump_times.size() % 2 == static_cast<size_t>(a == b));
+
+  vector<vector<double> > PT;
 
   double p = 1.0;
 
-  while (jump_times.size()) {
-    vector<vector<double> > PT;  // PT = exp(QT)
-    the_model.get_trans_prob_mat(T, PT);
-    p *= pdf(the_model, PT, T, a, b, jump_times[0]);
-
+  double curr_time = start_time;
+  for (size_t i = 0; i < jump_times.size(); ++i) {
+    const double time_interval = end_time - curr_time;
+    the_model.get_trans_prob_mat(time_interval, PT);
+    p *= pdf(the_model, PT, time_interval, a, b, jump_times[i] - curr_time);
     a = complement_state(a);
-    const double w = jump_times[0];
-    T = T - w;
-    jump_times.erase(jump_times.begin());
-    for (size_t i = 0; i < jump_times.size(); ++i)
-      jump_times[i] -= w;
+    curr_time = jump_times[i];
   }
-
-  assert(a == b);
-  vector<vector<double> > PT;  // PT = exp(QT)
-  the_model.get_trans_prob_mat(T, PT);
-  const double pr_no_jump = exp(-the_model.get_rate(a) * T) / PT[a][a];
-  return p * pr_no_jump;
+  the_model.get_trans_prob_mat(end_time - curr_time, PT);
+  const double pr_no_jump =
+    exp(-the_model.get_rate(a)*(end_time - curr_time))/PT[a][a];
+  return p*pr_no_jump;
 }
