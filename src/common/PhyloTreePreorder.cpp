@@ -181,13 +181,3 @@ get_children(const size_t node_id, const vector<size_t> &subtree_sizes,
   for (size_t c = 1; c < subtree_sizes[node_id]; c += subtree_sizes[node_id + c])
     children.push_back(node_id + c);
 }
-
-size_t
-leafsize(const vector<size_t> &subtree_sizes) {
-  size_t n_leaf = 0;
-  for (size_t i = 0; i < subtree_sizes.size(); ++i) {
-    if (subtree_sizes[i] == 1)
-      ++n_leaf;
-  }
-  return n_leaf;
-}

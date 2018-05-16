@@ -111,7 +111,4 @@ count_leaves(const std::vector<size_t> &subtree_sizes);
 void
 get_children(const size_t node_id, const std::vector<size_t> &subtree_sizes,
              std::vector<size_t> &children);
-
-size_t
-leafsize(const std::vector<size_t> &subtree_sizes);
 #endif
