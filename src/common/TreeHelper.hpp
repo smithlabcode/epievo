@@ -78,7 +78,7 @@ public:
     ch_id += *(offset + ch_id);
     return *this;
   }
-  ChildSet operator++(int) {
+  ChildSet operator++(int) { // this one is slower...
     ChildSet tmp(*this);
     operator++();
     return tmp;
