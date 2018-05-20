@@ -139,13 +139,11 @@ forward_sample_branch(const vector<vector<double>> &interval_rates,
   bool prev_state = par_state;
   ch_state = par_state;
   
-  double time_passed = 0;
   const size_t n_intervals = interval_lengths.size();
   
   for (size_t m = 0; m < n_intervals; ++m) {
     forward_sample_interval(interval_rates[m], prev_state,
                             interval_lengths[m], gen, ch_state);
-    time_passed += interval_lengths[m];
     prev_state = ch_state;
     bp_states_branch[m] = ch_state;
   }
@@ -162,9 +160,6 @@ downward_sampling_fs(const vector<vector<vector<double>>> &all_interval_rates,
                      const size_t max_iterations) {
   
   const size_t n_nodes = subtree_sizes.size();
-  Path empty_path;
-  vector<Path> paths(n_nodes, empty_path);
-  
   bool success = false;
   size_t num_sampled = 0;
   
@@ -211,31 +206,49 @@ downward_sampling_fs(const vector<vector<vector<double>>> &all_interval_rates,
 ////////////////////////////////////////////////////////////////////////////////
 // posterior sampling
 static void
-posterior_sampling(const vector<vector<double> > &interval_rates,
-                   const vector<double> &interval_lengths,
-                   const vector<vector<double> > &all_p,
-                   const bool is, const bool leaf_state,
-                   std::mt19937 &gen,
-                   vector<size_t> &state_counts) {
+posterior_sampling(const vector<vector<vector<double>>> &all_interval_rates,
+                   const vector<vector<double>> &all_interval_lengths,
+                   const vector<vector<vector<double> > > &all_p,
+                   const vector<size_t> &subtree_sizes,
+                   const vector<size_t> &parent_ids,
+                   const bool root_state, const vector<bool> &leaves_state,
+                   std::mt19937 &gen, vector<vector<size_t> > &state_counts) {
 
-  const size_t n_intervals = interval_rates.size();
-  size_t par_state = is;
+  const size_t n_nodes = subtree_sizes.size();
 
-  for (size_t m = 0; m < n_intervals; ++m) {
-    // compute conditional posterior probability
-    vector<vector<double> > P; // transition prob matrix
-    const CTMarkovModel ctmm(interval_rates[m]);
-    ctmm.get_trans_prob_mat(interval_lengths[m], P);
-    double p0_post = m < n_intervals - 1 ? all_p[m+1][0] : leaf_state == false;
-    double p0 = p0_post*P[par_state][0]/all_p[m][par_state];
-
-    // generate random state at break point
-    std::uniform_real_distribution<double> unif(0.0, 1.0);
-    bool new_state = (unif(gen) > p0);
-    if (!new_state)
-      state_counts[m]++;
-
-    par_state = new_state;
+  for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
+    const size_t n_intervals = all_interval_lengths[node_id].size();
+    bool par_state = root_state;
+    
+    for (size_t m = 0; m < n_intervals; ++m) {
+      // compute conditional posterior probability
+      vector<vector<double> > P; // transition prob matrix
+      const CTMarkovModel ctmm(all_interval_rates[node_id][m]);
+      ctmm.get_trans_prob_mat(all_interval_lengths[node_id][m], P);
+      
+      double p0_post = 1.0;
+      if (m == (n_intervals - 1))
+        if (is_leaf(subtree_sizes[node_id])) {
+          vector<size_t> children;
+          get_children(node_id, subtree_sizes, children);
+          for (size_t idx = 0; idx < children.size(); ++idx)
+            p0_post *= all_p[children[idx]][0][0];
+        }
+        else
+          p0_post = (leaves_state[node_id] == false);
+      else
+        p0_post = all_p[node_id][m+1][0];
+      
+      double p0 = p0_post*P[par_state][0]/all_p[node_id][m][par_state];
+      
+      // generate random state at break point
+      std::uniform_real_distribution<double> unif(0.0, 1.0);
+      bool new_state = (unif(gen) > p0);
+      if (!new_state)
+        state_counts[node_id][m]++;
+      
+      par_state = new_state;
+    }
   }
 }
 
@@ -427,31 +440,28 @@ int main(int argc, const char **argv) {
           leaves_state[node_id] = all_paths[node_id][site].end_state();
       
       // Recursively sample the whole tree
-      if (new_root_state) {
+      if (new_root_state) { // root state is 1
         downward_sampling_fs(all_interval_rates, all_interval_lengths,
                              th.subtree_sizes, th.parent_ids,
                              new_root_state, leaves_state,
                              gen, all_bp_state1_fs, max_iterations);
         
-        //posterior_sampling(all_interval_rates[node_id],
-        //                  all_interval_lengths[node_id], all_p[node_id],
-        //                   new_root_state,
-        //                   all_paths[node_id][site].end_state(),
-        //                   gen, bp_state1);
-      }/* else {
-        downward_sampling_fs(all_interval_rates[1],
-                             all_interval_lengths[1],
-                             new_root_state,
-                             all_paths[node_id][site].end_state(),
-                             gen, bp_state0_fs, max_iterations);
+        posterior_sampling(all_interval_rates, all_interval_lengths, all_p,
+                           th.subtree_sizes, th.parent_ids,
+                           new_root_state, leaves_state,
+                           gen, all_bp_state1);
+      } else { // root state is 0
+        downward_sampling_fs(all_interval_rates, all_interval_lengths,
+                             th.subtree_sizes, th.parent_ids,
+                             new_root_state, leaves_state,
+                             gen, all_bp_state0_fs, max_iterations);
         
-        posterior_sampling(all_interval_rates[node_id],
-                           all_interval_lengths[node_id], all_p[node_id],
-                           new_root_state,
-                           all_paths[node_id][site].end_state(),
-                           gen, bp_state0);
+        posterior_sampling(all_interval_rates, all_interval_lengths, all_p,
+                           th.subtree_sizes, th.parent_ids,
+                           new_root_state, leaves_state,
+                           gen, all_bp_state0);
         ++n_paths_from_zero;
-      }*/
+      }
       
       ++n_paths_sampled;
       
@@ -469,8 +479,8 @@ int main(int argc, const char **argv) {
           << "START1_MID_1_PROB_FS" << '\t'
           << "START1_MID_1_PROB_PR" << endl;
       
-      Environment env(all_paths[1][site-1], all_paths[1][site+1]);
-      for (size_t i = 0; i < all_interval_lengths[1].size(); ++i) {
+      Environment env(all_paths[node_id][site-1], all_paths[node_id][site+1]);
+      for (size_t i = 0; i < all_interval_lengths[node_id].size(); ++i) {
         out << th.node_names[node_id] << '\t' << i+1 << '\t'
             << env.left[i] << '\t' << env.right[i] << '\t' << "0\t"
             << 1.0 * all_bp_state0_fs[node_id][i] / n_paths_from_zero << '\t'
