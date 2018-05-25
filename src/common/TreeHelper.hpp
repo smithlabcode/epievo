@@ -65,5 +65,29 @@ struct TreeHelper {
   size_t n_nodes;
 };
 
+class ChildSet {
+public:
+  ChildSet(const std::vector<size_t> &v, const size_t ni) :
+    offset(v.begin() + ni), node_id(ni), ch_id(1) {}
+
+  size_t operator*() const {return node_id + ch_id;}
+
+  bool good() const {return ch_id < *offset;}
+
+  ChildSet & operator++() {
+    ch_id += *(offset + ch_id);
+    return *this;
+  }
+  ChildSet operator++(int) { // this one is slower...
+    ChildSet tmp(*this);
+    operator++();
+    return tmp;
+  }
+
+private:
+  const std::vector<size_t>::const_iterator offset;
+  size_t node_id;
+  size_t ch_id;
+};
 
 #endif
