@@ -30,6 +30,7 @@
 
 using std::string;
 using std::vector;
+using std::pair;
 using std::endl;
 
 static void
@@ -57,8 +58,13 @@ factor_rate_matrix(const double rate0, const double rate1,
 }
 
 
-CTMarkovModel::CTMarkovModel(const std::vector<double> &rates) :
+CTMarkovModel::CTMarkovModel(const vector<double> &rates) :
   rate0(rates.front()), rate1(rates.back()) {
+  factor_rate_matrix(rate0, rate1, eigen_values, U, Uinv);
+}
+
+CTMarkovModel::CTMarkovModel(const pair<double, double> &rates) :
+  rate0(rates.first), rate1(rates.second) {
   factor_rate_matrix(rate0, rate1, eigen_values, U, Uinv);
 }
 

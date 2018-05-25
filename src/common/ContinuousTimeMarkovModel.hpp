@@ -29,6 +29,7 @@ typedef std::vector<std::vector<double> > two_by_two;
 
 struct CTMarkovModel {
   CTMarkovModel(const std::vector<double> &rates);
+  CTMarkovModel(const std::pair<double, double> &rates);
   CTMarkovModel(const double r1, const double r2);
   void get_trans_prob_mat(const double time_interval,
                           two_by_two &prob_mat) const;
