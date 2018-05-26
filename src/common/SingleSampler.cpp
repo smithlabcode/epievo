@@ -38,6 +38,8 @@ using std::endl;
 using std::cerr;
 using std::cout;
 using std::string;
+using std::pair;
+using std::make_pair;
 
 
 ////////////////////////////////////////////////////////////////////////////////
