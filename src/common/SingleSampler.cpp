@@ -26,6 +26,7 @@
 #include <iostream>
 #include <cmath>
 #include <random>
+#include <functional>
 
 #include "SingleSampler.hpp"
 #include "PhyloTreePreorder.hpp"
@@ -38,6 +39,8 @@ using std::endl;
 using std::cerr;
 using std::cout;
 using std::string;
+using std::pair;
+using std::make_pair;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,13 +51,13 @@ using std::string;
  * "p" values are as defined for Felsenstein's algorithm generally.
  */
 static void
-upward(const vector<double> &rates, const double time_interval,
+upward(const pair<double, double> &rates, const double time_interval,
        const vector<double> &q, vector<double> &p) {
 
   assert(time_interval > 0);
 
   vector<vector<double> > P; // transition matrix
-  continuous_time_trans_prob_mat(rates[0], rates[1], time_interval, P);
+  continuous_time_trans_prob_mat(rates.first, rates.second, time_interval, P);
 
   // p <- P*q
   p.resize(2);
@@ -65,13 +68,13 @@ upward(const vector<double> &rates, const double time_interval,
 
 // collect rates and interval lengths
 void
-rates_on_branch(const vector<double> &triplet_rates,
+collect_interval_rates_and_lengths(const vector<double> &triplet_rates,
                 const Path &l, const Path &r,
-                vector<pair<double, double> > &interval_rates,
+                interval_rate_pairs &interval_rates,
                 vector<double> &interval_lengths) {
   Environment env(l, r);
   const size_t n_intervals = env.left.size();
-  interval_rates = vector<pair<double, double> >(n_intervals, make_pair(0.0, 0.0));
+  interval_rates = interval_rate_pairs(n_intervals, make_pair(0.0, 0.0));
   interval_lengths = vector<double>(n_intervals, 0.0);
 
   for (size_t i = 0; i < n_intervals; ++i) {
@@ -89,108 +92,55 @@ rates_on_branch(const vector<double> &triplet_rates,
 void
 pruning_branch(const vector<double> &triplet_rates,
                const vector<size_t> &subtree_sizes,
-               const size_t site,
+               const size_t site_id,
                const size_t node_id,
                const vector<vector<Path> > &all_paths,
-               const vector<vector<pair<double, double> > > &all_interval_rates,
+               const vector<interval_rate_pairs> &all_interval_rates,
                const vector<vector<double> > &all_interval_lengths,
-               vector<vector<vector<double> > > &all_p) {
+               vector<vector<vector<double> > > &p) {
 
-  // excluding the top end, i.e. including only the lower end of each time interval
-  const size_t n_intervals = all_interval_lengths[node_id].size();
-  vector<vector<double> > p(n_intervals, vector<double>(2, 0.0));
+  assert(p.size() == subtree_sizes.size());
 
-  vector<double> q(2, 0.0);
+  vector<double> q(2, 1.0);
+  if (is_leaf(subtree_sizes[node_id])) {
+    const bool leaf_state = all_paths[node_id][site_id].end_state();
+    q[0] = (leaf_state == false) ? 1.0 : 0.0;
+    q[1] = (leaf_state == true)  ? 1.0 : 0.0;
+  }
+  else {
 
-  if (is_leaf(subtree_sizes[node_id])) {  // leaf
-
-    for (size_t i = 0; i < n_intervals; ++i) { // going upward
-      const size_t interval = n_intervals - 1 - i;
-      if (i == 0) { // at leaf
-        const bool leaf_state = all_paths[node_id][site].end_state();
-        for (size_t k = 0; k < 2; ++k) {
-          q[k] = ((size_t)(leaf_state) == k) ? 1.0 : 0.0;
-        }
-        upward(all_interval_rates[node_id][interval],
-               all_interval_lengths[node_id][interval],
-               q, p[interval]);
-      } else {
-        // at break points within a branch: q = p[interval + 1]
-        upward(all_interval_rates[node_id][interval],
-               all_interval_lengths[node_id][interval],
-               p[interval + 1], p[interval]);
-      }
+    for (size_t ch_id = node_id + 1; ch_id < subtree_sizes[node_id];
+         ch_id += subtree_sizes[ch_id]) {
+      pruning_branch(triplet_rates, subtree_sizes, site_id, ch_id,
+                     all_paths, all_interval_rates, all_interval_lengths, p);
+      q[0] *= p[ch_id].back()[0];
+      q[1] *= p[ch_id].back()[1];
     }
+  }
 
-    all_p[node_id].swap(p);
+  if (!is_root(node_id)) {
+    const size_t n_intervals = all_interval_lengths[node_id].size();
+    assert(node_id == 0 || n_intervals > 0);
+    p[node_id] = vector<vector<double> >(n_intervals, {0.0, 0.0});
 
-  } else { // internal node
+    // directly use q for final interval (back)
+    upward(all_interval_rates[node_id].back(),
+           all_interval_lengths[node_id].back(), q, p[node_id].back());
 
-    vector<size_t> children;
-    get_children(node_id, subtree_sizes, children);
-
-    // fill in all_p at children nodes
-    for (size_t idx = 0; idx < children.size(); ++idx) {
-      pruning_branch(triplet_rates, subtree_sizes, site,
-                     children[idx], all_paths,
-                     all_interval_rates, all_interval_lengths,
-                     all_p);
-    }
-
-    if (node_id > 0) { // non-root internal node
-      // going upward along current branch
-      for (size_t i = 0; i < n_intervals; ++i) {
-        const size_t interval = n_intervals - 1 - i;
-        if (i == 0) {
-          // at the end of the last interval, i.e. an internal species
-          q = vector<double>(2, 1.0);
-          for (size_t k = 0; k < 2; ++k) {
-            for (size_t idx = 0; idx < children.size(); ++idx)
-              q[k] *= all_p[children[idx]][0][k];
-          }
-          upward(all_interval_rates[node_id][interval],
-                 all_interval_lengths[node_id][interval],
-                 q, p[interval]);
-        } else {
-          // at break points within a branch: q = p[interval + 1]
-          upward(all_interval_rates[node_id][interval],
-                 all_interval_lengths[node_id][interval],
-                 p[interval + 1], p[interval]);
-        }
-      }
-    }
-    all_p[node_id].swap(p);
+    // iterate backwards (upwards) with: q[i-1] = p[i]
+    for (size_t i = n_intervals - 1; i > 0; --i)
+      upward(all_interval_rates[node_id][i-1],
+             all_interval_lengths[node_id][i-1], p[node_id][i], p[node_id][i-1]);
   }
 }
 
-
-
-// all_p: branch x interval x state
-void
-pruning(const vector<double> &triplet_rates,
-        const vector<size_t> &subtree_sizes,
-        const size_t site,
-        const vector<vector<Path> > &all_paths,
-        const vector<vector<vector<double> > > &all_interval_rates,
-        const vector<vector<double> > & all_interval_lengths,
-        vector<vector<vector<double> > > &all_p) {
-
-  all_p.resize(subtree_sizes.size());
-
-  size_t child = 1;
-  while(child < subtree_sizes.size()) {
-    pruning_branch(triplet_rates, subtree_sizes, site, child, all_paths,
-                   all_interval_rates, all_interval_lengths, all_p);
-    child += subtree_sizes[child];
-  }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////            DOWNWARD SAMPLING        ////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // downward sampling on a single branch, given the initial state
 void
-downward_sampling_branch(const vector<vector<double> > &interval_rates,
+downward_sampling_branch(const interval_rate_pairs &interval_rates,
                          const vector<double> &interval_lengths,
                          const vector<size_t> &subtree_sizes,
                          const size_t site,
@@ -210,7 +160,8 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
 
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
-    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+    continuous_time_trans_prob_mat(interval_rates[m].first,
+                                   interval_rates[m].second,
                                    interval_lengths[m], P);
     double p0 = (all_p[node_id][m+1][0] * P[parent_state][0] /
                  all_p[node_id][m][parent_state]);
@@ -258,7 +209,8 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
     const size_t m = n_intervals - 1;
     // compute conditional posterior probability
     vector<vector<double> > P; // transition matrix
-    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
+    continuous_time_trans_prob_mat(interval_rates[m].first,
+                                   interval_rates[m].second,
                                    interval_lengths[m], P);
     double p0 = 1.0;
     for (size_t idx = 0; idx < children.size(); ++idx)
@@ -290,66 +242,74 @@ downward_sampling_branch(const vector<vector<double> > &interval_rates,
   }
 }
 
+
+/* Compute posterior probability of state 0 at root node (i.e. the
+ * init_state of any/all children) for particular site using
+ * information from the upward stage of Felsenstein's algorithm.
+ */
 double
 root_post_prob0(const vector<size_t> &children,
-                const size_t site,
-                const vector<vector<Path> > &all_paths,
-                const vector<vector<double> > &root_trans_prob,
+                const size_t site_id,
+                const vector<Path> &the_paths,
+                const vector<vector<double> > &horiz_trans_prob,
                 const vector<vector<vector<double> > > &all_p) {
-  // compute posterior probability at root node
-  // (i.e. the init_state of all children)
-  size_t lstate = all_paths[children[0]][site - 1].init_state;
-  size_t rstate = all_paths[children[0]][site + 1].init_state;
-  double p0 = root_trans_prob[lstate][0] * root_trans_prob[0][rstate];
-  double p1 = root_trans_prob[lstate][1] * root_trans_prob[1][rstate];
+
+  const size_t left_state = the_paths[site_id - 1].init_state;
+  const size_t right_state = the_paths[site_id + 1].init_state;
+
+  double p0 = (horiz_trans_prob[left_state][0]*
+               horiz_trans_prob[0][right_state]);
+  double p1 = (horiz_trans_prob[left_state][1]*
+               horiz_trans_prob[1][right_state]);
+
   for (size_t idx = 0; idx < children.size(); ++idx) {
     p0 *= all_p[children[idx]][0][0];
     p1 *= all_p[children[idx]][0][1];
   }
 
-  double root_p0 = p0 / (p0+p1);
-  return root_p0;
+  return p0/(p0 + p1);
 }
 
 void
 downward_sampling(const vector<double> &triplet_rates,
                   const vector<size_t> &subtree_sizes,
-                  const size_t site,
+                  const size_t site_id,
                   const vector<vector<Path> > &all_paths,
-                  const vector<vector<double> > &root_trans_prob,
+                  const vector<vector<double> > &horiz_trans_prob,
                   const vector<vector<vector<double> > > &all_p,
                   std::mt19937 &gen,
-                  vector<Path> &new_path) {
-  Path empty_path;
-  new_path = vector<Path>(subtree_sizes.size(), empty_path);
+                  vector<Path> &proposed_path) {
+
+  proposed_path = vector<Path>(subtree_sizes.size(), Path());
 
   const size_t root_id = 0; //all_paths[0] is empty
   vector<size_t> children;
   get_children(root_id, subtree_sizes, children);
 
   // compute posterior probability at root node
-  const double root_p0 = root_post_prob0(children, site, all_paths,
-                                         root_trans_prob, all_p);
+  const double root_p0 = root_post_prob0(children, site_id, all_paths[1],
+                                         horiz_trans_prob, all_p);
 
   // sample new root state
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  bool new_root_state = (unif(gen) > root_p0);
+  const bool new_root_state = (unif(gen) > root_p0);
+
   for (size_t idx = 0; idx < children.size(); ++idx) {
-    new_path[children[idx]].init_state = new_root_state;
-    new_path[children[idx]].tot_time = all_paths[children[idx]][site - 1].tot_time;
+    proposed_path[children[idx]].init_state = new_root_state;
+    proposed_path[children[idx]].tot_time = all_paths[children[idx]][site_id - 1].tot_time;
   }
 
   // preorder traversal of the tree
   for (size_t node_id = 1; node_id < subtree_sizes.size(); ++node_id) {
     // collect relevant transition rates for each interval
-    vector<vector<double> > interval_rates; //interval x transition type
+    interval_rate_pairs interval_rates; //interval x transition type
     vector<double> interval_lengths;
-    rates_on_branch(triplet_rates, all_paths[node_id][site-1],
-                    all_paths[node_id][site+1],
+    collect_interval_rates_and_lengths(triplet_rates, all_paths[node_id][site_id-1],
+                    all_paths[node_id][site_id+1],
                     interval_rates, interval_lengths);
     downward_sampling_branch(interval_rates, interval_lengths, subtree_sizes,
-                             site, node_id, all_paths, all_p,
-                             gen, new_path);
+                             site_id, node_id, all_paths, all_p,
+                             gen, proposed_path);
   }
 }
 
@@ -358,115 +318,68 @@ downward_sampling(const vector<double> &triplet_rates,
 ///////////////        Compute acceptance rate         /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-static void
-select_jumps(const vector<double> jumps,
-             const double t0, const double t1,
-             vector<double> & subset_jumps) {
-  // jumps is a vector of ascending positive values
-
-  vector<double>::const_iterator low, up;
-  low = std::upper_bound(jumps.begin(), jumps.end(), t0); // first > t0
-  up = std::lower_bound(jumps.begin(), jumps.end(), t1); // first >= t1
-  subset_jumps = vector<double>(low, up);
-  // change reference point to t0
-  for (size_t i = 0; i < subset_jumps.size(); ++i)
-    subset_jumps[i] -= t0;
-}
-
 
 /*counterpart of downward_sampling_branch*/
 void
-proposal_prob_branch(const vector<vector<double> > &interval_rates,
+proposal_prob_branch(const interval_rate_pairs &interval_rates,
                      const vector<double> &interval_lengths,
                      const vector<size_t> &subtree_sizes,
-                     const size_t site,
+                     const size_t site_id,
                      const size_t node_id,
                      const vector<vector<Path> > &all_paths,
                      const vector<vector<vector<double> > > &all_p,
                      const Path &path,
                      double &prob) {
 
+  assert(!is_leaf(subtree_sizes[node_id]) ||
+         path.end_state() == all_paths[node_id][site_id].end_state());
+
   const size_t n_intervals = interval_rates.size();
-  const vector<double> jumps = path.jumps;
 
-  size_t a = path.init_state; // state of one end
+  size_t a = path.init_state; // state at top of branch
   double time_passed = 0;
-  // end-conditioned sampling helpers
-  vector<double> eigen_vals;
-  vector<vector<double> > U;
-  vector<vector<double> > Uinv;
-  for (size_t m = 0; m < n_intervals - 1; ++m) {
+  size_t start_jump = 0;
+  for (size_t i = 0; i < n_intervals - 1; ++i) {
 
-    // compute conditional posterior probability
-    vector<vector<double> > P; // transition matrix
-    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
-                                   interval_lengths[m], P);
-    double p0 = (all_p[node_id][m+1][0] * P[a][0] /
-                 all_p[node_id][m][a]);
+    // find the range of jumps to evaluate using the current
+    // interval's rate and duration
+    size_t end_jump = start_jump;
+    while (end_jump < path.jumps.size() - 1 &&
+           path.jumps[end_jump + 1] < time_passed + interval_lengths[i])
+      ++end_jump;
 
-    // check state at break point
-    const double t = time_passed + interval_lengths[m];
-    const size_t b = (size_t)(path.state_at_time(t)); // state of the other end
-    prob *= (b == 0) ? p0: 1.0 - p0;
+    size_t b = (end_jump - start_jump) % 2 == 0 ? a : complement_state(a);
+    const CTMarkovModel ctmm(interval_rates[i]);
+    prob *= end_cond_sample_prob(ctmm, a, b, time_passed + interval_lengths[i],
+                                 jumps, start_jump, end_jump, time_passed);
 
-    // prepare helper values
-    const CTMarkovModel ctmm(interval_rates[m]);
-
-    // get jumps between time interval (time_passed, time_passed + interval_lengths[m])
-    vector<double> subset_jumps;
-    select_jumps(path.jumps, time_passed,
-                 time_passed + interval_lengths[m], subset_jumps);
-
-    // compute end_cond_sample prob
-    prob *= end_cond_sample_prob(ctmm, a, b, interval_lengths[m], subset_jumps);
+    vector<vector<double> > P;
+    ctmm.get_trans_prob_mat(interval_lengths[i], P);
+    // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
+    const double p0 = P[a][0]*all_p[node_id][i + 1][0]/all_p[node_id][i][a];
+    prob *= (b == 0) ? p0 : 1.0 - p0;
 
     // prepare for next interval
-    time_passed += interval_lengths[m];
+    start_jump = end_jump + 1;
+    time_passed += interval_lengths[i];
     a = b;
   }
 
-  if (is_leaf(subtree_sizes[node_id])) {
-    const size_t b = all_paths[node_id][site].end_state();
-    const size_t m = n_intervals - 1;
+  const size_t b = path.end_state();
+  const CTMarkovModel ctmm(interval_rates.back());
+  prob *= end_cond_sample_prob(ctmm, a, b, interval_lengths.back(),
+                               start_jump, jumps.size() - 1, jumps, time_passed);
 
-    vector<double> subset_jumps;
-    select_jumps(path.jumps, time_passed,
-                 time_passed + interval_lengths[m], subset_jumps);
-
-    // prepare helper values
-    const CTMarkovModel ctmm(interval_rates[m]);
-
-    // compute end_cond_sample prob
-    prob *= end_cond_sample_prob(ctmm, a, b, interval_lengths[m], subset_jumps);
-  }
-  else {
-    // last interval requires information from children
-    vector<size_t> children;
-    get_children(node_id, subtree_sizes, children);
-    const size_t m = n_intervals - 1;
-
-    // prepare helper values
-    const CTMarkovModel ctmm(interval_rates[m]);
-
-    // compute conditional posterior probability
-    vector<vector<double> > P; // transition matrix
-    ctmm.get_trans_prob_mat(interval_lengths[m], P);
+  if (!is_leaf(subtree_sizes[node_id])) {
+    vector<vector<double> > P;
+    ctmm.get_trans_prob_mat(interval_lengths.back(), P);
 
     double p0 = 1.0;
-    for (size_t idx = 0; idx < children.size(); ++idx)
-      p0 *= all_p[children[idx]][0][0];
-    p0 *= P[a][0]/all_p[node_id][m][a];
+    for (auto c = node_id + 1; c < subtree_sizes[node_id]; c += subtree_sizes[c])
+      p0 *= all_p[c].front()[0];
+    p0 *= P[a][0]/all_p[node_id].back()[a];
 
-    size_t b = (size_t)(path.end_state());
     prob *= (b == 0) ? p0 : 1.0 - p0;
-
-    // select jumps
-    vector<double> subset_jumps;
-    select_jumps(path.jumps, time_passed,
-                 time_passed + interval_lengths[m], subset_jumps);
-
-    // compute the end-conditioned sampling probability
-    prob *= end_cond_sample_prob(ctmm, a, b, interval_lengths[m], subset_jumps);
   }
 }
 
@@ -475,44 +388,46 @@ proposal_prob_branch(const vector<vector<double> > &interval_rates,
 void
 proposal_prob(const vector<double> &triplet_rates,
               const vector<size_t> &subtree_sizes,
-              const size_t site,
+              const size_t site_id,
               const vector<vector<Path> > &all_paths,
-              const vector<vector<double> > &root_trans_prob,
+              const vector<vector<double> > &horiz_trans_prob,
               const vector<vector<vector<double> > > &all_p,
-              const vector<Path> &new_path,
-              double &pro_old, double &pro_new) {
+              const vector<Path> &proposed_path,
+              double &prob_old, double &prob_new) {
 
-  // compute posterior probability at root node
-  const size_t root_id = 0;
+  static const size_t root_id = 0;
+
+  const size_t n_nodes = subtree_sizes.size();
+
   vector<size_t> children;
   get_children(root_id, subtree_sizes, children);
-  const double root_p0 = root_post_prob0(children, site, all_paths,
-                                         root_trans_prob, all_p);
 
-  pro_old = 1.0;
-  pro_new = 1.0;
+  // compute posterior probability of state 0 at root node
+  const double root_p0 = root_post_prob0(children, site_id, all_paths[1],
+                                         horiz_trans_prob, all_p);
 
-  pro_old *= all_paths[1][site].init_state ? 1.0 - root_p0 : root_p0;
-  pro_new *= new_path[1].init_state ? 1.0 - root_p0 : root_p0;
+  prob_old = all_paths[1][site_id].init_state ? 1.0 - root_p0 : root_p0;
+  prob_new = proposed_path[1].init_state      ? 1.0 - root_p0 : root_p0;
 
-  // preorder traversal of the tree
-  for (size_t node_id = 1; node_id < subtree_sizes.size(); ++node_id) {
-    // collect relevant transition rates for each interval
-    vector<vector<double> > interval_rates;
+  // process the paths above each node (except the root)
+  for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
+
+    // collect transition rates and lengths for each interval
+    interval_rate_pairs interval_rates;
     vector<double> interval_lengths;
-    rates_on_branch(triplet_rates, all_paths[node_id][site - 1],
-                    all_paths[node_id][site+1],
-                    interval_rates, interval_lengths);
+    collect_interval_rates_and_lengths(triplet_rates,
+                                       all_paths[node_id][site_id - 1],
+                                       all_paths[node_id][site_id + 1],
+                                       interval_rates, interval_lengths);
+
     proposal_prob_branch(interval_rates, interval_lengths,
-                         subtree_sizes, site, node_id, all_paths,
-                         all_p, new_path[node_id], pro_new);
+                         subtree_sizes, site_id, node_id, all_paths,
+                         all_p, proposed_path[node_id], prob_new);
+
     proposal_prob_branch(interval_rates, interval_lengths,
-                         subtree_sizes, site, node_id, all_paths,
-                         all_p, all_paths[node_id][site], pro_old);
+                         subtree_sizes, site_id, node_id, all_paths,
+                         all_p, all_paths[node_id][site_id], prob_old);
   }
-
-  //  cerr << pro_old << "\t" << pro_new << endl;
-
 }
 
 
@@ -520,47 +435,47 @@ static double
 log_lik_ratio(const vector<double> &rates,
               const PathContextStat &pcs_num,
               const PathContextStat &pcs_denom) {
+
+  static const size_t n_triples = 8;
   double result = 0.0;
-  for (size_t i = 0; i < 8; ++i) {
-    result += (pcs_num.jumps_in_context[i] -
-               pcs_denom.jumps_in_context[i])*log(rates[i]) -
-      (pcs_num.time_in_context[i] -
-       pcs_denom.time_in_context[i]) * rates[i];
+  for (size_t i = 0; i < n_triples; ++i) {
+    const double J_diff = pcs_num.jumps_in_context[i] - pcs_denom.jumps_in_context[i];
+    const double D_diff = pcs_num.time_in_context[i] - pcs_denom.time_in_context[i];
+    result += J_diff*log(rates[i]) - D_diff*rates[i];
   }
   return result;
 }
 
 
-
-
-
 // compute acceptance rate
 double
 log_accept_rate(const EpiEvoModel &the_model, const TreeHelper &th,
-                const size_t site,
+                const size_t site_id,
                 const vector<vector<Path> > &all_paths,
                 const vector<vector<vector<double> > > &all_p,
-                const vector<Path> &new_path) {
-  double pro_old, pro_new;
-  proposal_prob(the_model.triplet_rates, th.subtree_sizes,
-                site, all_paths, the_model.init_T, all_p, new_path,
-                pro_old, pro_new);
+                const vector<Path> &proposed_path) {
 
-  double lr = log(pro_old) - log(pro_new);
+  double prob_old, prob_new;
+  proposal_prob(the_model.triplet_rates, th.subtree_sizes,
+                site_id, all_paths, the_model.init_T, all_p, proposed_path,
+                prob_old, prob_new);
+
+  double lr = log(prob_old) - log(prob_new);
 
   for (size_t i = 1; i < th.subtree_sizes.size(); ++i) {
-    Path l = all_paths[i][site - 1];
-    Path ll = all_paths[i][site - 2];
-    Path r = all_paths[i][site + 1];
-    Path rr = all_paths[i][site + 2];
-    PathContextStat pcs_old(l, all_paths[i][site], r);
-    PathContextStat pcs_new(l, new_path[i], r);
-    PathContextStat pcs_old_l(ll, l, all_paths[i][site]);
-    PathContextStat pcs_new_l(ll, l, new_path[i]);
-    PathContextStat pcs_old_r(all_paths[i][site], r, rr);
-    PathContextStat pcs_new_r(new_path[i], r, rr);
+    const Path l =  all_paths[i][site_id - 1];
+    const Path ll = all_paths[i][site_id - 2];
+    const Path r =  all_paths[i][site_id + 1];
+    const Path rr = all_paths[i][site_id + 2];
+    PathContextStat pcs_old(l, all_paths[i][site_id], r);
+    PathContextStat pcs_new(l, proposed_path[i], r);
+    PathContextStat pcs_old_l(ll, l, all_paths[i][site_id]);
+    PathContextStat pcs_new_l(ll, l, proposed_path[i]);
+    PathContextStat pcs_old_r(all_paths[i][site_id], r, rr);
+    PathContextStat pcs_new_r(proposed_path[i], r, rr);
 
-    lr += log_lik_ratio(the_model.triplet_rates, pcs_new, pcs_old) +
+    lr +=
+      log_lik_ratio(the_model.triplet_rates, pcs_new, pcs_old) +
       log_lik_ratio(the_model.triplet_rates, pcs_new_l, pcs_old_l) +
       log_lik_ratio(the_model.triplet_rates, pcs_new_r, pcs_old_r);
   }
@@ -571,37 +486,38 @@ log_accept_rate(const EpiEvoModel &the_model, const TreeHelper &th,
 
 void
 gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
-           const size_t site,
+           const size_t site_id,
            vector<vector<Path> > &all_paths,
            std::mt19937 &gen,
-           vector<Path> &new_path) {
+           vector<Path> &proposed_path) {
 
   // collect relevant transition rates for each interval
   const size_t n_nodes = th.subtree_sizes.size();
-  vector<vector<vector<double> > > all_interval_rates(n_nodes);
+  vector<interval_rate_pairs> all_interval_rates(n_nodes);
   vector<vector<double> > all_interval_lengths(n_nodes);
   for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-    rates_on_branch(the_model.triplet_rates,
-                    all_paths[node_id][site - 1],
-                    all_paths[node_id][site + 1],
-                    all_interval_rates[node_id],
-                    all_interval_lengths[node_id]);
+    collect_interval_rates_and_lengths(the_model.triplet_rates,
+                                       all_paths[node_id][site_id - 1],
+                                       all_paths[node_id][site_id + 1],
+                                       all_interval_rates[node_id],
+                                       all_interval_lengths[node_id]);
   }
 
   // upward pruning and downward sampling
   vector<vector<vector<double> > > all_p;
-  pruning(the_model.triplet_rates, th.subtree_sizes, site, all_paths,
-          all_interval_rates, all_interval_lengths, all_p);
+  pruning_branch(the_model.triplet_rates, th.subtree_sizes, site_id, 0,
+                 all_paths, all_interval_rates, all_interval_lengths, all_p);
 
-  downward_sampling(the_model.triplet_rates, th.subtree_sizes, site,
-                    all_paths, the_model.init_T, all_p, gen, new_path);
+  downward_sampling(the_model.triplet_rates, th.subtree_sizes, site_id,
+                    all_paths, the_model.init_T, all_p, gen, proposed_path);
 
   // acceptance rate
-  const double log_acc_rate = log_accept_rate(the_model, th, site, all_paths,
-                                              all_p, new_path);
+  const double log_acc_rate =
+    log_accept_rate(the_model, th, site_id, all_paths, all_p, proposed_path);
+
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
   if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate))
     for (size_t i = 1; i < th.subtree_sizes.size(); ++i)
-      all_paths[i][site] = new_path[i];
+      all_paths[i][site_id] = proposed_path[i];
 }

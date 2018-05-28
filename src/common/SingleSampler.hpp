@@ -26,12 +26,15 @@
 #include "TreeHelper.hpp"
 #include "EndCondSampling.hpp"
 
+
+typedef std::vector<std::pair<double, double> > interval_rate_pairs;
+
 void
 upward(const std::vector<double> &triplet_rates,
        const std::vector<size_t> &subtree_sizes,
        const size_t site_id,
        const std::vector<std::vector<Path> > &paths_all_sites_branches,
-       const std::vector<std::vector<std::vector<double> > > &all_interval_rates,
+       const std::vector<interval_rate_pairs> &all_interval_rates,
        const std::vector<std::vector<double> > & all_interval_lengths,
        std::vector<std::vector<std::vector<double> > > &all_p);
 
