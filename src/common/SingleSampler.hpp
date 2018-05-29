@@ -26,7 +26,6 @@
 #include "TreeHelper.hpp"
 #include "EndCondSampling.hpp"
 
-
 typedef std::vector<std::pair<double, double> > interval_rate_pairs;
 
 void
