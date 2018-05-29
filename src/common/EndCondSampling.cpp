@@ -201,7 +201,8 @@ end_cond_sample_first_jump(const CTMarkovModel &the_model,
 void
 end_cond_sample(const CTMarkovModel &the_model,
                 const size_t start_state, const size_t end_state, const double T,
-                std::mt19937 &gen, vector<double> &jump_times) {
+                std::mt19937 &gen, vector<double> &jump_times,
+                const double start_time) {
 
   jump_times.clear();
 
@@ -215,7 +216,7 @@ end_cond_sample(const CTMarkovModel &the_model,
   // the total time interval when it should, and not some
   // approximation to it.
   while (T - consumed_time > NUMERICAL_TOLERANCE) {
-    jump_times.push_back(consumed_time);
+    jump_times.push_back(start_time + consumed_time);
     current_state = complement_state(current_state);
     consumed_time +=
       end_cond_sample_first_jump(the_model, current_state,
@@ -230,21 +231,25 @@ end_cond_sample_prob(const CTMarkovModel &the_model,
                      size_t a, const size_t b,
                      const double end_time,
                      const vector<double> &jump_times,
+                     size_t start_jump, const size_t end_jump,
                      const double start_time) {
   // jump_times are between start_time and end_time
   assert(jump_times.empty() || (jump_times.back() < end_time &&
                                 jump_times.front() > start_time));
-  assert(jump_times.size() % 2 == static_cast<size_t>(a == b));
+  // if we have an even number of jumps, the start and end state
+  // should be the same
+  assert(jump_times.size() % 2 == static_cast<size_t>(a != b));
 
   vector<vector<double> > PT;
 
   double p = 1.0;
 
   double curr_time = start_time;
-  for (size_t i = 0; i < jump_times.size(); ++i) {
+  for (size_t i = start_jump; i <= end_jump; ++i) {
     const double time_interval = end_time - curr_time;
     the_model.get_trans_prob_mat(time_interval, PT);
-    p *= pdf(the_model, PT, time_interval, a, b, jump_times[i] - curr_time);
+    p *= pdf(the_model, PT, time_interval, a, b,
+             jump_times[i] - curr_time);
     a = complement_state(a);
     curr_time = jump_times[i];
   }
