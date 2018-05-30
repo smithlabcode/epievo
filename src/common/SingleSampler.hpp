@@ -26,34 +26,47 @@
 #include "TreeHelper.hpp"
 #include "EndCondSampling.hpp"
 
-typedef std::vector<std::pair<double, double> > interval_rate_pairs;
+struct SegmentInfo {
+  SegmentInfo() {}
+  SegmentInfo(const double r0, const double r1, const double l) :
+    rate0(r0), rate1(r1), len(l) {}
+  double rate0;
+  double rate1;
+  double len;
+};
+
+struct FelsHelper {
+  FelsHelper() {}
+  FelsHelper(const std::vector<std::vector<double> > &_p,
+             const std::vector<double> &_q) : p(_p), q(_q) {}
+  std::vector<std::vector<double> > p;
+  std::vector<double> q;
+};
 
 void
-upward(const std::vector<double> &triplet_rates,
-       const std::vector<size_t> &subtree_sizes,
-       const size_t site_id,
-       const std::vector<std::vector<Path> > &paths_all_sites_branches,
-       const std::vector<interval_rate_pairs> &all_interval_rates,
-       const std::vector<std::vector<double> > & all_interval_lengths,
-       std::vector<std::vector<std::vector<double> > > &all_p);
+pruning(const std::vector<double> &triplet_rates,
+        const TreeHelper &th,
+        const size_t site_id,
+        const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
+        const std::vector<SegmentInfo> &seg_info,
+        std::vector<FelsHelper> &fh);
 
 void
 downward_sampling(const std::vector<double> &triplet_rates,
-                  const std::vector<size_t> &subtree_sizes,
-                  const size_t site,
+                  const TreeHelper &th,
+                  const size_t site_id,
                   const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
                   const std::vector<std::vector<double> > &root_trans_prob,
-                  const std::vector<std::vector<std::vector<double> > > &all_p,
+                  const std::vector<FelsHelper> &fh,
                   std::mt19937 &gen,
                   std::vector<Path> &new_path);
 
-
 void
 gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
-           const size_t site,
-           std::vector<std::vector<Path> > &all_paths,
+           const size_t site_id,
+           std::vector<std::vector<Path> > &paths_all_sites_and_branches,
            std::mt19937 &gen,
-           std::vector<Path> &new_path);
+           std::vector<Path> &sampled_path);
 
 /* Pruning
   - post-order traversal of nodes
