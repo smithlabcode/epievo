@@ -48,7 +48,7 @@ pruning(const std::vector<double> &triplet_rates,
         const TreeHelper &th,
         const size_t site_id,
         const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-        const std::vector<SegmentInfo> &seg_info,
+        const std::vector<std::vector<SegmentInfo> > &seg_info,
         std::vector<FelsHelper> &fh);
 
 void
@@ -57,6 +57,7 @@ downward_sampling(const std::vector<double> &triplet_rates,
                   const size_t site_id,
                   const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
                   const std::vector<std::vector<double> > &root_trans_prob,
+                  const std::vector<std::vector<SegmentInfo> > &seg_info,
                   const std::vector<FelsHelper> &fh,
                   std::mt19937 &gen,
                   std::vector<Path> &new_path);

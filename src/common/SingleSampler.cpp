@@ -216,7 +216,7 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
   }
 }
 
-static void
+void
 downward_sampling(const vector<double> &triplet_rates,
                   const TreeHelper &th,
                   const size_t site_id,
