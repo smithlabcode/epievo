@@ -44,17 +44,13 @@ struct FelsHelper {
 };
 
 void
-pruning(const std::vector<double> &triplet_rates,
-        const TreeHelper &th,
-        const size_t site_id,
+pruning(const TreeHelper &th, const size_t site_id,
         const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
         const std::vector<std::vector<SegmentInfo> > &seg_info,
         std::vector<FelsHelper> &fh);
 
 void
-downward_sampling(const std::vector<double> &triplet_rates,
-                  const TreeHelper &th,
-                  const size_t site_id,
+downward_sampling(const TreeHelper &th, const size_t site_id,
                   const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
                   const std::vector<std::vector<double> > &root_trans_prob,
                   const std::vector<std::vector<SegmentInfo> > &seg_info,

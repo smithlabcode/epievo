@@ -104,8 +104,7 @@ process_branch_above(const vector<SegmentInfo> seg_info, FelsHelper &fh) {
  * next: compute "p" by calling "process_branch_above"
  */
 static void
-pruning_branch(const vector<double> &triplet_rates, const TreeHelper &th,
-               const size_t site_id, const size_t node_id,
+pruning_branch(const TreeHelper &th, const size_t site_id, const size_t node_id,
                const vector<Path> &paths,
                const vector<SegmentInfo> &seg_info,
                vector<FelsHelper> &fh) {
@@ -138,9 +137,7 @@ pruning_branch(const vector<double> &triplet_rates, const TreeHelper &th,
  * the order).
  */
 void
-pruning(const vector<double> &triplet_rates,
-        const TreeHelper &th,
-        const size_t site_id,
+pruning(const TreeHelper &th, const size_t site_id,
         const vector<vector<Path> > &paths,
         const vector<vector<SegmentInfo> > &seg_info,
         vector<FelsHelper> &fh) {
@@ -150,8 +147,7 @@ pruning(const vector<double> &triplet_rates,
   fh.resize(th.n_nodes);
   for (size_t i = th.n_nodes; i > 0; --i) {
     const size_t node_id = i - 1;
-    pruning_branch(triplet_rates, th, site_id, node_id,
-                   paths[node_id], seg_info[node_id], fh);
+    pruning_branch(th, site_id, node_id, paths[node_id], seg_info[node_id], fh);
   }
 }
 
@@ -217,8 +213,7 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 }
 
 void
-downward_sampling(const vector<double> &triplet_rates,
-                  const TreeHelper &th,
+downward_sampling(const TreeHelper &th,
                   const size_t site_id,
                   const vector<vector<Path> > &paths,
                   const vector<vector<double> > &horiz_trans_prob,
@@ -229,7 +224,7 @@ downward_sampling(const vector<double> &triplet_rates,
 
   // compute posterior probability at root node
   const double root_p0 =
-    root_post_prob0(site_id, paths[0], horiz_trans_prob, fh[0].q);
+    root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
 
   proposed_path = vector<Path>(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
@@ -304,7 +299,7 @@ proposal_prob(const vector<double> &triplet_rates,
 
   // compute posterior probability of state 0 at root node
   const double root_p0 =
-    root_post_prob0(site_id, paths[0], horiz_trans_prob, fh[0].q);
+    root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
 
   double prob = the_path[0].init_state ? 1.0 - root_p0 : root_p0;
 
@@ -388,10 +383,10 @@ gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
 
   // upward pruning and downward sampling [fh: one for each node]
   vector<FelsHelper> fh;
-  pruning(the_model.triplet_rates, th, site_id, paths, seg_info, fh);
+  pruning(th, site_id, paths, seg_info, fh);
 
-  downward_sampling(the_model.triplet_rates, th, site_id,
-                    paths, the_model.init_T, seg_info, fh, gen, proposed_path);
+  downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
+                    proposed_path);
 
   // acceptance rate
   const double log_acc_rate =

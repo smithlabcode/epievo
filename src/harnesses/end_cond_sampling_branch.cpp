@@ -472,7 +472,7 @@ int main(int argc, const char **argv) {
     
     // (1) Upward pruning
     vector<FelsHelper> fh;
-    pruning(the_model.triplet_rates, th, test_site, paths, seg_info, fh);
+    pruning(th, test_site, paths, seg_info, fh);
     
     while (fs_summary.size() < n_paths_to_sample) {
       if (VERBOSE && fs_summary.size() * 10 % n_paths_to_sample == 0) {
@@ -482,8 +482,8 @@ int main(int argc, const char **argv) {
       
       // (2) Downward sampling: Direct sampling
       vector<Path> new_path_ds_all;
-      downward_sampling(the_model.triplet_rates, th, test_site, paths,
-                        the_model.init_T, seg_info, fh, gen, new_path_ds_all);
+      downward_sampling(th, test_site, paths, the_model.init_T, seg_info,
+                        fh, gen, new_path_ds_all);
       
       SummarySet current_summary_ds(paths[test_branch][test_site-1],
                                     new_path_ds_all[test_branch],
