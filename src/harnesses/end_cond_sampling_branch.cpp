@@ -223,51 +223,42 @@ test_summary(SummaryStatsFreq &a, SummaryStatsFreq &b,
 ////////////////////////////////////////////////////////////////////////////////
 // collect rates and interval lengths
 static void
-rates_on_branch(const vector<double> &triplet_rates,
-                const Path &l, const Path &r,
-                vector<vector<double> > &interval_rates,
-                vector<double> &interval_lengths) {
+collect_segment_info(const vector<double> &triplet_rates,
+                     const Path &l, const Path &r,
+                     vector<SegmentInfo> &seg_info) {
   Environment env(l, r);
   const size_t n_intervals = env.left.size();
-  interval_rates = vector<vector<double> > (n_intervals, vector<double>(2, 0.0));
-  interval_lengths = vector<double>(n_intervals, 0.0);
+  seg_info = vector<SegmentInfo>(n_intervals);
   
   for (size_t i = 0; i < n_intervals; ++i) {
-    const size_t pattern0 = 4 * (size_t)(env.left[i]) + (size_t)(env.right[i]);
-    const size_t pattern1 = pattern0 + 2;
-    interval_rates[i][0] = triplet_rates[pattern0];
-    interval_rates[i][1] = triplet_rates[pattern1];
-    interval_lengths[i] = (i == 0) ? env.breaks[0] : env.breaks[i] - env.breaks[i-1];
-    assert(interval_lengths[i] > 0);
+    const size_t pattern0 = triple2idx(env.left[i], false, env.right[i]);
+    const size_t pattern1 = triple2idx(env.left[i], true, env.right[i]);
+    seg_info[i] = SegmentInfo(triplet_rates[pattern0], triplet_rates[pattern1],
+                              env.breaks[i] - (i == 0 ? 0.0 : env.breaks[i-1]));
+    assert(seg_info[i].len > 0.0);
   }
 }
 
 static double
-root_post_prob0(const vector<size_t> &children,
-                const size_t site,
-                const vector<vector<Path> > &all_paths,
-                const vector<vector<double> > &root_trans_prob,
-                const vector<vector<vector<double> > > &all_p) {
-  // compute posterior probability at root node
-  // (i.e. the init_state of all children)
-  size_t lstate = all_paths[children[0]][site - 1].init_state;
-  size_t rstate = all_paths[children[0]][site + 1].init_state;
-  double p0 = root_trans_prob[lstate][0] * root_trans_prob[0][rstate];
-  double p1 = root_trans_prob[lstate][1] * root_trans_prob[1][rstate];
-  for (size_t idx = 0; idx < children.size(); ++idx) {
-    p0 *= all_p[children[idx]][0][0];
-    p1 *= all_p[children[idx]][0][1];
-  }
+root_post_prob0(const size_t site_id, const vector<Path> &the_paths,
+                const vector<vector<double> > &horiz_tr_prob,
+                const vector<double> &q) {
   
-  double root_p0 = p0 / (p0+p1);
-  return root_p0;
+  const size_t left_st = the_paths[site_id - 1].init_state;
+  const size_t right_st = the_paths[site_id + 1].init_state;
+  
+  const double p0 = (horiz_tr_prob[left_st][0]*horiz_tr_prob[0][right_st])*q[0];
+  const double p1 = (horiz_tr_prob[left_st][1]*horiz_tr_prob[1][right_st])*q[1];
+  
+  return p0/(p0 + p1);
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 //////////   Downward_sampling_branch Forward sampling                //////////
 ////////////////////////////////////////////////////////////////////////////////
 static void
 forward_sample(const vector<double> &rates,
-               const size_t is, const size_t es,
+               const bool is, const bool es,
                const double tot_time, std::mt19937 &gen,
                vector<double> &jump_times, const size_t max_iteration) {
   
@@ -307,16 +298,13 @@ forward_sample(const vector<double> &rates,
 
 // using Forward sampling + rejection
 static void
-downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
-                            const vector<double> &interval_lengths,
-                            const size_t site,
-                            const vector<Path> &paths,
-                            const vector<vector<double> > &all_p,
-                            std::mt19937 &gen,
-                            Path &new_path,
+downward_sampling_branch_fs(const size_t site, const vector<Path> &paths,
+                            const vector<SegmentInfo> &seg_info,
+                            const FelsHelper &fh,
+                            std::mt19937 &gen, Path &new_path,
                             const size_t max_iterations) {
   
-  const size_t n_intervals = interval_rates.size();
+  const size_t n_intervals = seg_info.size();
   
   size_t par_state = new_path.init_state;
   double time_passed = 0;
@@ -324,10 +312,11 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
   for (size_t m = 0; m < n_intervals - 1; ++m) {
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
-    continuous_time_trans_prob_mat(interval_rates[m][0], interval_rates[m][1],
-                   interval_lengths[m], P);
-    double p0 = (all_p[m+1][0] * P[par_state][0] /
-                 all_p[m][par_state]);
+    continuous_time_trans_prob_mat(seg_info[m].rate0, seg_info[m].rate1,
+                                   seg_info[m].len, P);
+    
+    const double p0 = P[par_state][0] / fh.p[m][par_state] *
+                      ((m == n_intervals - 1) ? fh.q[0] : fh.p[m + 1][0]);
     
     // generate random state at break point
     std::uniform_real_distribution<double> unif(0.0, 1.0);
@@ -335,27 +324,28 @@ downward_sampling_branch_fs(const vector<vector<double> > &interval_rates,
     
     // generate path
     vector<double> jump_times;
-    forward_sample(interval_rates[m],
-                   par_state, (size_t)(new_state),
-                   interval_lengths[m], gen, jump_times, max_iterations);
+    const vector<double> rates {seg_info[m].rate0, seg_info[m].rate1};
+    forward_sample(rates, par_state, new_state, seg_info[m].len, gen,
+                   jump_times, max_iterations);
     
     // append jump_times to new_path
     for (size_t i = 0; i < jump_times.size(); ++i) {
       new_path.jumps.push_back(time_passed + jump_times[i]) ;
     }
     // prepare for next interval
-    time_passed += interval_lengths[m];
+    time_passed += seg_info[m].len;
     par_state = new_state;
   }
   
   // we only test root-leaf branch.
-  const size_t leaf_state = paths[site].end_state();
+  const bool leaf_state = paths[site].end_state();
   // generate path
   vector<double> jump_times;
   const size_t m = n_intervals - 1;
   // prepare helper values
-  forward_sample(interval_rates[m], par_state, leaf_state,
-                 interval_lengths[m], gen, jump_times, max_iterations);
+  const vector<double> rates {seg_info[m].rate0, seg_info[m].rate1};
+  forward_sample(rates, par_state, leaf_state, seg_info[m].len, gen,
+                 jump_times, max_iterations);
   // append jump_times to new_path
   for (size_t i = 0; i < jump_times.size(); ++i) {
     new_path.jumps.push_back(time_passed + jump_times[i]) ;
@@ -444,13 +434,13 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[READING PATHS: " << pathsfile << "]" << endl;
-    vector<vector<Path> > all_paths; // along multiple branches
+    vector<vector<Path> > paths; // along multiple branches
     vector<string> node_names;
-    read_paths(pathsfile, node_names, all_paths);
+    read_paths(pathsfile, node_names, paths);
 
     //const size_t n_nodes = node_names.size();
-    /* below: 1st element of all_paths empty at root; use last */
-    //const size_t n_sites = all_paths.back().size();
+    /* below: 1st element of paths empty at root; use last */
+    //const size_t n_sites = paths.back().size();
 
     if (VERBOSE)
       cerr << "TEST BRANCH: " << test_branch << endl
@@ -470,40 +460,34 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     cerr << "----- TEST upward downward sampling BELOW ---------" << endl;
   
-    vector<vector<vector<double> > > all_interval_rates(n_nodes);
-    vector<vector<double> > all_interval_lengths(n_nodes);
+    vector<vector<SegmentInfo> > seg_info(n_nodes);
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-      rates_on_branch(the_model.triplet_rates,
-                      all_paths[node_id][test_site - 1],
-                      all_paths[node_id][test_site + 1],
-                      all_interval_rates[node_id],
-                      all_interval_lengths[node_id]);
+      collect_segment_info(the_model.triplet_rates,
+                           paths[node_id][test_site - 1],
+                           paths[node_id][test_site + 1], seg_info[node_id]);
     }
     
     vector<SummarySet> fs_summary, ds_summary;
     size_t progress = 0;
+    
+    // (1) Upward pruning
+    vector<FelsHelper> fh;
+    pruning(the_model.triplet_rates, th, test_site, paths, seg_info, fh);
+    
     while (fs_summary.size() < n_paths_to_sample) {
       if (VERBOSE && fs_summary.size() * 10 % n_paths_to_sample == 0) {
         cerr << "FINISHED: " << progress << '%' << endl;
         progress += 10;
       }
       
-      // (1) Upward pruning
-      vector<vector<vector<double> > > all_p;
-      all_p.resize(th.subtree_sizes.size());
-      pruning(the_model.triplet_rates, th.subtree_sizes, test_site,
-              all_paths, all_interval_rates, all_interval_lengths, all_p);
-      
-      
       // (2) Downward sampling: Direct sampling
       vector<Path> new_path_ds_all;
-      downward_sampling(the_model.triplet_rates, th.subtree_sizes,
-                        test_site, all_paths, the_model.init_T, all_p, gen,
-                        new_path_ds_all);
+      downward_sampling(the_model.triplet_rates, th, test_site, paths,
+                        the_model.init_T, seg_info, fh, gen, new_path_ds_all);
       
-      SummarySet current_summary_ds(all_paths[test_branch][test_site-1],
+      SummarySet current_summary_ds(paths[test_branch][test_site-1],
                                     new_path_ds_all[test_branch],
-                                    all_paths[test_branch][test_site+1],
+                                    paths[test_branch][test_site+1],
                                     n_hist_time_bins);
       ds_summary.push_back(current_summary_ds);
       
@@ -511,25 +495,21 @@ int main(int argc, const char **argv) {
       Path new_path_fs;
       
       // sample new root state
-      const size_t root_id = 0; //all_paths[0] is empty
-      vector<size_t> children;
-      get_children(root_id, th.subtree_sizes, children);
-      const double root_p0 = root_post_prob0(children, test_site, all_paths,
-                                             the_model.init_T, all_p);
+      const double root_p0 = root_post_prob0(test_site, paths[0],
+                                             the_model.init_T, fh[0].q);
+
       std::uniform_real_distribution<double> unif(0.0, 1.0);
       bool new_root_state = (unif(gen) > root_p0);
       new_path_fs.init_state = new_root_state;
-      new_path_fs.tot_time = all_paths[test_branch][test_site - 1].tot_time;
+      new_path_fs.tot_time = paths[test_branch][test_site - 1].tot_time;
       
       // preorder traversal of the tree
-      downward_sampling_branch_fs(all_interval_rates[test_branch],
-                                  all_interval_lengths[test_branch],
-                                  test_site,
-                                  all_paths[test_branch], all_p[test_branch],
-                                  gen, new_path_fs, max_iterations);
-      SummarySet current_summary_fs(all_paths[test_branch][test_site-1],
+      downward_sampling_branch_fs(test_site, paths[test_branch],
+                                  seg_info[test_branch], fh[test_branch], gen,
+                                  new_path_fs, max_iterations);
+      SummarySet current_summary_fs(paths[test_branch][test_site-1],
                                     new_path_fs,
-                                    all_paths[test_branch][test_site+1],
+                                    paths[test_branch][test_site+1],
                                     n_hist_time_bins);
       fs_summary.push_back(current_summary_fs);
     }
