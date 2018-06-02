@@ -99,13 +99,23 @@ ascribed to the mammalian epigenome \cite{bernstein2007mammalian},
 studies focusing on individual epigenomic modifications have been
 highly successful in elucidating transcriptional regulation in a
 variety of systems \cite{martin2005diverse}.
+%%% Liz: View on single nucleotides
+%%% "Prescense of certain epigenomic markers could be analogously
+%%% identified at each individual nucleotide.
+%%% For example, cytosines' gaining methyl-group
+%%% or not naturally defines the binary state of each cytosine site. The
+%%% non-cytosine nucleotides can be regarded as ``missing data'', whose
+%%% states indicate whether or not the methylation marker is more likely to
+%%% occur if the cytosines are observersed at same postions.
+%%% Histone modification state of single nucleotide also implies such
+%%% posterior likelihood of wrapping around nucleosome of certain marker,
+%%% even though the presence of histones is not known. "
 
 %%% Need to cite work that has boiled down the complexity of
 %%% epigenomes to simpler ``functional'' states, like ``open''
 %%% ``poised, silenced, ``actively transcribed'', etc.
 
 %%% Need to describe birth, death, etc.
-
 One challenge in modeling epigenome evolution is that desirable models
 should account for the inherent auto-correlation of epigenomic state
 along the genome. The most well known models of molecular evolution,
@@ -293,7 +303,7 @@ The evolution of states at a given site in the state sequence $s$
 depends on the states of its neighboring sites at all times during
 evolution. Consider site $n$ and its two immediate neighbors $n-1$ and
 $n+1$, and let the contemporaneous states for these sites at time $t$
-be $s_{n-1}(t) = i$, $s_n(t)=j$ and $s_{n+1}=j$. The instantaneous
+be $s_{n-1}(t) = i$, $s_n(t)=j$ and $s_{n+1}(t)=j$. The instantaneous
 rate for a transition at site $n$ from state $j$ to the complementary
 binary state $\bar{j}$ is $\lambda(i, j, k)$. In other words, the
 instantaneous rate $\lambda(i, j, k)$ is a function of the states at
@@ -471,6 +481,10 @@ Algorithm \ref{alg:simulation}.
 %%% (1) distribution of patterns (stays stable, or moves towards target stationary state)
 %%% (2) simulated paths with different parameter, show examples and summary statistics for events
 
+%%% Liz: we need to clarify when and where the stationary condition is required.
+%%% so that we don't need to resolve the confusion again when we talk about simulation
+%%% and inference.
+
 \section{Parameter estimation}
 
 \subsection{Complete data}
@@ -478,6 +492,7 @@ Algorithm \ref{alg:simulation}.
 First, given a global path $H$ for the evolution of an epigenome over
 time $\halfopen{0}{\tau}$ with $\tau = 1$, we are interested in
 estimating the transition rate parameters $\Lambda$.
+%%% Liz: do we need to say \tau = 1 here?
 %%% JQU: why assume stationary?
 We assume a stationary process here, but this assumption is not
 necessary (see Appendix).
@@ -601,7 +616,7 @@ specifically in terms of global path $H(b)$ for branch $b$.
 
 
 \subsection{Inference from incomplete data}
-
+%%% Liz: "Inference from incomplete data on single branch?"
 In applications we have data, in the form of epigenomic state
 sequences, associated with leaf nodes. Even at leaf nodes our data may
 be incomplete. We do not have data corresponding to internal nodes,
