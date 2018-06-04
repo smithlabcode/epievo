@@ -152,7 +152,7 @@ downward_sampling_fs(const TreeHelper &th,
     nodes_state[0] = root_state;
     bool branch_end_state;
 
-    bool leaves_sampled_ok = false;
+    bool leaves_sampled_ok = true;
     
     // preorder traversal of the tree
     for (size_t node_id = 1; node_id < n_nodes && leaves_sampled_ok;
@@ -313,13 +313,6 @@ int main(int argc, const char **argv) {
     }
     assert(node_names.size() == th.n_nodes &&
            paths.size() == th.n_nodes);
-    
-    // Liz: seems we don't need this variable
-    //vector<Path> the_paths(paths[1]);
-    
-
-    if (VERBOSE)
-      cerr << "number of paths to simulate: " << n_paths_to_sample << endl;
 
     // standard mersenne_twister_engine seeded with rd()
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -346,7 +339,7 @@ int main(int argc, const char **argv) {
 
     // (1) Upward pruning
     vector<FelsHelper> fh;
-    pruning(the_model.triplet_rates, th, site, paths, seg_info, fh);
+    pruning(th, site, paths, seg_info, fh);
     
     // counts of mid state 0 at breakpoints n_branches * n_intervals
     vector<vector<size_t> > all_bp_state0_fs, all_bp_state0;
@@ -361,24 +354,25 @@ int main(int argc, const char **argv) {
       all_bp_state1.push_back(bp_state1);
     }
     
+    // collect leaf nodes' state
+    vector<bool> leaves_state(th.subtree_sizes.size(), false);
+    for (size_t node_id = 0; node_id < th.subtree_sizes.size(); ++node_id)
+      if (is_leaf(th.subtree_sizes[node_id]))
+        leaves_state[node_id] = paths[node_id][site].end_state();
+
     size_t n_paths_from_zero = 0, n_paths_sampled = 0;
     
     while (n_paths_sampled < n_paths_to_sample) {
       if (VERBOSE && n_paths_sampled * 10 % n_paths_to_sample == 0)
         cerr << "FINISHED: " << n_paths_sampled * 100 / n_paths_to_sample
-        << '%' << endl;
+             << '%' << endl;
       
       // sample new root state
-      const double root_p0 = root_post_prob0(site, paths[0], the_model.init_T,
+      
+      const double root_p0 = root_post_prob0(site, paths[1], the_model.init_T,
                                              fh[0].q);
       std::uniform_real_distribution<double> unif(0.0, 1.0);
       bool new_root_state = (unif(gen) > root_p0);
-      
-      // collect leaf nodes' state
-      vector<bool> leaves_state(th.subtree_sizes.size(), false);
-      for (size_t node_id = 0; node_id < th.subtree_sizes.size(); ++node_id)
-        if (is_leaf(th.subtree_sizes[node_id]))
-          leaves_state[node_id] = paths[node_id][site].end_state();
       
       // Recursively sample the whole tree
       if (new_root_state) { // root state is 1
@@ -393,26 +387,24 @@ int main(int argc, const char **argv) {
 
         posterior_sampling(th, seg_info, fh, new_root_state, gen,
                            all_bp_state0);
-
         ++n_paths_from_zero;
       }
       
       ++n_paths_sampled;
-      
-      cerr << "FINISHED: " << n_paths_sampled * 100 / n_paths_to_sample
-      << '%' << endl;
     }
+    cerr << "FINISHED: " << n_paths_sampled * 100 / n_paths_to_sample
+         << '%' << endl;
     
     // write output
     std::ofstream out(outfile.c_str());
+    out << "NODE" << '\t' << "BREAK" << '\t'
+    << "LEFT_INIT_STATE" << '\t' << "RIGHT_INIT_STATE" << '\t'
+    << "START0_MID_0_PROB_FS" << '\t'
+    << "START0_MID_0_PROB_PR" << '\t'
+    << "START1_MID_1_PROB_FS" << '\t'
+    << "START1_MID_1_PROB_PR" << endl;
+    
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-      out << "NODE" << '\t' << "BREAK" << '\t'
-          << "LEFT_INIT_STATE" << '\t' << "RIGHT_INIT_STATE" << '\t'
-          << "START0_MID_0_PROB_FS" << '\t'
-          << "START0_MID_0_PROB_PR" << '\t'
-          << "START1_MID_1_PROB_FS" << '\t'
-          << "START1_MID_1_PROB_PR" << endl;
-      
       Environment env(paths[node_id][site-1], paths[node_id][site+1]);
       for (size_t i = 0; i < seg_info[node_id].size(); ++i) {
         out << th.node_names[node_id] << '\t' << i+1 << '\t'
