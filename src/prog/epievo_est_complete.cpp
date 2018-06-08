@@ -62,71 +62,6 @@ scale_div(const T scale_factor, U &to_scale) {
 }
 
 
-/* add the total time for each branch to the set of jump times at each
-   site for each branch. This allows more convenient processing of
-   jump sequences, but should be undone for cases when the final jump
-   would imply a state change */
-static void
-add_total_time_to_jumps(vector<vector<Path> > &all_paths) {
-  for (size_t i = 0; i < all_paths.size(); ++i)
-    if (!all_paths[i].empty()) {
-      // make sure all time durations are the same for each site
-      assert(all_paths[i].front().tot_time == all_paths[i].back().tot_time);
-      const double tot_time = all_paths[i].front().tot_time;
-      for (size_t j = 0; j < all_paths[i].size(); ++j)
-        all_paths[i][j].jumps.push_back(tot_time);
-    }
-}
-
-/* undo the changes made by "add_total_time_to_jumps" */
-// static
-void
-remove_total_time_from_jumps(vector<vector<Path> > &all_paths) {
-  for (size_t i = 0; i < all_paths.size(); ++i)
-    if (!all_paths[i].empty()) {
-      // make sure we are removing something added
-      assert(all_paths[i].front().jumps.back() ==
-             all_paths[i].back().jumps.back());
-      for (size_t j = 0; j < all_paths[i].size(); ++j)
-        all_paths[i][j].jumps.pop_back();
-    }
-}
-
-static void
-add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
-                          vector<double> &J, vector<double> &D) {
-
-  // make sure the total time was put at the end of all jump sequences
-  assert(left.jumps.back() == mid.jumps.back() &&
-         left.jumps.back() == right.jumps.back());
-
-  size_t triplet = triple2idx(left.init_state, mid.init_state, right.init_state);
-  double prev_time = 0.0;
-  size_t i = 0, j = 0, k = 0;
-  while (i < left.jumps.size() && j < mid.jumps.size() && k < right.jumps.size())
-    if (left.jumps[i] < std::min(mid.jumps[j], right.jumps[k])) { // LEFT
-      D[triplet] += left.jumps[i] - prev_time;
-      /* no need to update J[triplet] += 1.0; here */
-      prev_time = left.jumps[i];
-      triplet = flip_left_bit(triplet);
-      ++i;
-    }
-    else if (mid.jumps[j] < right.jumps[k]) { // MID
-      D[triplet] += mid.jumps[j] - prev_time;
-      J[triplet] += 1.0;
-      prev_time = mid.jumps[j];
-      triplet = flip_mid_bit(triplet);
-      ++j;
-    }
-    else { // RIGHT (also: default case, shouldn't udpate J)
-      D[triplet] += right.jumps[k] - prev_time;
-      /* no need to update J[triplet] += 1.0; here */
-      prev_time = right.jumps[k];
-      triplet = flip_right_bit(triplet);
-      ++k;
-    }
-}
-
 static void
 add_sufficient_statistics(const vector<Path> &paths,
                           vector<double> &J, vector<double> &D) {
@@ -619,9 +554,6 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > all_paths; // along multiple branches
     vector<string> node_names;
     read_paths(path_file, node_names, all_paths);
-    /* adding the total time to all jump sequences for convenience,
-       but might need to remove later */
-    add_total_time_to_jumps(all_paths);
     const size_t n_sites = all_paths.back().size();
 
     if (VERBOSE)
