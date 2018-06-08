@@ -249,38 +249,43 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
   const size_t n_intervals = seg_info.size();
 
-  size_t a = path.init_state; // state at top of branch
-  double time_passed = 0;
-  size_t start_jump = 0;
+  size_t start_state = path.init_state, end_state = path.init_state;
+  double start_time = 0.0, end_time = 0.0;
+  size_t start_jump = 0, end_jump = 0;
 
   double prob = 1.0;
   for (size_t i = 0; i < n_intervals; ++i) {
 
-    // find the range of jumps to evaluate using the current
-    // interval's rate and duration
-    size_t end_jump = start_jump;
-    while (end_jump < path.jumps.size() - 1 &&
-           path.jumps[end_jump + 1] < time_passed + seg_info[i].len)
+    // get the end_time by adding the segment length to the start_time
+    end_time += seg_info[i].len;
+
+    // get the end_jump as the first jump occurring after end_time
+    while (end_jump < path.jumps.size() && path.jumps[end_jump] < end_time)
       ++end_jump;
 
-    const size_t b = (end_jump - start_jump) % 2 == 0 ? a : complement_state(a);
+    // get end_state based on number of jumps between start_time and end_time
+    if ((end_jump - start_jump) % 2 == 1)
+      end_state = complement_state(end_state);
 
+    // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
-    prob *= end_cond_sample_prob(ctmm, a, b, time_passed + seg_info[i].len,
-                                 path.jumps, start_jump, end_jump, time_passed);
+    prob *= end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
+                                 start_time, end_time, start_jump, end_jump);
 
     vector<vector<double> > P;
     ctmm.get_trans_prob_mat(seg_info[i].len, P);
 
     // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
-    const double p0 = P[a][0]/fh.p[i][a]*((i == n_intervals-1) ? fh.q[0] : fh.p[i+1][0]);
+    const double p0 =
+      P[start_state][0]/fh.p[i][start_state]*((i == n_intervals-1) ?
+                                              fh.q[0] : fh.p[i+1][0]);
 
-    prob *= (b == 0) ? p0 : 1.0 - p0;
+    prob *= (end_state == 0) ? p0 : 1.0 - p0;
 
     // prepare for next interval
-    start_jump = end_jump + 1;
-    time_passed += seg_info[i].len;
-    a = b;
+    start_jump = end_jump;
+    start_time = end_time;
+    start_state = end_state;
   }
   return prob;
 }
