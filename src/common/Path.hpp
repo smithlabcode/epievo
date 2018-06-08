@@ -77,6 +77,10 @@ void
 get_seq_at_time(const double t, const std::vector<Path> &paths,
                  std::vector<bool> &seq);
 
+void
+add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
+                          std::vector<double> &J, std::vector<double> &D);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 struct Environment {

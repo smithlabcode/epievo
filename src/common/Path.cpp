@@ -287,3 +287,101 @@ PathContextStat::PathContextStat(const Path &l, const Path &m, const Path &r) {
   }
   --jumps_in_context[context]; // last break point is not a jump
 }
+
+
+static void
+add_suff_stat_single(const size_t change_pos, const Path &a, size_t i,
+                     size_t triplet, double prev_time,
+                     vector<double> &J, vector<double> &D) {
+  while (i < a.jumps.size()) {
+    D[triplet] += a.jumps[i] - prev_time;
+    // only update J if jumping in middle path
+    if (change_pos == 1) J[triplet] += 1.0;
+    triplet = ((change_pos == 1) ? flip_mid_bit(triplet) :
+               (change_pos == 0) ? flip_left_bit(triplet) :
+               flip_right_bit(triplet));
+    prev_time = a.jumps[i];
+    ++i;
+  }
+  // need to count the final interval towards D but never count J for
+  // final segment
+  D[triplet] += a.tot_time - prev_time;
+}
+
+/* Process a pair of paths collecting sufficient statistics J and
+   D. The pair (a, b) may be a (left,mid), (left,righ) or (mid,right).
+   The "fixed" position parameter indicates which member of the
+   original three paths is not present, and therefore which bit
+   doesn't change in the triplet. The original positions of a and b
+   determines which bit is flipped in the triplet at the end of
+   segments, and if J is updated (for a, for b, or neither). Once one
+   member of the pair has no more jumps, the jumps in the other member
+   of the pair are processed as a "single" using add_suff_stat_single,
+   which has a parameter for the "changing" position, instead of the
+   "fixed" position.
+ */
+static void
+add_suff_stat_pair(const size_t fixed_pos,
+                   const Path &a, size_t i, const Path &b, size_t j,
+                   size_t triplet, double prev_time,
+                   vector<double> &J, vector<double> &D) {
+  assert(fixed_pos <= 2);
+
+  while (i < a.jumps.size() && j < b.jumps.size())
+    if (a.jumps[i] < b.jumps[j]) {
+      D[triplet] += a.jumps[i] - prev_time;
+      if (fixed_pos == 0) // no change at left, "a" is mid, count J
+        J[triplet] += 1.0;
+      triplet = fixed_pos == 0 ? flip_mid_bit(triplet) : flip_left_bit(triplet);
+      prev_time = a.jumps[i];
+      ++i;
+    }
+    else {
+      D[triplet] += b.jumps[j] - prev_time;
+      if (fixed_pos == 2) // no change at right, "b" is mid, count J
+        J[triplet] += 1.0;
+      triplet = fixed_pos == 2 ? flip_mid_bit(triplet) : flip_right_bit(triplet);
+      prev_time = b.jumps[j];
+      ++j;
+    }
+  if (i < a.jumps.size())
+    add_suff_stat_single(fixed_pos == 0 ? 1 : 0, a, i, triplet, prev_time, J, D);
+  else
+    add_suff_stat_single(fixed_pos == 2 ? 1 : 2, b, j, triplet, prev_time, J, D);
+}
+
+void
+add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
+                          vector<double> &J, vector<double> &D) {
+
+  size_t triplet = triple2idx(left.init_state, mid.init_state, right.init_state);
+  double prev_time = 0.0;
+  size_t i = 0, j = 0, k = 0;
+  while (i < left.jumps.size() && j < mid.jumps.size() && k < right.jumps.size())
+    if (left.jumps[i] < std::min(mid.jumps[j], right.jumps[k])) { // LEFT
+      D[triplet] += left.jumps[i] - prev_time;
+      prev_time = left.jumps[i];
+      triplet = flip_left_bit(triplet);
+      ++i;
+    }
+    else if (mid.jumps[j] < right.jumps[k]) { // MID
+      D[triplet] += mid.jumps[j] - prev_time;
+      J[triplet] += 1.0; // update J because we are at mid position
+      prev_time = mid.jumps[j];
+      triplet = flip_mid_bit(triplet);
+      ++j;
+    }
+    else { // RIGHT (also: default case, shouldn't udpate J)
+      D[triplet] += right.jumps[k] - prev_time;
+      prev_time = right.jumps[k];
+      triplet = flip_right_bit(triplet);
+      ++k;
+    }
+
+  if (i == left.jumps.size())
+    add_suff_stat_pair(0, mid, j, right, k, triplet, prev_time, J, D);
+  else if (j == mid.jumps.size())
+    add_suff_stat_pair(1, left, i, right, k, triplet, prev_time, J, D);
+  else // (k == right.jumps.size())
+    add_suff_stat_pair(2, left, i, mid, j, triplet, prev_time, J, D);
+}
