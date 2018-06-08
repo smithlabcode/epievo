@@ -233,12 +233,15 @@ end_cond_sample_prob(const CTMarkovModel &the_model,
                      const vector<double> &jump_times,
                      size_t start_jump, const size_t end_jump,
                      const double start_time) {
+  const size_t n_jumps = end_jump - start_jump;
+
   // jump_times are between start_time and end_time
-  assert(jump_times.empty() || (jump_times.back() < end_time &&
-                                jump_times.front() > start_time));
+  assert(n_jumps > 0 ||
+         (jump_times[end_jump] < end_time &&
+          jump_times[start_jump] > start_time));
   // if we have an even number of jumps, the start and end state
   // should be the same
-  assert(jump_times.size() % 2 == static_cast<size_t>(a != b));
+  assert(n_jumps % 2 == static_cast<size_t>(a != b));
 
   vector<vector<double> > PT;
 
