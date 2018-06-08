@@ -33,10 +33,9 @@ end_cond_sample(const CTMarkovModel &the_model,
 
 double
 end_cond_sample_prob(const CTMarkovModel &the_model,
-                     size_t start_state, const size_t end_state,
-                     const double time_interval,
                      const std::vector<double> &jump_times,
-                     size_t start_jump, const size_t end_jump,
-                     const double start_time = 0.0);
+                     const size_t start_state, const size_t end_state,
+                     const double start_time, const double end_time,
+                     size_t start_jump, const size_t end_jump);
 
 #endif

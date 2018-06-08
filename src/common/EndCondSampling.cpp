@@ -225,37 +225,52 @@ end_cond_sample(const CTMarkovModel &the_model,
 }
 
 
-/* Endpoint-conditioned probability density*/
+/* Endpoint-conditioned probability density. The start time must be
+ * less than the end time. The start_jump must specify the jump with
+ * the earliest time after start time (which need not be prior to
+ * end_time). The end_jump either specifies a jump with time after
+ * end_time, or the size of jump_times, for cases where no jump exists
+ * after end_time. If the start_jump is equal to the end_jump, both
+ * must indicate a jump with time after start_time.
+ */
 double
 end_cond_sample_prob(const CTMarkovModel &the_model,
-                     size_t a, const size_t b,
-                     const double end_time,
                      const vector<double> &jump_times,
-                     size_t start_jump, const size_t end_jump,
-                     const double start_time) {
-  const size_t n_jumps = end_jump - start_jump;
+                     const size_t start_state, const size_t end_state,
+                     const double start_time, const double end_time,
+                     const size_t start_jump,
+                     const size_t end_jump) {
 
-  // jump_times are between start_time and end_time
-  assert(n_jumps > 0 ||
-         (jump_times[end_jump] < end_time &&
-          jump_times[start_jump] > start_time));
-  // if we have an even number of jumps, the start and end state
-  // should be the same
-  assert(n_jumps % 2 == static_cast<size_t>(a != b));
+  // start_jump must specify the first jump after the start time
+  assert(start_jump == 0 || jump_times[start_jump - 1] < start_time);
+  assert(start_jump == jump_times.size() || jump_times[start_jump] > start_time);
+
+  // end_jump must specify the first jump after the end time
+  assert(end_jump == 0 || jump_times[end_jump - 1] < end_time);
+  assert(end_jump == jump_times.size() || jump_times[end_jump] > end_time);
+
+  // the end points should be equal of we have an even number of jumps
+  // inside the interval
+  assert((end_jump - start_jump) % 2 == static_cast<size_t>(start_state != end_state));
 
   vector<vector<double> > PT;
 
   double p = 1.0;
 
   double curr_time = start_time;
-  for (size_t i = start_jump; i <= end_jump; ++i) {
+
+  // if start_jump == end_jump then no jump exists within the
+  // specified time interval; otherwise start_jump must specify a time
+  // inside the interval
+  size_t a = start_state;
+  for (size_t i = start_jump; i < end_jump; ++i) {
     const double time_interval = end_time - curr_time;
     the_model.get_trans_prob_mat(time_interval, PT);
-    p *= pdf(the_model, PT, time_interval, a, b,
-             jump_times[i] - curr_time);
+    p *= pdf(the_model, PT, time_interval, a, end_state, jump_times[i] - curr_time);
     a = complement_state(a);
     curr_time = jump_times[i];
   }
+
   the_model.get_trans_prob_mat(end_time - curr_time, PT);
   const double pr_no_jump =
     exp(-the_model.get_rate(a)*(end_time - curr_time))/PT[a][a];
