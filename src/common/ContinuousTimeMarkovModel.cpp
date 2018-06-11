@@ -96,11 +96,13 @@ CTMarkovModel::get_trans_prob_mat(const double time_interval,
 string
 CTMarkovModel::tostring() const {
   std::ostringstream oss;
-  oss << "rates: " << rate0 << '\t' << rate1 << endl
-      << "U = [" << U[0][0] << '\t' << U[0][1] << ']' << endl
-      << "    [" << U[1][0] << '\t' << U[1][1] << ']' << endl
-      << "Uinv = [" << Uinv[0][0] << '\t' << Uinv[0][1] << ']' << endl
-      << "       [" << Uinv[1][0] << '\t' << Uinv[1][1] << ']' << endl;
+  oss.precision(3);
+  oss << "rates  =[" << rate0 << '\t' << rate1 << ']' << endl
+      << "U      =[" << U[0][0] << '\t' << U[0][1] << ']' << endl
+      << "        [" << U[1][0] << '\t' << U[1][1] << ']' << endl
+      << "Uinv   =[" << Uinv[0][0] << '\t' << Uinv[0][1] << ']' << endl
+      << "        [" << Uinv[1][0] << '\t' << Uinv[1][1] << ']' << endl
+      << "lambda =[" << eigen_values[0] << '\t' << eigen_values[1] << ']';
   return oss.str();
 }
 
