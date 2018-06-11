@@ -52,11 +52,13 @@ get_node_name(const string &buffer) {
 
 std::ostream &
 operator<<(std::ostream &os, const Path &p) {
-  std::ios_base::fmtflags f(os.flags());
+  std::ios old_state(nullptr);
+  old_state.copyfmt(os);
   os.precision(std::numeric_limits<double>::max_digits10);
   os << p.init_state << '\t' << p.tot_time << '\t';
   copy(p.jumps.begin(), p.jumps.end(), std::ostream_iterator<double>(os, "\t"));
-  os.flags(f);
+  os.precision(std::numeric_limits<double>::max_digits10);
+  os.copyfmt(old_state);
   return os;
 }
 
