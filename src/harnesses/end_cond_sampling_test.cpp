@@ -1,15 +1,11 @@
 /* Copyright (C) 2018 University of Southern California
- *                    Jianghan Qu and Andrew D Smith
+ *                    Liz Ji, Jianghan Qu and Andrew D Smith
  *
  * end_cond_sampling_test: This program is to test the methods for
- * end-conditioned sampling. We assume that the "sequence" only
- * considers two neighboring sites, and uses forward simulation as the
- * standard against which to test other methods. For each start-end
- * pair of states (binary) we want to compare a collection of summary
- * statistics obtained from sampling methods to those that would be
- * obtained by forward sampling.
+ * end-conditioned sampling. We assume two states, so the parameters
+ * are 2 rates, and an evolutionary time.
  *
- * Author: Andrew D. Smith and Jianghan Qu
+ * Author: Liz Ji, Andrew D. Smith and Jianghan Qu
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -20,11 +16,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this software; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
  */
 
 #include <string>
@@ -33,6 +24,9 @@
 #include <fstream>
 #include <algorithm> /* max_element */
 #include <bitset>
+#include <random>
+#include <functional>
+
 #include <gsl/gsl_histogram.h>
 #include <gsl/gsl_randist.h> /* chi-squared test */
 #include <gsl/gsl_cdf.h>
@@ -44,13 +38,7 @@
 #include "EpiEvoModel.hpp" /* model_param */
 #include "StateSeq.hpp"
 #include "EndCondSampling.hpp"
-
 #include "ContinuousTimeMarkovModel.hpp"
-
-/* test TripletSampler
-#include "TripletSampler.hpp"
-#include "GlobalJump.hpp"
-*/
 
 using std::vector;
 using std::endl;
@@ -61,6 +49,88 @@ using std::runtime_error;
 
 
 static const double MINWAIT = 1e-8;
+
+
+static double
+integral_J_ij(const double lambda_i, const double lambda_j, const double T) {
+  return (lambda_i == lambda_j ?
+          T*exp(lambda_i*T) :
+          (exp(lambda_i*T) - exp(lambda_j*T))/(lambda_i - lambda_j));
+}
+
+
+static void
+expected_time_in_state(const double rate0,
+                       const double rate1,
+                       const double T,
+                       vector<double> &ED) {
+
+  // here corresponding to the "a", "b" and "j"
+  static const double n_triplets = 8;
+
+  ED = vector<double>(n_triplets, 0.0);
+
+  const vector<double> rates = {rate0, rate1};
+
+  vector<double> lambda;
+  vector<vector<double> > U;
+  vector<vector<double> > Uinv;
+  decompose(rates, lambda, U, Uinv);
+
+  vector<vector<double> > P;
+  continuous_time_trans_prob_mat(rate0, rate1, T, P);
+
+  for (size_t start_state = 0; start_state < 2; ++start_state) {
+    for (size_t end_state = 0; end_state < 2; ++end_state) {
+      for (size_t c = 0; c < 2; ++c) {
+        ED[triple2idx(start_state, end_state, c)] =
+          (U[start_state][0]*Uinv[0][c]*(U[c][0]*Uinv[0][end_state]*integral_J_ij(lambda[0], lambda[0], T) +
+                                         U[c][1]*Uinv[1][end_state]*integral_J_ij(lambda[0], lambda[1], T)) +
+           U[start_state][1]*Uinv[1][c]*(U[c][0]*Uinv[0][end_state]*integral_J_ij(lambda[1], lambda[0], T) +
+                                         U[c][1]*Uinv[1][end_state]*integral_J_ij(lambda[1], lambda[1], T)))/
+          P[start_state][end_state];
+      }
+    }
+  }
+}
+
+
+// static double
+// expected_triplet_duration(const size_t start_state,
+//                           const size_t end_state,
+//                           const double rate0,
+//                           const double rate1,
+//                           const double T,
+//                           const size_t state_of_interest) {
+
+//   const vector<double> rates = {rate0, rate1};
+//   vector<double> lambda;
+//   vector<vector<double> > U;
+//   vector<vector<double> > Uinv;
+//   decompose(rates, lambda, U, Uinv);
+
+//   vector<vector<double> > P;
+//   continuous_time_trans_prob_mat(rate0, rate1, T, P);
+
+//   double r = 0.0;
+//   for (size_t i = 0; i < 2; ++i)
+//     for (size_t j = 0; j < 2; ++j)
+//       r += (U[start_state][i]*Uinv[i][state_of_interest]*
+//             U[state_of_interest][j]*Uinv[j][end_state]*
+//             integral_J_ij(lambda[i], lambda[j], T));
+//   return r/P[a][b];
+// }
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
 
 
 static double
@@ -86,7 +156,6 @@ evaluate_fit(const vector<double> &reference,
 struct SummarySet {
   SummarySet(const vector<double> &jumps, const double tot_time,
              const size_t n_bins);
-
   size_t num_jumps;
   double total_stay_time;
   gsl_histogram * h_time;
@@ -114,7 +183,8 @@ SummarySet::SummarySet(const vector<double> &jumps, const double tot_time,
   if (jumps.size() % 2 == 0) {
     total_stay_time += (tot_time - elapsed_time);
     gsl_histogram_increment(h_time, tot_time - elapsed_time);
-  } else {
+  }
+  else {
     total_stay_time += (jumps.back() - elapsed_time);
     gsl_histogram_increment(h_time, jumps.back() - elapsed_time);
   }
@@ -245,55 +315,76 @@ sample_jump_mid(const EpiEvoModel &the_model,
   }
 }
 
-/* Forward sampling mid bit using TripletSampler
-static void
-sample_jump_mid(const EpiEvoModel &the_model, const double total_time,
-                std::mt19937 &gen, TripletSampler &ts, vector<GlobalJump> &the_path,
-                double &time_value) {
-
-  // triplet_count = c_{ijk} for current sequence (encoded in the
-  // TripletSampler object)
-  vector<size_t> triplet_counts;
-  ts.get_triplet_counts(triplet_counts);
-
-  // holding_rate = c_{ijk}*lambda_{ijk}
-  const double holding_rate =
-  std::inner_product(triplet_counts.begin(), triplet_counts.end(),
-                     the_model.triplet_rates.begin(), 0.0);
-
-  // sample a holding time = time until next state change
-  std::exponential_distribution<double> exp_distr(holding_rate);
-  const double holding_time = std::max(exp_distr(gen),
-                                       std::numeric_limits<double>::min());
-  time_value += holding_time;
-
-  if (time_value < total_time) {
-
-    size_t context;
-    for(size_t i=0; i < triplet_counts.size(); i++) {
-      if (triplet_counts[i] > 0)
-        context = i;
-    }
-
-    const size_t change_position = ts.random_mutate(context, gen);
-    the_path.push_back(GlobalJump(time_value, change_position));
-  }
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
+
+static double
+get_time_in_zero(const size_t start_state, const double T,
+                 const vector<double> &jump_times) {
+
+  if (jump_times.size() == 0)
+    return (start_state == 0) ? T : 0.0;
+
+  double time_in_zero = 0;
+  size_t a = start_state;
+  double prev_time = 0.0;
+  for (size_t i = 0; i < jump_times.size(); ++i) {
+    if (a == 0)
+      time_in_zero += jump_times[i] - prev_time;
+    prev_time = jump_times[i];
+    a = complement_state(a);
+  }
+  if (a == 0)
+    time_in_zero += T - prev_time;
+
+  return time_in_zero;
+}
+
+static double
+mean_seg_pair_length(const double T,
+                     const vector<double> &jump_times) {
+
+  if (jump_times.size() % 2 == 0)
+    return 0.0;
+
+  double total_length = 0.0;
+  size_t count = 0;
+  double prev_time = 0.0;
+  for (size_t i = 1; i < jump_times.size(); i += 2) {
+    total_length += jump_times[i] - prev_time;
+    prev_time = jump_times[i];
+    ++count;
+  }
+  total_length += (T - prev_time);
+  ++count;
+
+  return total_length/count;
+}
+
+
+static double
+count_zero_segments(const size_t start_state, const vector<double> &jump_times) {
+  const size_t n_segs = jump_times.size() + 1;
+  if (n_segs % 2 == 0)
+    return n_segs/2;
+  else
+    return (start_state == 0) ? (n_segs - 1)/2 + 1 : (n_segs - 1)/2;
+}
 
 int main(int argc, const char **argv) {
   try {
 
+    static const size_t max_sample_count = 10000;
+
     bool VERBOSE = false;
     string outfile;
-    string param_file;
 
     size_t max_iterations = 1000000;
     size_t n_paths_to_sample = 1000;
     size_t n_hist_time_bins = 10;
 
+    double rate0 = 1.5;
+    double rate1 = 0.5;
     double evo_time = 1.0;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
@@ -301,11 +392,10 @@ int main(int argc, const char **argv) {
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "test end-conditioned samplers",
                            "");
-    opt_parse.add_opt("param", 'p', "parameter file",
-                      true, param_file);
-    opt_parse.add_opt("evo-time", 't', "time to simulate",
-                      false, evo_time);
-    opt_parse.add_opt("paths", 'n', "number of paths to sample",
+    opt_parse.add_opt("rate0", '\0', "holding rate for state 0", true, rate0);
+    opt_parse.add_opt("rate1", '\0', "holding rate for state 1", true, rate1);
+    opt_parse.add_opt("time", 't', "duration of time interval", true, evo_time);
+    opt_parse.add_opt("samples", 'n', "number of paths to sample",
                       false, n_paths_to_sample);
     opt_parse.add_opt("bins", 'b', "number of bins of holding time histogram",
                       false, n_hist_time_bins);
@@ -331,10 +421,11 @@ int main(int argc, const char **argv) {
     }
     ///////////////////////////////////////////////////////////////////////////
 
-    if (VERBOSE) {
-      cerr << "time to simulate: " << evo_time << endl;
-      cerr << "paths to simulate: " << n_paths_to_sample << endl;
-    }
+    if (VERBOSE)
+      cerr << "rate0: " << rate0 << endl
+           << "rate1: " << rate1 << endl
+           << "time to simulate: " << evo_time << endl
+           << "paths to simulate: " << n_paths_to_sample << endl;
 
     /* standard mersenne_twister_engine seeded with rd() */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -345,151 +436,153 @@ int main(int argc, const char **argv) {
       cerr << "rng seed: " << rng_seed << endl;
     std::mt19937 gen(rng_seed);
 
-    if (VERBOSE)
-      cerr << "[READING PARAMETER FILE: " << param_file << "]" << endl;
-    EpiEvoModel the_model;
-    // ADS: the "false" below is to not scale the model
-    read_model(param_file, the_model);
+    const CTMarkovModel ctmm(rate0, rate1);
 
-    if (VERBOSE)
-      cerr << the_model << endl;
+    cout << ctmm << endl;
 
-    std::ofstream out(outfile.c_str());
-    out << "TOTAL_TIME" << '\t' << evo_time << endl;
-    out << "N_PATHS"    << '\t' << n_paths_to_sample << endl;
-    out << "INIT_STATE" << '\t' << "END_STATE" << '\t'
-        << "PVAL_JUMPS" << '\t' << "PVAL_TIME" << '\t'
-        << "HIST_JUMPS_FS" << '\t' << "HIST_JUMPS_DS" << '\t'
-        << "HIST_TIME_FS" << '\t' << "HIST_TIME_DS" << endl;
+    vector<double> ED;
+    expected_time_in_state(rate0, rate1, evo_time, ED);
 
-    // iterate over the possible contexts (left and right)
-    const size_t n_pairs = 4;
-    for (size_t i = 0; i < n_pairs; ++i) {
-      // extract the left and right states
-      bool left_state = false, right_state = false;
-      get_bits_from_pair(i, left_state, right_state);
+    // direct sampling
+    cout << "direct sampling:" << endl;
+    for (size_t start_state = 0; start_state < 2; ++start_state) {
+      for (size_t end_state = 0; end_state < 2; ++end_state) {
 
-      // iterate over (both) start points for the mid state
-      for (size_t j = 0; j < 2; ++j) {
-        const bool mid_state = (j & 1ul);
-        size_t triplet_idx = triple2idx(left_state, mid_state,
-                                        right_state);
-
-        if (VERBOSE)
-          cerr <<  "FORWARD SAMPLING INIT STATE: "
-               << std::bitset<3>(triplet_idx).to_string() << endl;
-
-        // 1. forward samplers
-        vector<SummarySet> fs_summary0, fs_summary1;
-        size_t iter = 0;
-        while (iter++ < max_iterations &&
-               fs_summary0.size() < n_paths_to_sample &&
-               fs_summary1.size() < n_paths_to_sample) {
-
-          // simulate a path starting at mid_state using forward simulation
-          vector<double> fs_jump_times;
-          double time_value = 0;
-          size_t curr_state = triplet_idx;
-
-          /* test TripletSampler
-          vector<char> seq = {left_state, mid_state, right_state};
-          TripletSampler ts(seq);
-          vector<GlobalJump> the_path;
-          */
-          while (time_value < evo_time) {
-            sample_jump_mid(the_model, curr_state, evo_time, gen,
-                            fs_jump_times, time_value);
-            curr_state = flip_mid_bit(curr_state);
-            /* test TripletSampler
-            sample_jump_mid(the_model, evo_time, gen, ts,
-                            the_path, time_value);
-            */
-          }
-          /* testTripletSampler
-          ts.get_sequence(seq);
-          const bool end_state = seq[1];
-          for(size_t k = 0; k < the_path.size(); k++)
-            fs_jump_times.push_back(the_path[k].timepoint);
-          */
-
-          const bool end_state = fs_jump_times.size() % 2 == 0 ?
-                                 mid_state : !mid_state;
-
-          // check end state
-          if (end_state && fs_summary1.size() < n_paths_to_sample) {
-            SummarySet current_summary(fs_jump_times, evo_time,
-                                       n_hist_time_bins);
-            fs_summary1.push_back(current_summary);
-          }
-          if (!end_state && fs_summary0.size() < n_paths_to_sample) {
-            SummarySet current_summary(fs_jump_times, evo_time,
-                                       n_hist_time_bins);
-            fs_summary0.push_back(current_summary);
-          }
+        vector<double> seg_counts;
+        vector<double> time_in_zero;
+        vector<double> zero_segs;
+        vector<double> zero_duration;
+        vector<double> time_in_one;
+        vector<double> one_segs;
+        vector<double> one_duration;
+        for (size_t k = 0; k < n_paths_to_sample; ++k) {
+          vector<double> jump_times;
+          end_cond_sample_direct(ctmm, start_state, end_state, evo_time,
+                                 gen, jump_times);
+          seg_counts.push_back(jump_times.size() + 1);
+          time_in_zero.push_back(get_time_in_zero(start_state, evo_time, jump_times));
+          time_in_one.push_back(evo_time - time_in_zero.back());
+          zero_segs.push_back(count_zero_segments(start_state, jump_times));
+          one_segs.push_back(seg_counts.back() - zero_segs.back());
+          // if (zero_segs.back() > 0)
+          //   zero_duration.push_back(time_in_zero.back()/zero_segs.back());
+          // if (one_segs.back() > 0)
+          //   one_duration.push_back(time_in_one.back()/one_segs.back());
+          zero_duration.push_back(time_in_zero.back()/std::max(1.0, zero_segs.back()));
+          one_duration.push_back(time_in_one.back()/std::max(1.0, one_segs.back()));
         }
-        // now get the summaries of the summaries...?
-        SummaryStatsFreq FS_report0(fs_summary0);
-        SummaryStatsFreq FS_report1(fs_summary1);
+        const double mean_segs =
+          accumulate(begin(seg_counts), end(seg_counts), 0.0)/seg_counts.size();
 
-        // 2. end-conditioned samplers
-        cerr <<  "DIRECT SAMPLING INIT STATE: "
-             << std::bitset<3>(triplet_idx).to_string() << endl;
+        const double mean_zero_time =
+          accumulate(begin(time_in_zero), end(time_in_zero), 0.0)/time_in_zero.size();
+        const double mean_one_time =
+          accumulate(begin(time_in_one), end(time_in_one), 0.0)/time_in_one.size();
 
-        vector<SummarySet> ds_summary0, ds_summary1;
+        const double mean_zero_duration =
+          accumulate(begin(zero_duration), end(zero_duration), 0.0)/zero_duration.size();
+        const double mean_one_duration =
+          accumulate(begin(one_duration), end(one_duration), 0.0)/one_duration.size();
 
-        // 2.0 set up rates and helper variables
-        vector<double> rates(2, 0.0);
-        rates[0] = the_model.triplet_rates[triplet_idx];
-        rates[1] = the_model.triplet_rates[flip_mid_bit(triplet_idx)];
-        const CTMarkovModel vertical_model(rates);
+        const double mean_zero_segs =
+          accumulate(begin(zero_segs), end(zero_segs), 0.0)/zero_segs.size();
+        const double mean_one_segs =
+          accumulate(begin(one_segs), end(one_segs), 0.0)/one_segs.size();
 
-        // vector<double> eigen_vals;
-        // vector<vector<double> > U;
-        // vector<vector<double> > Uinv;
-        vector<vector<double> > PT;
+        cout << "X(0)=" << start_state << '\t'
+             << "X(T)=" << end_state << '\t'
+             << "Segs=" << mean_segs << '\t'
+             << "D(0)=" << mean_zero_time << '\t'
+             << "S(0)=" << mean_zero_segs << '\t'
+             << "L(0)=" << mean_zero_duration << '\t'
+             << "D(1)=" << mean_one_time << '\t'
+             << "S(1)=" << mean_one_segs << '\t'
+             << "L(1)=" << mean_one_duration << endl;
+      }
+    }
 
-        // decompose(rates, eigen_vals, U, Uinv);
-        vertical_model.get_trans_prob_mat(evo_time, PT);
+    cout << "naive forward sampling with rejection:" << endl;
+    // naive forward sampling with rejection
+    for (size_t start_state = 0; start_state < 2; ++start_state) {
+      for (size_t end_state = 0; end_state < 2; ++end_state) {
 
-        while (ds_summary0.size() < n_paths_to_sample) {
-          vector<double> ds_jump_times0, ds_jump_times1;
-
-          end_cond_sample(vertical_model, 0, mid_state, evo_time,
-                          gen, ds_jump_times0);
-
-          const SummarySet current_summary0(ds_jump_times0, evo_time,
-                                      n_hist_time_bins);
-          ds_summary0.push_back(current_summary0);
-
-          end_cond_sample(vertical_model, 0, complement_state(mid_state),
-                          evo_time, gen, ds_jump_times1);
-          const SummarySet current_summary1(ds_jump_times1, evo_time,
-                                            n_hist_time_bins);
-          ds_summary1.push_back(current_summary1);
+        vector<double> seg_counts;
+        vector<double> time_in_zero;
+        vector<double> zero_segs;
+        vector<double> zero_duration;
+        vector<double> time_in_one;
+        vector<double> one_segs;
+        vector<double> one_duration;
+        vector<double> mspl;
+        for (size_t k = 0; k < n_paths_to_sample; ++k) {
+          vector<double> jump_times;
+          assert(end_cond_sample_forward_rejection(max_sample_count, ctmm,
+                                                   start_state, end_state, evo_time,
+                                                   gen, jump_times));
+          seg_counts.push_back(jump_times.size() + 1);
+          time_in_zero.push_back(get_time_in_zero(start_state, evo_time, jump_times));
+          time_in_one.push_back(evo_time - time_in_zero.back());
+          zero_segs.push_back(count_zero_segments(start_state, jump_times));
+          one_segs.push_back(seg_counts.back() - zero_segs.back());
+          // if (zero_segs.back() > 0)
+          //   zero_duration.push_back(time_in_zero.back()/zero_segs.back());
+          // if (one_segs.back() > 0)
+          //   one_duration.push_back(time_in_one.back()/one_segs.back());
+          zero_duration.push_back(time_in_zero.back()/std::max(1.0, zero_segs.back()));
+          one_duration.push_back(time_in_one.back()/std::max(1.0, one_segs.back()));
+          if (jump_times.size() % 2 == 1)
+            mspl.push_back(mean_seg_pair_length(evo_time, jump_times));
         }
+        const double mean_segs =
+          accumulate(begin(seg_counts), end(seg_counts), 0.0)/seg_counts.size();
 
-        SummaryStatsFreq DS_report0(ds_summary0);
-        SummaryStatsFreq DS_report1(ds_summary1);
+        const double mean_zero_time =
+          accumulate(begin(time_in_zero), end(time_in_zero), 0.0)/time_in_zero.size();
+        const double mean_one_time =
+          accumulate(begin(time_in_one), end(time_in_one), 0.0)/time_in_one.size();
 
-        // 3. statistical testing and output
-        double pval_time0, pval_jumps0, pval_time1, pval_jumps1;
-        test_summary(FS_report0, DS_report0, pval_time0, pval_jumps0);
-        test_summary(FS_report1, DS_report1, pval_time1, pval_jumps1);
-        out << std::bitset<3>(triplet_idx).to_string() << '\t'
-        << std::bitset<3>(triplet_idx).to_string() << '\t'
-        << pval_jumps0 << '\t' << pval_time0 << '\t'
-        << FS_report0.print_jumps() << '\t'
-        << DS_report0.print_jumps() << '\t'
-        << FS_report0.print_time() << '\t'
-        << DS_report0.print_time() << endl;
+        const double mean_zero_duration =
+          accumulate(begin(zero_duration), end(zero_duration), 0.0)/zero_duration.size();
+        const double mean_one_duration =
+          accumulate(begin(one_duration), end(one_duration), 0.0)/one_duration.size();
 
-        out << std::bitset<3>(triplet_idx).to_string() << '\t'
-        << std::bitset<3>(flip_mid_bit(triplet_idx)).to_string() << '\t'
-        << pval_jumps1 << '\t' << pval_time1 << '\t'
-        << FS_report1.print_jumps() << '\t'
-        << DS_report1.print_jumps() << '\t'
-        << FS_report1.print_time() << '\t'
-        << DS_report1.print_time() << endl;
+        const double mean_zero_segs =
+          accumulate(begin(zero_segs), end(zero_segs), 0.0)/zero_segs.size();
+        const double mean_one_segs =
+          accumulate(begin(one_segs), end(one_segs), 0.0)/one_segs.size();
+
+        const double mean_mspl =
+          accumulate(begin(mspl), end(mspl), 0.0)/mspl.size();
+
+        cout << "X(0)=" << start_state << '\t'
+             << "X(T)=" << end_state << '\t'
+             << "Segs=" << mean_segs << '\t'
+             << "J=" << mean_segs - 1 << '\t'
+             << "T(0)=" << mean_zero_time << '\t'
+             << "S(0)=" << mean_zero_segs << '\t'
+             << "D(0)=" << mean_zero_duration << '\t'
+             << "T(1)=" << mean_one_time << '\t'
+             << "S(1)=" << mean_one_segs << '\t'
+             << "D(1)=" << mean_one_duration << '\t'
+             << "MSP=" << mean_mspl << '\t'
+             << "E[T(0)]=" << ED[triple2idx(start_state, end_state, 0ul)] << endl;
+
+        typedef std::poisson_distribution<size_t> pois_distr;
+        auto pois = bind(pois_distr(mean_zero_duration + mean_one_duration), ref(gen));
+        vector<double> jump_counts;
+        for (size_t k = 0; k < n_paths_to_sample; ++k) {
+          jump_counts.push_back(pois());
+        }
+        cout << accumulate(begin(jump_counts),
+                           end(jump_counts), 0.0)/jump_counts.size() << endl;
+
+        auto pois2 = bind(pois_distr(evo_time*(1.0/rate0 + 1.0/rate1)), ref(gen));
+        jump_counts.clear();
+        for (size_t k = 0; k < n_paths_to_sample; ++k) {
+          jump_counts.push_back(pois2());
+        }
+        cout << accumulate(begin(jump_counts),
+                           end(jump_counts), 0.0)/jump_counts.size() << endl;
       }
     }
   }
