@@ -42,6 +42,10 @@ using std::string;
 using std::pair;
 using std::make_pair;
 
+using std::bind;
+using std::placeholders::_1;
+using std::multiplies;
+
 // collect rates and interval lengths
 static void
 collect_segment_info(const vector<double> &triplet_rates,
@@ -203,8 +207,8 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
     const size_t sampled_state = (unif(gen) > p0);
 
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
-    end_cond_sample(ctmm, prev_state, sampled_state, seg_info[i].len, gen,
-                    sampled_path.jumps, time_passed);
+    end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len, gen,
+                           sampled_path.jumps, time_passed);
 
     // prepare for next interval
     time_passed += seg_info[i].len;
@@ -269,8 +273,20 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
-    prob *= end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
-                                 start_time, end_time, start_jump, end_jump);
+    cerr << "WTF" << endl;
+    cerr << "i=" << i << '\t'
+         << "st=" << start_time << '\t' << "et=" << end_time << '\t'
+         << start_state << '\t' << end_state << '\t'
+         << start_jump << '\t' << end_jump << '\t'
+         << (start_jump < path.jumps.size() ? path.jumps[start_jump] : 0.0) << '\t'
+         << (end_jump < path.jumps.size() ? path.jumps[end_jump] : 0.0) << '\t'
+         << endl;
+    const double interval_prob =
+      end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
+                           start_time, end_time, start_jump, end_jump);
+    cerr << interval_prob << endl;
+    prob *= interval_prob;
+    assert(std::isfinite(prob));
 
     vector<vector<double> > P;
     ctmm.get_trans_prob_mat(seg_info[i].len, P);
@@ -281,6 +297,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
                                               fh.q[0] : fh.p[i+1][0]);
 
     prob *= (end_state == 0) ? p0 : 1.0 - p0;
+    assert(std::isfinite(prob));
 
     // prepare for next interval
     start_jump = end_jump;
@@ -311,6 +328,7 @@ proposal_prob(const vector<double> &triplet_rates,
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
     prob *= proposal_prob_branch(seg_info[node_id], fh[node_id], the_path[node_id]);
+
   return prob;
 }
 
@@ -329,48 +347,86 @@ log_lik_ratio(const vector<double> &rates,
   return result;
 }
 
+static double
+log_likelihood(const vector<double> &rates,
+               const vector<double> &J, const vector<double> &D) {
+  static const size_t n_triples = 8;
+  double r = 0.0;
+  for (size_t i = 0; i < n_triples; ++i)
+    r += J[i]*log(rates[i]) - D[i]*rates[i];
+  return r;
+}
+
 
 // compute acceptance rate
 double
-log_accept_rate(const EpiEvoModel &the_model, const TreeHelper &th,
+log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 const size_t site_id,
                 const vector<vector<Path> > &paths,
                 const vector<FelsHelper> &fh,
                 const vector<vector<SegmentInfo> > &seg_info,
                 const vector<Path> &proposed_path) {
 
+  static const size_t n_triples = 8;
+
+  // ADS: this is unfortunate; we need to slice/transpose the original
+  // paths because of how they are organized
   vector<Path> original(th.n_nodes);
-  for (size_t i = 0; i < th.n_nodes; ++i)
-    original[i] = paths[i][site_id];
-
-  const double prob_old =
-    proposal_prob(the_model.triplet_rates, th,
-                  site_id, paths, the_model.init_T, fh, seg_info, original);
-
-  const double prob_new =
-    proposal_prob(the_model.triplet_rates, th,
-                  site_id, paths, the_model.init_T, fh, seg_info, proposed_path);
-
-  double lr = log(prob_old) - log(prob_new);
-
   for (size_t i = 1; i < th.n_nodes; ++i) {
-    const Path l =  paths[i][site_id - 1];
-    const Path ll = paths[i][site_id - 2];
-    const Path r =  paths[i][site_id + 1];
-    const Path rr = paths[i][site_id + 2];
-    PathContextStat pcs_old(l, paths[i][site_id], r);
-    PathContextStat pcs_new(l, proposed_path[i], r);
-    PathContextStat pcs_old_l(ll, l, paths[i][site_id]);
-    PathContextStat pcs_new_l(ll, l, proposed_path[i]);
-    PathContextStat pcs_old_r(paths[i][site_id], r, rr);
-    PathContextStat pcs_new_r(proposed_path[i], r, rr);
-    lr +=
-      log_lik_ratio(the_model.triplet_rates, pcs_new, pcs_old) +
-      log_lik_ratio(the_model.triplet_rates, pcs_new_l, pcs_old_l) +
-      log_lik_ratio(the_model.triplet_rates, pcs_new_r, pcs_old_r);
+    original[i] = paths[i][site_id];
+    cerr << original[i] << endl;
+    cerr << proposed_path[i] << endl;
   }
 
-  return lr;
+  const double orig_proposal =
+    proposal_prob(mod.triplet_rates, th, site_id, paths,
+                  mod.init_T, fh, seg_info, original);
+
+  const double update_proposal =
+    proposal_prob(mod.triplet_rates, th, site_id, paths,
+                  mod.init_T, fh, seg_info, proposed_path);
+
+  assert(site_id > 1);
+
+  double llr = log(orig_proposal) - log(update_proposal);
+
+  vector<double> D_orig(n_triples), J_orig(n_triples);
+  vector<double> D_prop(n_triples), J_prop(n_triples);
+  vector<double> scaled_rates(n_triples);
+  for (size_t i = 1; i < th.n_nodes; ++i) {
+
+    // sufficient stats for current pentet using original path at mid
+    vector<Path>::const_iterator opth(paths[i].begin() + site_id);
+    fill_n(begin(D_orig), n_triples, 0.0);
+    fill_n(begin(J_orig), n_triples, 0.0);
+    add_sufficient_statistics(*(opth - 2), *(opth - 1), *opth, J_orig, D_orig);
+    add_sufficient_statistics(*(opth - 1), *opth, *(opth + 1), J_orig, D_orig);
+    add_sufficient_statistics(*opth, *(opth + 1), *(opth + 2), J_orig, D_orig);
+
+    // sufficient stats for current pentet using proposed path at mid
+    // vector<Path>::const_iterator pth(paths[i].begin() + site_id);
+    vector<Path>::const_iterator ppth(proposed_path.begin() + i);
+    fill_n(begin(D_prop), n_triples, 0.0);
+    fill_n(begin(J_prop), n_triples, 0.0);
+    add_sufficient_statistics(*(opth - 2), *(opth - 1), *ppth, J_prop, D_prop);
+    add_sufficient_statistics(*(opth - 1), *ppth, *(opth + 1), J_prop, D_prop);
+    add_sufficient_statistics(*ppth, *(opth + 1), *(opth + 2), J_prop, D_prop);
+
+    // scale the rates so they apply to the current branch lengths
+    transform(begin(mod.triplet_rates), end(mod.triplet_rates),
+              begin(scaled_rates),
+              bind(multiplies<double>(), _1, th.branches[i]));
+
+    cerr << log_likelihood(scaled_rates, J_orig, D_orig) << endl;
+    cerr << log_likelihood(scaled_rates, J_prop, D_prop) << endl;
+
+    // add difference in log-likelihood for the proposed vs. original
+    // to the Hastings ratio
+    llr += (log_likelihood(scaled_rates, J_prop, D_prop) -
+            log_likelihood(scaled_rates, J_orig, D_orig));
+  }
+
+  return llr;
 }
 
 
@@ -393,13 +449,53 @@ gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
   downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
                     proposed_path);
 
+  // cerr << proposed_path.size() << endl;
+  // for (size_t i = 0; i < proposed_path.size(); ++i) {
+  //   cerr << proposed_path[i] << endl;
+  // }
+
   // acceptance rate
   const double log_acc_rate =
     log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
-  if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate))
-    for (size_t i = 0; i < th.n_nodes; ++i)
+  if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate)) {
+    cerr << "ACCEPT" << endl;
+    for (size_t i = 1; i < th.n_nodes; ++i) {
+      cerr << i << '\t' << site_id << endl;
       paths[i][site_id] = proposed_path[i];
+    }
+  }
 }
+
+
+// void
+// gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
+//            const size_t site_id, vector<vector<Path> > &paths,
+//            std::mt19937 &gen, vector<Path> &proposed_path) {
+
+//   // get rates and lengths each interval [seg_info: node x site]
+//   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
+//   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+//     collect_segment_info(the_model.triplet_rates,
+//                          paths[node_id][site_id - 1],
+//                          paths[node_id][site_id + 1], seg_info[node_id]);
+
+//   // upward pruning and downward sampling [fh: one for each node]
+//   vector<FelsHelper> fh;
+//   pruning(th, site_id, paths, seg_info, fh);
+
+//   downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
+//                     proposed_path);
+
+//   // acceptance rate
+//   const double log_acc_rate =
+//     log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
+
+//   std::uniform_real_distribution<double> unif(0.0, 1.0);
+
+//   if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate))
+//     for (size_t i = 0; i < th.n_nodes; ++i)
+//       paths[i][site_id] = proposed_path[i];
+// }

@@ -65,6 +65,10 @@ gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
            std::mt19937 &gen,
            std::vector<Path> &sampled_path);
 
+void
+add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
+                          std::vector<double> &J, std::vector<double> &D);
+
 /* Pruning
   - post-order traversal of nodes
   ---- at node v:
