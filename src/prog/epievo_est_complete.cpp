@@ -72,8 +72,8 @@ int main(int argc, const char **argv) {
                       false, scale_the_rates);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
-      opt_parse.add_opt("output", 'o', "output parameter file",
-                        true, outfile);
+    opt_parse.add_opt("output", 'o', "output parameter file",
+                      false, outfile);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
