@@ -80,46 +80,26 @@ expected_time_in_state(const double rate0,
   vector<vector<double> > P;
   continuous_time_trans_prob_mat(rate0, rate1, T, P);
 
+  // compute integral_J_ij
+  vector<vector<double>> J = vector<vector<double>>(2, vector<double>(2, 0.0));
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      J[i][j] = integral_J_ij(lambda[i], lambda[j], T);
+
+      
   for (size_t start_state = 0; start_state < 2; ++start_state) {
     for (size_t end_state = 0; end_state < 2; ++end_state) {
       for (size_t c = 0; c < 2; ++c) {
         ED[triple2idx(start_state, end_state, c)] =
-          (U[start_state][0]*Uinv[0][c]*(U[c][0]*Uinv[0][end_state]*integral_J_ij(lambda[0], lambda[0], T) +
-                                         U[c][1]*Uinv[1][end_state]*integral_J_ij(lambda[0], lambda[1], T)) +
-           U[start_state][1]*Uinv[1][c]*(U[c][0]*Uinv[0][end_state]*integral_J_ij(lambda[1], lambda[0], T) +
-                                         U[c][1]*Uinv[1][end_state]*integral_J_ij(lambda[1], lambda[1], T)))/
+          (U[start_state][0]*Uinv[0][c]*(U[c][0]*Uinv[0][end_state]*J[0][0] +
+                                         U[c][1]*Uinv[1][end_state]*J[0][1]) +
+           U[start_state][1]*Uinv[1][c]*(U[c][0]*Uinv[0][end_state]*J[1][0] +
+                                         U[c][1]*Uinv[1][end_state]*J[1][1]))/
           P[start_state][end_state];
       }
     }
   }
 }
-
-
-// static double
-// expected_triplet_duration(const size_t start_state,
-//                           const size_t end_state,
-//                           const double rate0,
-//                           const double rate1,
-//                           const double T,
-//                           const size_t state_of_interest) {
-
-//   const vector<double> rates = {rate0, rate1};
-//   vector<double> lambda;
-//   vector<vector<double> > U;
-//   vector<vector<double> > Uinv;
-//   decompose(rates, lambda, U, Uinv);
-
-//   vector<vector<double> > P;
-//   continuous_time_trans_prob_mat(rate0, rate1, T, P);
-
-//   double r = 0.0;
-//   for (size_t i = 0; i < 2; ++i)
-//     for (size_t j = 0; j < 2; ++j)
-//       r += (U[start_state][i]*Uinv[i][state_of_interest]*
-//             U[state_of_interest][j]*Uinv[j][end_state]*
-//             integral_J_ij(lambda[i], lambda[j], T));
-//   return r/P[a][b];
-// }
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -287,35 +267,6 @@ test_summary(SummaryStatsFreq &a, SummaryStatsFreq &b,
 }
 
 
-///////////////////////////////////////////////////////////////////////////
-
-
-/* Forward sampling mid bit*/
-static void
-sample_jump_mid(const EpiEvoModel &the_model,
-                const size_t is, const double tot_time,
-                std::mt19937 &gen, vector<double> &jump_times,
-                double &time_value) {
-
-  const double holding_rate = the_model.triplet_rates[is];
-
-  // sample a holding time = time until next state change
-  std::exponential_distribution<double> exp_distr(holding_rate);
-  const double holding_time =
-    std::max(exp_distr(gen), std::numeric_limits<double>::min());
-
-  // update the current time_value
-  time_value += holding_time;
-
-  // if the holding time ends before the total time interval, we can
-  // make a change to the state sequence
-  if (time_value < tot_time) {
-    /* add the changed position and change time to the path */
-    jump_times.push_back(time_value);
-  }
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 
 static double
@@ -379,7 +330,6 @@ int main(int argc, const char **argv) {
     bool VERBOSE = false;
     string outfile;
 
-    size_t max_iterations = 1000000;
     size_t n_paths_to_sample = 1000;
     size_t n_hist_time_bins = 10;
 
@@ -455,6 +405,7 @@ int main(int argc, const char **argv) {
         vector<double> time_in_one;
         vector<double> one_segs;
         vector<double> one_duration;
+        vector<double> proposal_prob;
         for (size_t k = 0; k < n_paths_to_sample; ++k) {
           vector<double> jump_times;
           end_cond_sample_direct(ctmm, start_state, end_state, evo_time,
@@ -470,6 +421,10 @@ int main(int argc, const char **argv) {
           //   one_duration.push_back(time_in_one.back()/one_segs.back());
           zero_duration.push_back(time_in_zero.back()/std::max(1.0, zero_segs.back()));
           one_duration.push_back(time_in_one.back()/std::max(1.0, one_segs.back()));
+          proposal_prob.push_back(end_cond_sample_prob(ctmm, jump_times,
+                                                       start_state, end_state,
+                                                       0, evo_time,
+                                                       0, jump_times.size()));
         }
         const double mean_segs =
           accumulate(begin(seg_counts), end(seg_counts), 0.0)/seg_counts.size();
@@ -489,6 +444,9 @@ int main(int argc, const char **argv) {
         const double mean_one_segs =
           accumulate(begin(one_segs), end(one_segs), 0.0)/one_segs.size();
 
+        const double mean_proposal_prob =
+        accumulate(begin(proposal_prob), end(proposal_prob), 0.0)/proposal_prob.size();
+        
         cout << "X(0)=" << start_state << '\t'
              << "X(T)=" << end_state << '\t'
              << "Segs=" << mean_segs << '\t'
@@ -497,7 +455,8 @@ int main(int argc, const char **argv) {
              << "L(0)=" << mean_zero_duration << '\t'
              << "D(1)=" << mean_one_time << '\t'
              << "S(1)=" << mean_one_segs << '\t'
-             << "L(1)=" << mean_one_duration << endl;
+             << "L(1)=" << mean_one_duration << '\t'
+             << "Proposal prob=" << mean_proposal_prob << endl;
       }
     }
 
@@ -513,6 +472,7 @@ int main(int argc, const char **argv) {
         vector<double> time_in_one;
         vector<double> one_segs;
         vector<double> one_duration;
+        vector<double> proposal_prob;
         vector<double> mspl;
         for (size_t k = 0; k < n_paths_to_sample; ++k) {
           vector<double> jump_times;
@@ -532,6 +492,10 @@ int main(int argc, const char **argv) {
           one_duration.push_back(time_in_one.back()/std::max(1.0, one_segs.back()));
           if (jump_times.size() % 2 == 1)
             mspl.push_back(mean_seg_pair_length(evo_time, jump_times));
+          proposal_prob.push_back(forward_sample_prob(ctmm, jump_times,
+                                                      start_state, end_state,
+                                                      0, evo_time,
+                                                      0, jump_times.size()));
         }
         const double mean_segs =
           accumulate(begin(seg_counts), end(seg_counts), 0.0)/seg_counts.size();
@@ -554,6 +518,9 @@ int main(int argc, const char **argv) {
         const double mean_mspl =
           accumulate(begin(mspl), end(mspl), 0.0)/mspl.size();
 
+        const double mean_proposal_prob =
+        accumulate(begin(proposal_prob), end(proposal_prob), 0.0)/proposal_prob.size();
+        
         cout << "X(0)=" << start_state << '\t'
              << "X(T)=" << end_state << '\t'
              << "Segs=" << mean_segs << '\t'
@@ -565,7 +532,8 @@ int main(int argc, const char **argv) {
              << "S(1)=" << mean_one_segs << '\t'
              << "D(1)=" << mean_one_duration << '\t'
              << "MSP=" << mean_mspl << '\t'
-             << "E[T(0)]=" << ED[triple2idx(start_state, end_state, 0ul)] << endl;
+             << "E[T(0)]=" << ED[triple2idx(start_state, end_state, 0ul)] << '\t'
+             << "Proposal prob=" << mean_proposal_prob << endl;
 
         typedef std::poisson_distribution<size_t> pois_distr;
         auto pois = bind(pois_distr(mean_zero_duration + mean_one_duration), ref(gen));
