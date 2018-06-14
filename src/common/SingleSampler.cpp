@@ -334,20 +334,6 @@ proposal_prob(const vector<double> &triplet_rates,
 
 
 static double
-log_lik_ratio(const vector<double> &rates,
-              const PathContextStat &pcs_num,
-              const PathContextStat &pcs_denom) {
-  static const size_t n_triples = 8;
-  double result = 0.0;
-  for (size_t i = 0; i < n_triples; ++i) {
-    const double J_diff = pcs_num.jumps_in_context[i] - pcs_denom.jumps_in_context[i];
-    const double D_diff = pcs_num.time_in_context[i] - pcs_denom.time_in_context[i];
-    result += J_diff*log(rates[i]) - D_diff*rates[i];
-  }
-  return result;
-}
-
-static double
 log_likelihood(const vector<double> &rates,
                const vector<double> &J, const vector<double> &D) {
   static const size_t n_triples = 8;
@@ -431,9 +417,9 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 
 
 void
-gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
-           const size_t site_id, vector<vector<Path> > &paths,
-           std::mt19937 &gen, vector<Path> &proposed_path) {
+Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
+                         const size_t site_id, vector<vector<Path> > &paths,
+                         std::mt19937 &gen, vector<Path> &proposed_path) {
 
   // get rates and lengths each interval [seg_info: node x site]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
@@ -469,6 +455,31 @@ gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
   }
 }
 
+
+void
+Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
+           const size_t site_id, vector<vector<Path> > &paths,
+           std::mt19937 &gen, vector<Path> &proposed_path) {
+  
+  // get rates and lengths each interval [seg_info: node x site]
+  vector<vector<SegmentInfo> > seg_info(th.n_nodes);
+  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+    collect_segment_info(the_model.triplet_rates,
+                         paths[node_id][site_id - 1],
+                         paths[node_id][site_id + 1], seg_info[node_id]);
+  
+  // upward pruning and downward sampling [fh: one for each node]
+  vector<FelsHelper> fh;
+  pruning(th, site_id, paths, seg_info, fh);
+  
+  downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
+                    proposed_path);
+  
+  for (size_t i = 1; i < th.n_nodes; ++i) {
+    cerr << i << '\t' << site_id << endl;
+    paths[i][site_id] = proposed_path[i];
+  }
+}
 
 // void
 // gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,

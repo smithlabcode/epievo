@@ -230,7 +230,7 @@ int main(int argc, const char **argv) {
                                        the_model.triplet_rates[2]); // 010
 
     vector<double> jump_times;
-    end_cond_sample(vertical_model, a, b, T, gen, jump_times);
+    end_cond_sample_direct(vertical_model, a, b, T, gen, jump_times);
 
     cerr << " sampled jump times: " << endl;
     for (size_t i = 0; i < jump_times.size(); ++i)
@@ -263,7 +263,7 @@ int main(int argc, const char **argv) {
         std::uniform_int_distribution<> dis(2, n_sites - 3);
         size_t site = dis(gen);
         vector<Path> new_path;
-        gibbs_site(the_model, th, site, all_paths, gen, new_path);
+        Metropolis_Hastings_site(the_model, th, site, all_paths, gen, new_path);
         for (size_t node_id = 1; node_id < n_nodes; ++node_id)
           all_paths[node_id][site] = new_path[node_id];
       }
