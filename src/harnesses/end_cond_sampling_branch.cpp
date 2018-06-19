@@ -37,7 +37,7 @@
 #include "EpiEvoModel.hpp" /* model_param */
 #include "TreeHelper.hpp"
 #include "StateSeq.hpp"
-#include "SingleSampler.hpp"
+#include "SingleSiteSampler.hpp"
 
 using std::vector;
 using std::endl;
@@ -57,7 +57,7 @@ static const double MINWAIT = 1e-8;
 
 struct SummarySet {
   SummarySet(const Path l, const Path m, const Path r, const size_t n_bins);
-  
+
   vector<size_t> num_jumps;
   vector<double> total_stay_time;
   vector<gsl_histogram *> h_time;
@@ -65,20 +65,20 @@ struct SummarySet {
 
 SummarySet::SummarySet(const Path l, const Path m, const Path r,
                        const size_t n_bins) {
-  
+
   num_jumps.resize(N_TRIPLETS, 0);
   total_stay_time.resize(N_TRIPLETS, 0.0);
-  
+
   vector<double> jumps(m.jumps.size() + 2, 0.0); // two extra entries
   copy(m.jumps.begin(), m.jumps.end(), jumps.begin() + 1); // start at jumps[1]
   jumps.back() = m.tot_time; // make sure the final entry is tot_time
-  
+
   for(size_t k = 0; k < N_TRIPLETS; ++k) {
     gsl_histogram * h_time_k = gsl_histogram_alloc(n_bins);
     gsl_histogram_set_ranges_uniform(h_time_k, 0, m.tot_time+MINWAIT);
     h_time.push_back(h_time_k);
   }
-  
+
   size_t context = triple2idx(l.init_state, m.init_state, r.init_state);
   for (size_t i = 1; i < jumps.size(); ++i) {
     const double t = 0.5*(jumps[i] + jumps[i-1]);
@@ -87,7 +87,7 @@ SummarySet::SummarySet(const Path l, const Path m, const Path r,
     ++num_jumps[context];
     total_stay_time[context] += (jumps[i] - jumps[i-1]);
     gsl_histogram_increment(h_time[context], jumps[i] - jumps[i-1]);
-    
+
   }
   --num_jumps[context]; // last break point is not a jump
 }
@@ -98,16 +98,16 @@ SummarySet::SummarySet(const Path l, const Path m, const Path r,
 static double
 evaluate_fit(const vector<double> &reference,
              const vector<double> &to_evaluate) {
-  
+
   assert(reference.size() == to_evaluate.size());
-  
+
   double chi_squared_stat = 0.0;
   for (size_t i = 0; i < reference.size(); ++i) {
     chi_squared_stat +=
     (to_evaluate[i] - reference[i])*
     (to_evaluate[i] - reference[i])/reference[i];
   }
-  
+
   const double degrees_of_freedom = reference.size() - 1;
   return gsl_cdf_chisq_P(chi_squared_stat, degrees_of_freedom);
 }
@@ -117,7 +117,7 @@ struct SummaryStatsFreq {
   SummaryStatsFreq(const vector<SummarySet> &summary);
   string print_time(const size_t triplet_idx) const;
   string print_jumps(const size_t triplet_idx) const;
-  
+
   size_t num_samples;
   vector<vector<double> > time_freq; // proportion, not count
   vector<vector<double> > jumps_freq; // proportion, not count
@@ -125,23 +125,23 @@ struct SummaryStatsFreq {
 
 SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> &summary) {
   num_samples = summary.size();
-  
+
   if (num_samples > 0) {
     for(size_t k = 0; k < N_TRIPLETS; ++k) {
       vector<double> time_freq_k;
       vector<double> jumps_freq_k;
-      
+
       // initialize time_freq
       const size_t nbins_time = summary.back().h_time[k]->n;
       time_freq_k.resize(nbins_time, 0);
-      
+
       // initialize jumps_freq
       size_t max_jumps = 0;
       for (size_t i = 0; i < num_samples; i++)
         if (summary[i].num_jumps[k] > max_jumps)
           max_jumps = summary[i].num_jumps[k];
       jumps_freq_k.resize(max_jumps + 1, 0);
-      
+
       // merge summaries
       for (size_t i = 0; i < num_samples; i++) {
         for (size_t j = 0; j < nbins_time; j++) {
@@ -149,19 +149,19 @@ SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> &summary) {
         }
         jumps_freq_k[summary[i].num_jumps[k]]++;
       }
-      
+
       // normalize to frequency
       const double sum_time = accumulate(time_freq_k.begin(), time_freq_k.end(),
                                          0.0);
       const double sum_jumps = accumulate(jumps_freq_k.begin(),
                                           jumps_freq_k.end(), 0.0);
-      
+
       for (size_t i = 0; i < time_freq_k.size(); i++)
         time_freq_k[i] /= sum_time;
-      
+
       for (size_t i = 0; i < jumps_freq_k.size(); i++)
         jumps_freq_k[i] /= sum_jumps;
-    
+
       time_freq.push_back(time_freq_k);
       jumps_freq.push_back(jumps_freq_k);
     }
@@ -205,7 +205,7 @@ test_summary(SummaryStatsFreq &a, SummaryStatsFreq &b,
     }
   }
   pval_time = evaluate_fit(time_exp, time_obs);
-  
+
   for(size_t i = 0; i < std::min(a.jumps_freq[triplet_idx].size(),
                                  b.jumps_freq[triplet_idx].size()); i++) {
     if (a.jumps_freq[triplet_idx][i] > 0) {
@@ -219,7 +219,7 @@ test_summary(SummaryStatsFreq &a, SummaryStatsFreq &b,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//////////   copied/modified from SingleSampler.cpp                   //////////
+//////////   copied/modified from WTF                                 //////////
 ////////////////////////////////////////////////////////////////////////////////
 // collect rates and interval lengths
 static void
@@ -229,7 +229,7 @@ collect_segment_info(const vector<double> &triplet_rates,
   Environment env(l, r);
   const size_t n_intervals = env.left.size();
   seg_info = vector<SegmentInfo>(n_intervals);
-  
+
   for (size_t i = 0; i < n_intervals; ++i) {
     const size_t pattern0 = triple2idx(env.left[i], false, env.right[i]);
     const size_t pattern1 = triple2idx(env.left[i], true, env.right[i]);
@@ -243,13 +243,13 @@ static double
 root_post_prob0(const size_t site_id, const vector<Path> &the_paths,
                 const vector<vector<double> > &horiz_tr_prob,
                 const vector<double> &q) {
-  
+
   const size_t left_st = the_paths[site_id - 1].init_state;
   const size_t right_st = the_paths[site_id + 1].init_state;
-  
+
   const double p0 = (horiz_tr_prob[left_st][0]*horiz_tr_prob[0][right_st])*q[0];
   const double p1 = (horiz_tr_prob[left_st][1]*horiz_tr_prob[1][right_st])*q[1];
-  
+
   return p0/(p0 + p1);
 }
 
@@ -261,25 +261,25 @@ forward_sample(const vector<double> &rates,
                const bool is, const bool es,
                const double tot_time, std::mt19937 &gen,
                vector<double> &jump_times, const size_t max_iteration) {
-  
+
   bool reach_target = false;
   vector<double> fs_jump_times;
   size_t num_sampled = 0;
-  
+
   while (!reach_target && num_sampled < max_iteration) {
     fs_jump_times.clear();
     double time_value = 0;
     size_t curr_state = is;
-    
+
     // one forward sampling run
     while (time_value < tot_time) {
       const double holding_rate = rates[curr_state];
       std::exponential_distribution<double> exp_distr(holding_rate);
       const double holding_time =
       std::max(exp_distr(gen), std::numeric_limits<double>::min());
-      
+
       time_value += holding_time;
-      
+
       if (time_value < tot_time) {
         fs_jump_times.push_back(time_value);
         curr_state = complement_state(curr_state);
@@ -288,7 +288,7 @@ forward_sample(const vector<double> &rates,
     reach_target = curr_state == es;
     ++num_sampled;
   }
-  
+
   if (reach_target)
     for (size_t i = 0; i < fs_jump_times.size(); ++i) {
       jump_times.push_back(fs_jump_times[i]);
@@ -303,31 +303,31 @@ downward_sampling_branch_fs(const size_t site, const vector<Path> &paths,
                             const FelsHelper &fh,
                             std::mt19937 &gen, Path &new_path,
                             const size_t max_iterations) {
-  
+
   const size_t n_intervals = seg_info.size();
-  
+
   size_t par_state = new_path.init_state;
   double time_passed = 0;
-  
+
   for (size_t m = 0; m < n_intervals - 1; ++m) {
     // compute conditional posterior probability
     vector<vector<double> > P; // transition prob matrix
     continuous_time_trans_prob_mat(seg_info[m].rate0, seg_info[m].rate1,
                                    seg_info[m].len, P);
-    
+
     const double p0 = P[par_state][0] / fh.p[m][par_state] *
                       ((m == n_intervals - 1) ? fh.q[0] : fh.p[m + 1][0]);
-    
+
     // generate random state at break point
     std::uniform_real_distribution<double> unif(0.0, 1.0);
     bool new_state = (unif(gen) > p0);
-    
+
     // generate path
     vector<double> jump_times;
     const vector<double> rates {seg_info[m].rate0, seg_info[m].rate1};
     forward_sample(rates, par_state, new_state, seg_info[m].len, gen,
                    jump_times, max_iterations);
-    
+
     // append jump_times to new_path
     for (size_t i = 0; i < jump_times.size(); ++i) {
       new_path.jumps.push_back(time_passed + jump_times[i]) ;
@@ -336,7 +336,7 @@ downward_sampling_branch_fs(const size_t site, const vector<Path> &paths,
     time_passed += seg_info[m].len;
     par_state = new_state;
   }
-  
+
   // we only test root-leaf branch.
   const bool leaf_state = paths[site].end_state();
   // generate path
@@ -350,7 +350,7 @@ downward_sampling_branch_fs(const size_t site, const vector<Path> &paths,
   for (size_t i = 0; i < jump_times.size(); ++i) {
     new_path.jumps.push_back(time_passed + jump_times[i]) ;
   }
-  
+
   assert(new_path.end_state() == leaf_state);
 }
 
@@ -369,7 +369,7 @@ int main(int argc, const char **argv) {
     size_t n_hist_time_bins = 5;
     size_t test_site = 2; // we test 5-site path
     size_t test_branch = 1; // branch to test in the tree
-    
+
     string param_file;
     string tree_file;
 
@@ -412,17 +412,17 @@ int main(int argc, const char **argv) {
     }
     const string pathsfile(leftover_args.front());
     ///////////////////////////////////////////////////////////////////////////
-    
-    
+
+
     if (VERBOSE)
       cerr << "[READING PARAMETER FILE: " << param_file << ", "
       << tree_file << "]" << endl;
-    
+
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
-    
+
     if (VERBOSE)
       cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
@@ -459,41 +459,41 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
     cerr << "----- TEST upward downward sampling BELOW ---------" << endl;
-  
+
     vector<vector<SegmentInfo> > seg_info(n_nodes);
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
       collect_segment_info(the_model.triplet_rates,
                            paths[node_id][test_site - 1],
                            paths[node_id][test_site + 1], seg_info[node_id]);
     }
-    
+
     vector<SummarySet> fs_summary, ds_summary;
     size_t progress = 0;
-    
+
     // (1) Upward pruning
     vector<FelsHelper> fh;
     pruning(th, test_site, paths, seg_info, fh);
-    
+
     while (fs_summary.size() < n_paths_to_sample) {
       if (VERBOSE && fs_summary.size() * 10 % n_paths_to_sample == 0) {
         cerr << "FINISHED: " << progress << '%' << endl;
         progress += 10;
       }
-      
+
       // (2) Downward sampling: Direct sampling
       vector<Path> new_path_ds_all;
       downward_sampling(th, test_site, paths, the_model.init_T, seg_info,
                         fh, gen, new_path_ds_all);
-      
+
       SummarySet current_summary_ds(paths[test_branch][test_site-1],
                                     new_path_ds_all[test_branch],
                                     paths[test_branch][test_site+1],
                                     n_hist_time_bins);
       ds_summary.push_back(current_summary_ds);
-      
+
       // (3) Dowanward sampling: forward sampling
       Path new_path_fs;
-      
+
       // sample new root state
       const double root_p0 = root_post_prob0(test_site, paths[0],
                                              the_model.init_T, fh[0].q);
@@ -502,7 +502,7 @@ int main(int argc, const char **argv) {
       bool new_root_state = (unif(gen) > root_p0);
       new_path_fs.init_state = new_root_state;
       new_path_fs.tot_time = paths[test_branch][test_site - 1].tot_time;
-      
+
       // preorder traversal of the tree
       downward_sampling_branch_fs(test_site, paths[test_branch],
                                   seg_info[test_branch], fh[test_branch], gen,
@@ -514,11 +514,11 @@ int main(int argc, const char **argv) {
       fs_summary.push_back(current_summary_fs);
     }
     cerr << "FINISHED: " << progress << '%' << endl;
-    
+
     // get the summaries of the summaries
     SummaryStatsFreq FS_report(fs_summary);
     SummaryStatsFreq DS_report(ds_summary);
-    
+
     // write output
     std::ofstream out(outfile.c_str());
     out << "TEST_SITE_BRANCH" << '\t' << test_site << '\t'
@@ -528,7 +528,7 @@ int main(int argc, const char **argv) {
         << "PVAL_JUMPS" << '\t' << "PVAL_TIME" << '\t'
         << "HIST_JUMPS_FS" << '\t' << "HIST_JUMPS_DS" << '\t'
         << "HIST_TIME_FS" << '\t' << "HIST_TIME_DS" << endl;
-    
+
     for(size_t k = 0; k < N_TRIPLETS; ++k) {
       double pval_time, pval_jumps;
       test_summary(FS_report, DS_report, pval_time, pval_jumps, k);
@@ -539,7 +539,7 @@ int main(int argc, const char **argv) {
           << FS_report.print_time(k) << '\t'
           << DS_report.print_time(k) << endl;
     }
-    
+
 
   }
   catch (const std::exception &e) {

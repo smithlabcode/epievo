@@ -34,7 +34,7 @@
 #include "Path.hpp"  /* related to Path */
 #include "EpiEvoModel.hpp" /* model_param */
 #include "StateSeq.hpp"
-#include "SingleSampler.hpp"
+#include "SingleSiteSampler.hpp"
 #include "EndCondSampling.hpp"
 
 using std::vector;

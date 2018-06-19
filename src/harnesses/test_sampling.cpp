@@ -34,7 +34,7 @@
 #include "EpiEvoModel.hpp" /* model_param */
 #include "TreeHelper.hpp"
 #include "StateSeq.hpp"
-#include "SingleSampler.hpp"
+#include "SingleSiteSampler.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
 
 using std::vector;
@@ -194,7 +194,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << the_model << endl;
     // Liz: how to scale branch lengths now?
-      
+
     if (VERBOSE)
       cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths

@@ -56,7 +56,7 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 
 end_cond_sampling_test end_cond_sampling_branch pruning_test test_sampling: \
 	$(addprefix $(COMMON_DIR)/, StateSeq.o \
-	EpiEvoModel.o SingleSampler.o EndCondSampling.o \
+	EpiEvoModel.o SingleSiteSampler.o EndCondSampling.o \
 	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o)
 
 

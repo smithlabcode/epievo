@@ -28,7 +28,7 @@
 #include <random>
 #include <functional>
 
-#include "SingleSampler.hpp"
+#include "SingleSiteSampler.hpp"
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
 
@@ -460,21 +460,21 @@ void
 Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
            const size_t site_id, vector<vector<Path> > &paths,
            std::mt19937 &gen, vector<Path> &proposed_path) {
-  
+
   // get rates and lengths each interval [seg_info: node x site]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
     collect_segment_info(the_model.triplet_rates,
                          paths[node_id][site_id - 1],
                          paths[node_id][site_id + 1], seg_info[node_id]);
-  
+
   // upward pruning and downward sampling [fh: one for each node]
   vector<FelsHelper> fh;
   pruning(th, site_id, paths, seg_info, fh);
-  
+
   downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
                     proposed_path);
-  
+
   for (size_t i = 1; i < th.n_nodes; ++i) {
     cerr << i << '\t' << site_id << endl;
     paths[i][site_id] = proposed_path[i];
