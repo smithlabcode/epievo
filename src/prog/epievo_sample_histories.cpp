@@ -18,8 +18,8 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <cmath>   /* exp, sqrt, pow fabs*/
-#include <numeric>  /* std::inner_product, accumulate*/
+#include <cmath>
+#include <numeric>
 #include <functional>
 #include <sstream>
 #include <exception>
@@ -35,7 +35,7 @@
 #include "StateSeq.hpp"
 #include "EpiEvoModel.hpp"
 #include "TreeHelper.hpp"
-#include "SingleSampler.hpp"
+#include "SingleSiteSampler.hpp"
 
 using std::vector;
 using std::endl;
@@ -145,7 +145,8 @@ read_states_file(const string &statesfile,
 template <class T>
 static void
 initialize_internal_states(std::mt19937 &gen,
-                           const TreeHelper &th, vector<vector<T> > &state_sequences) {
+                           const TreeHelper &th,
+                           vector<vector<T> > &state_sequences) {
 
   const size_t n_sites = state_sequences.front().size();
 
@@ -156,11 +157,12 @@ initialize_internal_states(std::mt19937 &gen,
   for (size_t site_id = 0; site_id < n_sites; ++site_id) {
     for (size_t node_id = th.n_nodes; node_id > 0; --node_id) {
       cerr << site_id << '\t' << node_id - 1 << endl;
-      if (!is_leaf(th.subtree_sizes[node_id-1])) {
+      if (!th.is_leaf(node_id-1)) {
         size_t n_ch = 0;
         for (auto j = ChildSet(th.subtree_sizes, node_id-1); j.good(); ++j)
           child_states[n_ch++] = state_sequences[*j][site_id];
-        state_sequences[node_id-1][site_id] = child_states[std::floor(unif()*n_ch)];
+        state_sequences[node_id-1][site_id] =
+          child_states[std::floor(unif()*n_ch)];
       }
     }
   }
@@ -191,9 +193,10 @@ int main(int argc, const char **argv) {
     bool input_is_paths = false;
 
     ////////////////////////////////////////////////////////////////////////
-    OptionParser opt_parse(strip_path(argv[0]), "sample histories given leaf data"
-                           " complete data (site-specific paths)",
-                           "<params> <tree> <leaf-states>");
+    OptionParser opt_parse(strip_path(argv[0]),
+                           "sample histories given starting data"
+                           " as histories or states (at leaves or internal)",
+                           "<params> <tree> <states/paths>");
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
@@ -269,12 +272,12 @@ int main(int argc, const char **argv) {
            << "node names: tree / states" << endl;
     size_t states_names_idx = 0;
     for (size_t i = 0; i < th.n_nodes; ++i)
-      if (input_includes_internal || is_leaf(th.subtree_sizes[i])) {
+      if (input_includes_internal || th.is_leaf(i)) {
         if (VERBOSE)
           cerr << th.node_names[i] << " / "
                << node_names[states_names_idx] << endl;
         if (th.node_names[i] != node_names[states_names_idx++])
-          throw runtime_error("inconsistent node names in states and tree file");
+          throw runtime_error("inconsistent node names in states vs tree file");
       }
 
     /* standard mersenne_twister_engine seeded with rd()*/
@@ -293,7 +296,7 @@ int main(int argc, const char **argv) {
         state_sequences.resize(th.n_nodes);
         size_t leaf_idx = 0;
         for (size_t i = 0; i < th.n_nodes; ++i) {
-          if (is_leaf(th.subtree_sizes[i]))
+          if (th.is_leaf(i))
             swap(state_sequences[i], tmp_state_seqs[leaf_idx++]);
           else state_sequences[i].resize(n_sites);
         }
@@ -303,29 +306,21 @@ int main(int argc, const char **argv) {
       paths = vector<vector<Path> >(th.n_nodes, vector<Path>(n_sites));
       for (size_t i = 1; i < th.n_nodes; ++i)
         for (size_t j = 0; j < n_sites; ++j)
-          paths[i][j] = Path(state_sequences[th.parent_ids[i]][j], th.branches[i]);
+          paths[i][j] =
+            Path(state_sequences[th.parent_ids[i]][j], th.branches[i]);
     }
-
-    // if (VERBOSE)
-    //   cerr << "[NORMALIZING ALL PATH LENGTHS]" << endl;
-    // for (size_t b = 0; b < paths.size(); ++b)
-    //   for (size_t i = 0; i < paths[b].size(); ++i)
-    //     paths[b][i].scale_to_unit_length();
 
     if (n_samples == numeric_limits<size_t>::max())
       n_samples = n_sites;
 
     auto site_sampler =
-      bind(std::uniform_int_distribution<size_t>(1, n_sites - 2), std::ref(gen));
+      bind(std::uniform_int_distribution<size_t>(1, n_sites-2), std::ref(gen));
 
     for (size_t i = 0; i < n_samples; ++i) {
       size_t site_id = site_sampler();
       vector<Path> sampled_path;
       Gibbs_site(the_model, th, site_id, paths, gen, sampled_path);
     }
-
-    // if (!outfile.empty())
-    //   write_output(outfile, th.node_names, state_sequences);
 
     write_root_to_pathfile_local(outfile, th.node_names.front());
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)

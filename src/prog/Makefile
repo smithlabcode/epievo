@@ -20,6 +20,7 @@
 
 PROGS = epievo_sim global_jumps_to_paths \
 	extract_state_sequences epievo_est_complete \
+	epievo_sample_histories
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -48,10 +49,18 @@ all: $(PROGS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS) $(LIBS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab_os.o) \
-	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o Path.o) \
+	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TreeHelper.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-epievo_est_complete epievo_sim: $(addprefix $(COMMON_DIR)/, TripletSampler.o StateSeq.o \
+epievo_est_complete epievo_sim: \
+	$(addprefix $(COMMON_DIR)/, \
+	TripletSampler.o StateSeq.o \
+	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
+
+epievo_sample_histories: \
+	$(addprefix $(COMMON_DIR)/, \
+	TripletSampler.o StateSeq.o SingleSiteSampler.o EndCondSampling.o \
+	ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
 global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)

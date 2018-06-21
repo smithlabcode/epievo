@@ -70,7 +70,7 @@ write_output(const bool only_leaf_nodes, const TreeHelper &th,
   out << '#';
   bool first_name_written = false;
   for (size_t i = 0; i < th.n_nodes; ++i)
-    if (!only_leaf_nodes || is_leaf(th.subtree_sizes[i])) {
+    if (!only_leaf_nodes || th.is_leaf(i)) {
       if (first_name_written)
         out << '\t';
       else first_name_written = true;
@@ -81,7 +81,7 @@ write_output(const bool only_leaf_nodes, const TreeHelper &th,
   for (size_t i = 0; i < n_sites; ++i) {
     out << i;
     for (size_t j = 0; j < n_sequences; ++j)
-      if (!only_leaf_nodes || is_leaf(th.subtree_sizes[j]))
+      if (!only_leaf_nodes || th.is_leaf(j))
         out << '\t' << static_cast<bool>(sequences[j].seq[i]);
     out << '\n';
   }
