@@ -586,42 +586,42 @@ forward_sample_prob(const CTMarkovModel &the_model,
                     const double start_time, const double end_time,
                     const size_t start_jump,
                     const size_t end_jump) {
-    
+
     // start_jump must specify the first jump after the start time
     assert(start_jump == 0 || jump_times[start_jump - 1] < start_time);
     assert(start_jump == jump_times.size() || jump_times[start_jump] > start_time);
-    
+
     // end_jump must specify the first jump after the end time
     assert(end_jump == 0 || jump_times[end_jump - 1] < end_time);
     assert(end_jump == jump_times.size() || jump_times[end_jump] > end_time);
-    
+
     // the end points should be equal of we have an even number of jumps
     // inside the interval
     assert((end_jump - start_jump) % 2 == static_cast<size_t>(start_state != end_state));
-    
+
     vector<vector<double> > PT;
-    
+
     double p = 1.0;
-    
+
     double curr_time = start_time;
-    
+
     // if start_jump == end_jump then no jump exists within the
     // specified time interval; otherwise start_jump must specify a time
     // inside the interval
     size_t a = start_state;
     for (size_t i = start_jump; i < end_jump; ++i) {
-        
+
       const double time_interval = end_time - curr_time;
       const double rate = the_model.get_rate(a);
       const double jump_prob = rate * exp(- rate * time_interval);
       //cerr << "Forward sampling: jump_prob=" << jump_prob << endl;
       p *= jump_prob;
-        
+
       assert(std::isfinite(p));
       a = complement_state(a);
       curr_time = jump_times[i];
     }
-    
+
     the_model.get_trans_prob_mat(end_time - curr_time, PT);
     assert(a == end_state);
     const double pr_no_jump = prob_no_jump(the_model, PT, end_time - curr_time, a);
