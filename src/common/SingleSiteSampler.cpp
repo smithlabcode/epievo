@@ -490,12 +490,15 @@ Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
   vector<FelsHelper> fh;
   pruning(th, site_id, paths, seg_info, fh);
 
-  downward_sampling_fixed_root(th, site_id, paths, the_model.init_T,
-                               seg_info, fh, gen, proposed_path);
+  // downward_sampling_fixed_root(th, site_id, paths, the_model.init_T,
+  //                              seg_info, fh, gen, proposed_path);
 
   // ADS: why does this need to start at 1? I thought we agreed to
   // have the root take a valid Path, even if it has a branch length
   // of 0.
+  downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
+                    proposed_path);
+
   for (size_t i = 1; i < th.n_nodes; ++i) {
     if (th.is_leaf(i) &&
         proposed_path[i].end_state() != paths[i][site_id].end_state())
