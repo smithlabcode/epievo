@@ -120,9 +120,8 @@ horiz_potential_to_horiz_trans_prob(const two_by_two &Q, two_by_two &T) {
   T[0][0] = 2*Q[0][0]/diag_denom;
 
   // now compute the anti-diagonal entries
-  // const double anti_numer = 4*Q[0][1]*Q[1][0];
-  T[0][1] = 1.0 - T[0][0]; //anti_numer/(pow(Q[0][0] + delta, 2) - Q[1][1]*Q[1][1]);
-  T[1][0] = 1.0 - T[1][1]; //anti_numer/(pow(Q[1][1] + delta, 2) - Q[0][0]*Q[0][0]);
+  T[0][1] = 1.0 - T[0][0];
+  T[1][0] = 1.0 - T[1][1];
 
   assert(is_probability_distribution(T[0]) &&
          is_probability_distribution(T[1]));
@@ -503,12 +502,16 @@ continuous_time_trans_prob_mat(const double rate0, const double rate1,
 
   assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
 
-  const double h = 1.0 / exp(time_interval * (rate0 + rate1));
+  const double h = 1.0/exp(time_interval*(rate0 + rate1));
+
+  // ADS: this might be useful at some point here:
+  // assert(h > 0.0);
 
   transition_matrix = vector<vector<double> >(2, vector<double>(2, 0.0));
 
   const double denominator = rate0 + rate1;
   transition_matrix[0][0] = (rate0*h + rate1)/denominator;
+
   transition_matrix[0][1] = 1.0 - transition_matrix[0][0];
 
   transition_matrix[1][1] = (rate0 + rate1*h)/denominator;
