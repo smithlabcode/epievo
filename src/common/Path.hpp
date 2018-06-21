@@ -42,6 +42,13 @@ struct Path {
   double tot_time;
   std::vector<double> jumps;
 
+  bool is_valid() const {
+    for (size_t i = 1; i < jumps.size(); ++i)
+      if (jumps[i] < jumps[i-1])
+        return false;
+    return true;
+  }
+
   bool state_at_time(const double t) const;
   bool end_state() const {
     return (jumps.size() % 2 == 0) ? init_state : !init_state;
