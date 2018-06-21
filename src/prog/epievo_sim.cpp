@@ -56,7 +56,8 @@ file_is_readable(const string &param_file) {
 
 
 static void
-write_output(const string &outfile, const vector<string> &node_names,
+write_output(const bool only_leaf_nodes, const TreeHelper &th,
+             const string &outfile, const vector<string> &node_names,
              const vector<StateSeq> &sequences) {
 
   std::ofstream out(outfile.c_str());
@@ -67,13 +68,21 @@ write_output(const string &outfile, const vector<string> &node_names,
   const size_t n_sites = sequences.front().seq.size();
 
   out << '#';
-  copy(node_names.begin(), node_names.end(), ostream_iterator<string>(out, "\t"));
+  bool first_name_written = false;
+  for (size_t i = 0; i < th.n_nodes; ++i)
+    if (!only_leaf_nodes || is_leaf(th.subtree_sizes[i])) {
+      if (first_name_written)
+        out << '\t';
+      else first_name_written = true;
+      out << node_names[i];
+    }
   out << '\n';
 
   for (size_t i = 0; i < n_sites; ++i) {
     out << i;
     for (size_t j = 0; j < n_sequences; ++j)
-      out << '\t' << static_cast<bool>(sequences[j].seq[i]);
+      if (!only_leaf_nodes || is_leaf(th.subtree_sizes[j]))
+        out << '\t' << static_cast<bool>(sequences[j].seq[i]);
     out << '\n';
   }
 }
@@ -142,6 +151,7 @@ int main(int argc, const char **argv) {
     string pathfile;
     string tree_file;
     bool VERBOSE = false;
+    bool write_only_leaves = false;
     size_t n_sites = 100;
 
     double evolutionary_time = numeric_limits<double>::lowest();
@@ -161,6 +171,8 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
                       evolutionary_time);
+    opt_parse.add_opt("leaf", 'l', "write only leaf states", false,
+                      write_only_leaves);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -294,7 +306,7 @@ int main(int argc, const char **argv) {
     }
 
     if (!outfile.empty())
-      write_output(outfile, th.node_names, sequences);
+      write_output(write_only_leaves, th, outfile, th.node_names, sequences);
 
   }
   catch (const std::exception &e) {
