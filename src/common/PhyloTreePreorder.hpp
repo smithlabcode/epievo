@@ -53,6 +53,20 @@ public:
     set_branch_lengths(root, branch_lengths);
   }
 
+  inline static bool
+  is_root(const size_t node_id) {return node_id == 0;}
+
+  inline static bool
+  is_leaf(const size_t subtree_size) {return subtree_size == 1;}
+
+  inline static bool
+  is_binary(const std::vector<size_t> &subtree_sizes) {
+
+  // ADS: this function seems not to be used
+  return (subtree_sizes[0] == 1 + subtree_sizes[1] +
+          subtree_sizes[subtree_sizes[1] + 1]);
+}
+
 private:
   void
   get_subtree_sizes(const PhyloTree::PTNode &node,
@@ -81,19 +95,6 @@ get_parent_id(const std::vector<size_t> &subtree_sizes,
 bool
 has_same_species_order(const PhyloTreePreorder &the_tree,
                        const std::vector<std::string> &species_names);
-
-inline bool
-is_root(const size_t node_id) {return node_id == 0;}
-
-inline bool
-is_leaf(const size_t subtree_size) {return subtree_size == 1;}
-
-inline bool
-is_binary(const std::vector<size_t> &subtree_sizes) {
-  // ADS: this function seems not to be used
-  return (subtree_sizes[0] == 1 + subtree_sizes[1] +
-          subtree_sizes[subtree_sizes[1] + 1]);
-}
 
 void
 subtree_sizes_to_leaves_preorder(const std::vector<size_t> &subtree_sizes,

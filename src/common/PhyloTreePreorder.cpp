@@ -171,7 +171,7 @@ size_t
 count_leaves(const vector<size_t> &subtree_sizes) {
   size_t n_leaf = 0;
   for (size_t i = 0; i < subtree_sizes.size(); ++i)
-    n_leaf += is_leaf(subtree_sizes[i]);
+    n_leaf += PhyloTreePreorder::is_leaf(subtree_sizes[i]);
   return n_leaf;
 }
 
