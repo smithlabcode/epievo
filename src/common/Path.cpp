@@ -27,7 +27,8 @@
 #include <sstream>
 #include <cassert>
 #include <iomanip>
-#include <algorithm>    // std::lower_bound, std::upper_bound, std::sort
+#include <algorithm>
+#include <exception>
 
 #include "smithlab_utils.hpp"
 
@@ -35,6 +36,8 @@
 
 using std::vector;
 using std::string;
+using std::to_string;
+using std::runtime_error;
 
 static const string NODE_TAG = "NODE";
 static const size_t TAG_LENGTH = 4;
@@ -115,7 +118,7 @@ void
 read_paths(const string path_file, vector<vector<Path> > &paths) {
   std::ifstream in(path_file.c_str());
   if (!in)
-    throw SMITHLABException("cannot read: " + path_file);
+    throw runtime_error("cannot read: " + path_file);
 
   vector<size_t> node_ids;
   size_t node_id, pos;
@@ -145,7 +148,7 @@ read_paths(const string &path_file, vector<string> &node_names,
 
   std::ifstream in(path_file.c_str());
   if (!in)
-    throw std::runtime_error("cannot read: " + path_file);
+    throw runtime_error("cannot read: " + path_file);
 
   size_t pos = 0;
   double tmp_jump = 0.0;
@@ -175,6 +178,11 @@ void get_seq_init(const vector<Path> &paths, vector<bool> &seq) {
 ////////////////////////////////////////////////////////////////////////////////
 
 Environment::Environment(const Path &pa, const Path &pb) {
+  if (pa.tot_time != pb.tot_time)
+    throw runtime_error("inconsistent times: " +
+                        to_string(pa.tot_time) + ", " +
+                        to_string(pb.tot_time));
+
   assert(pa.tot_time == pb.tot_time);
   bool sa = pa.init_state;
   bool sb = pb.init_state;
@@ -189,30 +197,33 @@ Environment::Environment(const Path &pa, const Path &pb) {
         breaks.push_back(pa.jumps[i]);
         ++i;
         sa = !sa;
-      } else if (pa.jumps[i] > pb.jumps[j]) {
+      }
+      else if (pa.jumps[i] > pb.jumps[j]) {
         breaks.push_back(pb.jumps[j]);
         ++j;
         sb = !sb;
-      } else {
+      }
+      else {
         breaks.push_back(pb.jumps[j]);
         ++j;
         ++i;
         sa = !sa;
         sb = !sb;
       }
-    } else if (i < pa.jumps.size()) {
+    }
+    else if (i < pa.jumps.size()) {
       breaks.push_back(pa.jumps[i]);
       ++i;
       sa = !sa;
-    } else {
+    }
+    else {
       breaks.push_back(pb.jumps[j]);
       ++j;
       sb = !sb;
     }
   }
 
-  if (breaks.size() == 0 ||
-      breaks.back() < tot_time) {
+  if (breaks.size() == 0 || breaks.back() < tot_time) {
     left.push_back(sa);
     right.push_back(sb);
     breaks.push_back(tot_time);
