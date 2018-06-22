@@ -66,7 +66,6 @@ collect_segment_info(const vector<double> &triplet_rates,
   }
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////           UPWARD PRUNING           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -261,15 +260,10 @@ void
 downward_sampling_fixed_root(const TreeHelper &th,
                              const size_t site_id,
                              const vector<vector<Path> > &paths,
-                             const vector<vector<double> > &horiz_trans_prob,
                              const vector<vector<SegmentInfo> > &seg_info,
                              const vector<FelsHelper> &fh,
                              std::mt19937 &gen,
                              vector<Path> &proposed_path) {
-
-  // compute posterior probability at root node
-  // const double root_p0 =
-  //   root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
 
   proposed_path = vector<Path>(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
@@ -479,7 +473,7 @@ Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
            const size_t site_id, vector<vector<Path> > &paths,
            std::mt19937 &gen, vector<Path> &proposed_path) {
 
-  // get rates and lengths each interval [seg_info: node x site]
+  // get rates and lengths each interval [seg_info: node x interval]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
     collect_segment_info(the_model.triplet_rates,
@@ -499,6 +493,38 @@ Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
   downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
                     proposed_path);
 
+  for (size_t i = 1; i < th.n_nodes; ++i) {
+    if (th.is_leaf(i) &&
+        proposed_path[i].end_state() != paths[i][site_id].end_state())
+      throw runtime_error("inconsistent leaf node terminal "
+                          "state in sampled path");
+    paths[i][site_id] = proposed_path[i];
+    assert(proposed_path[i].is_valid());
+  }
+}
+
+void
+Gibbs_independent_site(const vector<double> rates, const TreeHelper &th,
+                       const size_t site_id, vector<vector<Path> > &paths,
+                       std::mt19937 &gen, vector<Path> &proposed_path) {
+  
+  // get rates and lengths each interval [seg_info: node x interval]
+  // No virtual nodes in site-independent version: one segment per branch.
+  vector<vector<SegmentInfo> > seg_info(th.n_nodes);
+  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
+    seg_info[node_id] = vector<SegmentInfo>(1);
+    seg_info[node_id][0] = SegmentInfo(rates[paths[node_id][site_id].init_state],
+                                       rates[!paths[node_id][site_id].init_state],
+                                       paths[node_id][site_id].tot_time);
+  }
+  
+  // upward pruning and downward sampling [fh: one for each node]
+  vector<FelsHelper> fh;
+  pruning(th, site_id, paths, seg_info, fh);
+  
+  downward_sampling_fixed_root(th, site_id, paths, seg_info, fh, gen,
+                               proposed_path);
+  
   for (size_t i = 1; i < th.n_nodes; ++i) {
     if (th.is_leaf(i) &&
         proposed_path[i].end_state() != paths[i][site_id].end_state())
