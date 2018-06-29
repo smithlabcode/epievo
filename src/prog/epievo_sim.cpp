@@ -24,9 +24,10 @@
 #include <iostream>
 #include <fstream>
 #include <random>
-#include <cmath>   /* exp, sqrt, pow */
-#include <numeric>  /* std::inner_product */
-#include <algorithm>    /* std::max */
+#include <cmath>
+#include <numeric>
+#include <algorithm>
+#include <istream>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -47,6 +48,69 @@ using std::cout;
 using std::to_string;
 using std::ostream_iterator;
 using std::numeric_limits;
+using std::istringstream;
+
+
+template <class T>
+size_t
+read_states_file(const string &statesfile,
+                 vector<string> &node_names,
+                 vector<vector<T> > &state_sequences) {
+
+  std::ifstream in(statesfile.c_str());
+  if (!in)
+    throw std::runtime_error("bad states file: " + statesfile);
+
+  // first line should give the node names in pre-order traversal
+  string buffer;
+  if (!getline(in, buffer))
+    throw std::runtime_error("cannot read nodes line in: " + statesfile);
+
+  std::istringstream nodes_iss(buffer);
+  node_names.clear();
+  string tmp_node_name;
+  while (nodes_iss >> tmp_node_name)
+    node_names.push_back(tmp_node_name);
+
+  if (node_names.size() < 2)
+    throw std::runtime_error("fewer than 2 nodes names in: " + statesfile);
+
+  // remove leading '#' from first node name if it exists
+  if (node_names.front()[0] == '#') {
+    if (node_names.front().length() == 1)
+      node_names = vector<string>(node_names.begin() + 1, node_names.end());
+    else node_names.front() = node_names.front().substr(1);
+  }
+  const size_t n_nodes = node_names.size();
+  state_sequences = vector<vector<T> >(node_names.size());
+
+  size_t site_count = 0;
+  while (getline(in, buffer)) {
+    istringstream iss;
+    iss.rdbuf()->pubsetbuf(const_cast<char*>(buffer.c_str()), buffer.size());
+
+    size_t site_index = 0;
+    iss >> site_index; // not important info but must be removed
+
+    // now read the states for the current site
+    size_t node_idx = 0;
+    T tmp_state_val;
+    while (node_idx < n_nodes && iss >> tmp_state_val)
+      state_sequences[node_idx++].push_back(tmp_state_val == '1');
+
+    if (node_idx < n_nodes)
+      throw std::runtime_error("inconsistent number of states: " +
+                               to_string(node_idx) + "/" + to_string(n_nodes));
+
+    ++site_count;
+  }
+
+  if (site_count == 0)
+    throw std::runtime_error("no sites read from states file: " + statesfile);
+
+  return site_count;
+}
+
 
 bool
 file_is_readable(const string &param_file) {
@@ -150,6 +214,7 @@ int main(int argc, const char **argv) {
     string outfile;
     string pathfile;
     string tree_file;
+    string root_states_file;
     bool VERBOSE = false;
     bool write_only_leaves = false;
     size_t n_sites = 100;
@@ -168,6 +233,7 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths"
                       "as sorted jump times (default: stdout)", false, pathfile);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
+    opt_parse.add_opt("root", 'r', "root states file", false, root_states_file);
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
                       evolutionary_time);
@@ -214,9 +280,6 @@ int main(int argc, const char **argv) {
     }
     ////////////////////////////////////////////////////////////////////////
 
-    if (VERBOSE)
-      cerr << "sequence length: " << n_sites << endl;
-
     /* (1) INITIALIZING PARAMETERS AND TREE */
     if (VERBOSE)
       cerr << "reading parameter file: " << param_file << endl;
@@ -255,11 +318,30 @@ int main(int argc, const char **argv) {
       cerr << "rng seed: " << rng_seed << endl;
     std::mt19937 gen(rng_seed);
 
-    /* (2) SIMULATE THE ROOT SEQUENCE */
+    /* (2) GET THE ROOT SEQUENCE */
     if (VERBOSE)
-      cerr << "[SIMULATING: " << th.node_names[0] << " (ROOT)]" << endl;
+      cerr << "[OBTAINING ROOT SEQUENCE]" << endl;
+
     vector<char> root_seq;
-    the_model.sample_state_sequence_init(n_sites, gen, root_seq);
+    if (root_states_file.empty()) {
+      if (VERBOSE)
+        cerr << "[SIMULATING: " << th.node_names[0] << " (ROOT)]" << endl;
+      the_model.sample_state_sequence_init(n_sites, gen, root_seq);
+      if (VERBOSE)
+        cerr << "[ROOT LENGTH: " << n_sites << "]" << endl;
+    }
+    else {
+      if (VERBOSE)
+        cerr << "[READING ROOT FILE: " << root_states_file << "]" << endl;
+      vector<string> node_names;
+      vector<vector<char> > state_sequences;
+      read_states_file(root_states_file, node_names, state_sequences);
+      root_seq = state_sequences.front();
+      n_sites = root_seq.size();
+      if (VERBOSE)
+        cerr << "[LOADED: " << th.node_names[0] << " (ROOT)]" << endl
+             << "[ROOT LENGTH: " << n_sites << "]" << endl;
+    }
 
     StateSeq s(root_seq);
     if (VERBOSE) {
