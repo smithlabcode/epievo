@@ -334,6 +334,12 @@ EpiEvoModel::substitutions_per_site(const vector<double> &triplet_props) const {
 }
 
 
+bool
+EpiEvoModel::is_unit_rate() const {
+  return rate_scaling_factor(triplet_rates) == 1.0;
+}
+
+
 /* read the model file
  */
 void
