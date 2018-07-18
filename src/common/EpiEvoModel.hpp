@@ -30,9 +30,14 @@ typedef std::vector<std::vector<double> > two_by_two;
 
 struct EpiEvoModel {
 
-  void
-  rebuild_from_triplet_rates(const std::vector<double> &triplet_rates);
+  /*********************************************************************
+   * CLASS CONSTANTS
+   */
+  static const size_t n_triplets = 8;
 
+  /*********************************************************************
+   * INSTANCE VARIABLES
+   */
   two_by_two stationary_logbaseline; // symmetric part in J-P model
   two_by_two T;       // horizontal transition probs (stationary)
   two_by_two init_T;  // horizontal transition probs (initial)
@@ -40,13 +45,21 @@ struct EpiEvoModel {
 
   std::vector<double> triplet_rates; // rates for triples
 
-  double substitutions_per_site(const std::vector<double> &triplet_props) const;
-  void get_stationary_state_proportions(std::vector<double> &pi) const;
-  void get_stationary_triplet_proportions(std::vector<double> &props) const;
-
+  /*********************************************************************
+   * MUTATORS
+   */
+  void rebuild_from_triplet_rates(const std::vector<double> &triplet_rates);
   void scale_triplet_rates();
   void initialize(); // assuming rates are always scaled to one change
                      // per site per unit time
+
+  /*********************************************************************
+   * ACCESSORS
+   */
+  double substitutions_per_site(const std::vector<double> &triplet_props) const;
+  bool is_unit_rate() const;
+  void get_stationary_state_proportions(std::vector<double> &pi) const;
+  void get_stationary_triplet_proportions(std::vector<double> &props) const;
 
   void sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
                                   std::vector<char> &sequence) const;
@@ -55,8 +68,6 @@ struct EpiEvoModel {
 
   std::string tostring() const;
   std::string format_for_param_file() const;
-
-  static const size_t n_triplets = 8;
 
 private:
   void compute_triplet_rates();
