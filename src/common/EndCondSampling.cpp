@@ -501,6 +501,130 @@ end_cond_sampling_Nielsen(const size_t max_sample_count,
 
   return valid_path;
 }
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// # #  ###  ###  ###   #   ##   # #  ###  ###   #   ###  ###   #   ###
+// # #  # #   #   #    # #  # #  ###   #     #  # #   #    #   # #  # #
+// # #  # #   #   ##   # #  ##   ###   #    #   ###   #    #   # #  # #
+// # #  # #   #   #    # #  # #  # #   #   #    # #   #    #   # #  # #
+// ###  # #  ###  #     #   # #  # #  ###  ###  # #   #   ###   #   # #
+
+struct CTMarkovUnif {
+  // CTMarkovUnif is not aware of epigenomic histories
+  
+  CTMarkovUnif(const CTMarkovModel &the_model);
+  double unif_trans_prob(const size_t state_a, const size_t state_b,
+                         const size_t n) const;
+
+  size_t us;
+  double scaler;
+  double r;
+};
+
+
+CTMarkovUnif::CTMarkovUnif(const CTMarkovModel &the_model) {
+  us = (the_model.get_rate(false) < the_model.get_rate(true));
+  scaler = the_model.get_rate(us);
+  r = the_model.get_rate(us) / the_model.get_rate(!us);
+}
+
+double
+CTMarkovUnif::unif_trans_prob(const size_t state_a, const size_t state_b,
+                              const size_t n) const {
+  const double r_sign = (n % 2 == 0) ? 1.0 : -1.0;
+  double prob_stay;
+  if (state_a == us)
+    prob_stay = (r + r_sign * pow(r, n)) / (1 + r);
+  else
+    prob_stay = (1 + r_sign * pow(r, n+1)) / (1 + r);
+  return (state_a == state_b) ? prob_stay : 1.0 - prob_stay;
+}
+
+
+static size_t
+num_unif_trans(const CTMarkovModel &the_model, const CTMarkovUnif &unif_model,
+               const double T, const size_t state_a, const size_t state_b,
+               function<double()> &unif) {
+  vector<vector<double> > P; // P = exp(QT)
+  the_model.get_trans_prob_mat(T, P);
+  
+  const double u = unif();
+
+  const double muT = unif_model.scaler * T;
+  const double nom_const = (state_b == unif_model.us) ? unif_model.r : 1.0;
+  const double nom_sign = (state_b == unif_model.us) ? 1.0 : -1.0;
+  double nom_series = (state_a == unif_model.us) ?
+                      - unif_model.r : unif_model.r * unif_model.r;
+  const double denom = 1 + unif_model.r;
+  
+  double prob_pois = exp(- muT) * muT / P[state_a][state_b];
+  double prob_unif = (nom_const + nom_sign * nom_series) / denom;
+  double sum_probs = prob_pois * prob_unif;
+  
+  size_t n = 1;
+  
+  while (sum_probs < u) {
+    ++n;
+    prob_pois *= ( muT / n);
+    nom_series *= - unif_model.r;
+    prob_unif = (nom_const + nom_sign * nom_series) / denom;
+    sum_probs = prob_pois * prob_unif;
+  }
+  
+  return n;
+}
+
+
+void
+end_cond_sample_unif(const CTMarkovModel &the_model, const size_t start_state,
+                     const size_t end_state, const double T, std::mt19937 &gen,
+                     vector<double> &jump_times, const double start_time) {
+  
+  std::uniform_real_distribution<double> unif(0.0, 1.0);
+  function<double()> distr(bind(unif, std::ref(gen)));
+  
+  CTMarkovUnif unif_model(the_model);
+
+  // sample number of transitions
+  size_t num_trans = num_unif_trans(the_model, unif_model, T,
+                                    start_state, end_state, distr);
+  if (num_trans < 1)
+    // no jumps
+    assert(start_state == end_state);
+  else if (num_trans == 1)
+    // single jump: has to be true jump
+    jump_times.push_back(start_time + distr() * T);
+  else {
+    // sample jumping times
+    vector<double> trans_times; // all jumps, including virtual jumps
+    for (size_t i = 0; i < num_trans; i++) {
+      trans_times.push_back(distr() * T);
+    }
+    std::sort(trans_times.begin(), trans_times.end());
+
+    // determine the state of jumps
+    size_t prev_state = start_state;
+    double current_time = start_time;
+    for (size_t i = 0; i < num_trans; i++) {
+      current_time += trans_times[i];
+      const double next_end = unif_model.unif_trans_prob(!prev_state, end_state,
+                                                         num_trans - i - 1);
+      const double prev_end = unif_model.unif_trans_prob(prev_state, end_state,
+                                                         num_trans - i);
+      const double prob_jump = unif_model.unif_trans_prob(prev_state,
+                                                          !prev_state, 1) *
+                               next_end / prev_end;
+      if (distr() < prob_jump) {
+        // true jump sampled
+        prev_state = !prev_state;
+        jump_times.push_back(current_time);
+      }
+    }
+    assert(prev_state == end_state);
+  }
+}
 
 
 
