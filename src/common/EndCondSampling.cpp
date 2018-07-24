@@ -268,8 +268,8 @@ summation_in_pdf(const CTMarkovModel &the_model,
   const double factor_1 = the_model.U[a_bar][1]*the_model.Uinv[1][b];
 
   const double f =
-    (factor_0 * exp(T*lambda_0) * exp(-t*(lambda_0 + Qa))) +
-    (factor_1 * exp(T*lambda_1) * exp(-t*(lambda_1 + Qa)));
+    (factor_0 * exp((T - t) * lambda_0 - t * Qa)) +
+    (factor_1 * exp((T - t) * lambda_1 - t * Qa));
 
   assert(std::isfinite(f));
   assert(f > 0.0);
