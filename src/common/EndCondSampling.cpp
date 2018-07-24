@@ -527,7 +527,7 @@ struct CTMarkovUnif {
 CTMarkovUnif::CTMarkovUnif(const CTMarkovModel &the_model) {
   us = (the_model.get_rate(false) < the_model.get_rate(true));
   scaler = the_model.get_rate(us);
-  r = the_model.get_rate(us) / the_model.get_rate(!us);
+  r = the_model.get_rate(!us) / the_model.get_rate(us);
 }
 
 double
@@ -570,9 +570,9 @@ num_unif_trans(const CTMarkovModel &the_model, const CTMarkovUnif &unif_model,
     prob_pois *= ( muT / n);
     nom_series *= - unif_model.r;
     prob_unif = (nom_const + nom_sign * nom_series) / denom;
-    sum_probs = prob_pois * prob_unif;
+    sum_probs += prob_pois * prob_unif;
   }
-  
+
   return n;
 }
 
@@ -603,12 +603,10 @@ end_cond_sample_unif(const CTMarkovModel &the_model, const size_t start_state,
       trans_times.push_back(distr() * T);
     }
     std::sort(trans_times.begin(), trans_times.end());
-
+    
     // determine the state of jumps
     size_t prev_state = start_state;
-    double current_time = start_time;
     for (size_t i = 0; i < num_trans; i++) {
-      current_time += trans_times[i];
       const double next_end = unif_model.unif_trans_prob(!prev_state, end_state,
                                                          num_trans - i - 1);
       const double prev_end = unif_model.unif_trans_prob(prev_state, end_state,
@@ -619,7 +617,7 @@ end_cond_sample_unif(const CTMarkovModel &the_model, const size_t start_state,
       if (distr() < prob_jump) {
         // true jump sampled
         prev_state = !prev_state;
-        jump_times.push_back(current_time);
+        jump_times.push_back(trans_times[i]);
       }
     }
     assert(prev_state == end_state);
@@ -687,7 +685,7 @@ end_cond_sample_prob(const CTMarkovModel &the_model,
       probability_density_function(the_model, PT, time_interval, a,
                                    end_state, jump_times[i] - curr_time);
 
-    cerr << "Direct sampling: jump_prob=" << jump_prob << endl;
+    //cerr << "Direct sampling: jump_prob=" << jump_prob << endl;
 
     p *= jump_prob;
 
