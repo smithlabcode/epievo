@@ -31,6 +31,7 @@
 #include "EndCondSampling.hpp"
 #include "EpiEvoModel.hpp"
 #include "StateSeq.hpp"
+#include "Path.hpp"
 
 using std::vector;
 using std::endl;
@@ -517,7 +518,6 @@ struct CTMarkovUnif {
   CTMarkovUnif(const CTMarkovModel &the_model);
   double unif_trans_prob(const size_t state_a, const size_t state_b,
                          const size_t n) const;
-
   size_t us;
   double scaler;
   double r;
@@ -542,11 +542,10 @@ CTMarkovUnif::unif_trans_prob(const size_t state_a, const size_t state_b,
   return (state_a == state_b) ? prob_stay : 1.0 - prob_stay;
 }
 
-
 static size_t
 num_unif_trans(const CTMarkovModel &the_model, const CTMarkovUnif &unif_model,
                const double T, const size_t state_a, const size_t state_b,
-               function<double()> &unif) {
+               function<double()> &unif, double &prob) {
   vector<vector<double> > P; // P = exp(QT)
   the_model.get_trans_prob_mat(T, P);
   
@@ -555,24 +554,24 @@ num_unif_trans(const CTMarkovModel &the_model, const CTMarkovUnif &unif_model,
   const double muT = unif_model.scaler * T;
   const double nom_const = (state_b == unif_model.us) ? unif_model.r : 1.0;
   const double nom_sign = (state_b == unif_model.us) ? 1.0 : -1.0;
-  double nom_series = (state_a == unif_model.us) ?
-                      - unif_model.r : unif_model.r * unif_model.r;
+  double nom_series = (state_a == unif_model.us) ? 1 : - unif_model.r;
   const double denom = 1 + unif_model.r;
   
-  double prob_pois = exp(- muT) * muT / P[state_a][state_b];
-  double prob_unif = (nom_const + nom_sign * nom_series) / denom;
-  double sum_probs = prob_pois * prob_unif;
-  
-  size_t n = 1;
-  
+  size_t n = 0;
+  double prob_pois = exp(- muT) / P[state_a][state_b];
+  double prob_unif = 1;
+
+  prob = prob_pois * prob_unif * (state_a == state_b);
+  double sum_probs = prob;
+
   while (sum_probs < u) {
     ++n;
     prob_pois *= ( muT / n);
     nom_series *= - unif_model.r;
     prob_unif = (nom_const + nom_sign * nom_series) / denom;
-    sum_probs += prob_pois * prob_unif;
+    prob = prob_pois * prob_unif;
+    sum_probs += prob;
   }
-
   return n;
 }
 
@@ -580,24 +579,44 @@ num_unif_trans(const CTMarkovModel &the_model, const CTMarkovUnif &unif_model,
 void
 end_cond_sample_unif(const CTMarkovModel &the_model, const size_t start_state,
                      const size_t end_state, const double T, std::mt19937 &gen,
-                     vector<double> &jump_times, const double start_time) {
+                     vector<double> &jump_times, vector<mixJump> &mjumps,
+                     const double start_time) {
   
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   function<double()> distr(bind(unif, std::ref(gen)));
   
   CTMarkovUnif unif_model(the_model);
-
+  
   // sample number of transitions
+  double prob_n_trans;
+
   size_t num_trans = num_unif_trans(the_model, unif_model, T,
-                                    start_state, end_state, distr);
-  if (num_trans < 1)
+                                    start_state, end_state, distr, prob_n_trans);
+  
+  if (start_state == unif_model.us && end_state == unif_model.us && num_trans == 1)
+    cerr << "WRONG TRANSITION NUMBER" << endl;
+  
+  size_t prev_state = start_state;
+
+  double prob = prob_n_trans;
+  if (num_trans < 1) {
     // no jumps
     assert(start_state == end_state);
-  else if (num_trans == 1)
-    // single jump: has to be true jump
-    jump_times.push_back(start_time + distr() * T);
-  else {
-    // sample jumping times
+  } else if (num_trans == 1) {
+    // one jump
+    prob *= 1 / T;
+    const double trans_time = start_time + distr() * T;
+    if (start_state == end_state) {
+      // pseudo jump
+      mjumps.push_back(mixJump(false, trans_time));
+    } else {
+      // real jump
+      jump_times.push_back(trans_time);
+      mjumps.push_back(mixJump(true, trans_time));
+      prev_state = complement_state(prev_state);
+    }
+  } else {
+    // at least two jumps
     vector<double> trans_times; // all jumps, including virtual jumps
     for (size_t i = 0; i < num_trans; i++) {
       trans_times.push_back(distr() * T);
@@ -605,8 +624,10 @@ end_cond_sample_unif(const CTMarkovModel &the_model, const size_t start_state,
     std::sort(trans_times.begin(), trans_times.end());
     
     // determine the state of jumps
-    size_t prev_state = start_state;
-    for (size_t i = 0; i < num_trans; i++) {
+    for (size_t i = 0; i < num_trans - 1; i++) {
+      // PDF of arriving time part
+      prob *= (i + 1) / T;
+      
       const double next_end = unif_model.unif_trans_prob(!prev_state, end_state,
                                                          num_trans - i - 1);
       const double prev_end = unif_model.unif_trans_prob(prev_state, end_state,
@@ -616,12 +637,32 @@ end_cond_sample_unif(const CTMarkovModel &the_model, const size_t start_state,
                                next_end / prev_end;
       if (distr() < prob_jump) {
         // true jump sampled
-        prev_state = !prev_state;
-        jump_times.push_back(trans_times[i]);
+        prev_state = complement_state(prev_state);
+        jump_times.push_back(start_time + trans_times[i]);
+        mjumps.push_back(mixJump(true, start_time + trans_times[i]));
+        prob *= prob_jump;
+      } else {
+        prob *= (1 - prob_jump);
+        mjumps.push_back(mixJump(false, start_time + trans_times[i]));
       }
     }
-    assert(prev_state == end_state);
+    // last jump
+    if (prev_state == end_state) {
+      mjumps.push_back(mixJump(false, start_time + trans_times.back()));
+    } else {
+      prev_state = complement_state(prev_state);
+      jump_times.push_back(start_time + trans_times.back());
+      mjumps.push_back(mixJump(true, start_time + trans_times.back()));
+    }
   }
+  assert(prev_state == end_state);
+
+  // check path correctness
+  size_t a = start_state;
+  for (size_t i = num_trans; i > 0; i--) {
+    a = mjumps[mjumps.size()-i].type ? complement_state(a) : a;
+  }
+  assert(a == end_state);
 }
 
 
@@ -698,6 +739,62 @@ end_cond_sample_prob(const CTMarkovModel &the_model,
   assert(a == end_state);
   const double pr_no_jump = prob_no_jump(the_model, PT, end_time - curr_time, a);
   return p*pr_no_jump;
+}
+
+double
+end_cond_sample_unif_prob(const CTMarkovModel &the_model,
+                          const vector<mixJump> &mjumps,
+                          const size_t start_state, const size_t end_state,
+                          const double start_time, const double end_time,
+                          const size_t start_jump,
+                          const size_t end_jump) {
+  
+  const double T = end_time - start_time;
+  vector<vector<double> > PT;
+  the_model.get_trans_prob_mat(T, PT);
+  
+  CTMarkovUnif unif_model(the_model);
+
+  size_t n = end_jump - start_jump;
+  
+  // check path correctness
+  //size_t prev_state = start_state;
+  // cerr << "start: " << start_state << ", end: " << end_state << endl;
+  // cerr << prev_state << ", ";
+  // for (size_t i = start_jump; i < end_jump; i++) {
+  //   prev_state = mjumps[i].type ? complement_state(prev_state) : prev_state;
+  //   cerr << prev_state << ", ";
+  // }
+  //cerr << endl;
+  //assert(prev_state == end_state);
+  
+  // P(N_jumps = n)
+  double prob = unif_model.unif_trans_prob(start_state, end_state, n);
+  
+  const double muT = unif_model.scaler * T;
+  // constant scaler in Poisson factor
+  prob *= exp(-muT) / PT[start_state][end_state];
+  
+  size_t a = start_state;
+  
+  // P(Jump_states | Jump_times, N_Jumps) * P(Jump_times | N_jumps)
+  for (size_t i = start_jump; (n > 1) && (i < end_jump - 1); i++) {
+    prob *= unif_model.scaler;
+
+    const double next_end = unif_model.unif_trans_prob(complement_state(a),
+                                                       end_state,
+                                                       n - i + start_jump - 1);
+    const double prev_end = unif_model.unif_trans_prob(a, end_state,
+                                                       n - i + start_jump);
+    const double prob_jump = unif_model.unif_trans_prob(a, complement_state(a),
+                                                        1) *
+                             next_end / prev_end;
+    
+    prob *= mjumps[i].type ? prob_jump : (1 - prob_jump);
+    
+    a = mjumps[i].type ? complement_state(a) : a;
+  }
+  return prob;
 }
 
 /* This function is not ready for use. */

@@ -213,6 +213,7 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
 
+    /*
     assert(end_cond_sample_forward_rejection(10000000,
                                              ctmm,
                                              prev_state,
@@ -220,6 +221,10 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                                              seg_info[i].len,
                                              gen,
                                              sampled_path.jumps, time_passed));
+    */
+    end_cond_sample_unif(ctmm, prev_state, sampled_state, seg_info[i].len,
+                         gen, sampled_path.jumps, sampled_path.mjumps,
+                         time_passed);
 
     // end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len, gen,
     //                        sampled_path.jumps, time_passed);
@@ -280,7 +285,6 @@ downward_sampling_fixed_root(const TreeHelper &th,
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////        Compute acceptance rate         /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
 /*counterpart of downward_sampling_branch*/
 static double
 proposal_prob_branch(const vector<SegmentInfo> &seg_info,
@@ -309,8 +313,8 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     const double interval_prob =
-      end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
-                           start_time, end_time, start_jump, end_jump);
+    end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
+                        start_time, end_time, start_jump, end_jump);
     prob *= interval_prob;
     assert(std::isfinite(prob));
 
@@ -325,6 +329,61 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     prob *= (end_state == 0) ? p0 : 1.0 - p0;
     assert(std::isfinite(prob));
 
+    // prepare for next interval
+    start_jump = end_jump;
+    start_time = end_time;
+    start_state = end_state;
+  }
+  return prob;
+}
+
+
+static double
+proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
+                          const FelsHelper &fh, const Path &path) {
+  
+  const size_t n_intervals = seg_info.size();
+  
+  size_t start_state = path.init_state, end_state = path.init_state;
+  double start_time = 0.0, end_time = 0.0;
+  size_t start_jump = 0, end_jump = 0;
+  
+  double prob = 1.0;
+  for (size_t i = 0; i < n_intervals; ++i) {
+    size_t n_real_jumps = 0;
+
+    // get the end_time by adding the segment length to the start_time
+    end_time += seg_info[i].len;
+    
+    // get the end_jump as the first jump occurring after end_time
+    while (end_jump < path.mjumps.size() &&
+           path.mjumps[end_jump].time < end_time) {
+      n_real_jumps += (path.mjumps[end_jump].type);
+      ++end_jump;
+    }
+    
+    if (n_real_jumps % 2 == 1)
+      end_state = complement_state(end_state);
+    
+    // calculate the probability for the end-conditioned path
+    const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
+    const double interval_prob =
+    end_cond_sample_unif_prob(ctmm, path.mjumps, start_state, end_state,
+                              start_time, end_time, start_jump, end_jump);
+    prob *= interval_prob;
+    assert(std::isfinite(prob));
+    
+    vector<vector<double> > P;
+    ctmm.get_trans_prob_mat(seg_info[i].len, P);
+    
+    // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
+    const double p0 =
+    P[start_state][0]/fh.p[i][start_state]*((i == n_intervals-1) ?
+                                            fh.q[0] : fh.p[i+1][0]);
+    
+    prob *= (end_state == 0) ? p0 : 1.0 - p0;
+    assert(std::isfinite(prob));
+    
     // prepare for next interval
     start_jump = end_jump;
     start_time = end_time;
@@ -353,7 +412,9 @@ proposal_prob(const vector<double> &triplet_rates,
 
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-    prob *= proposal_prob_branch(seg_info[node_id], fh[node_id], the_path[node_id]);
+    //prob *= proposal_prob_branch(seg_info[node_id], fh[node_id], the_path[node_id]);
+    prob *= proposal_prob_branch_unif(seg_info[node_id], fh[node_id],
+                                      the_path[node_id]);
 
   return prob;
 }
@@ -390,14 +451,18 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const double orig_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
                   mod.init_T, fh, seg_info, original);
-
+  cerr << "orig_proposal = " << orig_proposal << endl;
+  
   const double update_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
                   mod.init_T, fh, seg_info, proposed_path);
-
+  cerr << "update_proposal = " << update_proposal << endl;
+  
   assert(site_id > 1);
 
   double llr = log(orig_proposal) - log(update_proposal);
+  
+
 
   vector<double> D_orig(n_triples), J_orig(n_triples);
   vector<double> D_prop(n_triples), J_prop(n_triples);
@@ -425,13 +490,14 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     transform(begin(mod.triplet_rates), end(mod.triplet_rates),
               begin(scaled_rates),
               bind(multiplies<double>(), _1, th.branches[i]));
-
+    
     // add difference in log-likelihood for the proposed vs. original
     // to the Hastings ratio
     llr += (log_likelihood(scaled_rates, J_prop, D_prop) -
             log_likelihood(scaled_rates, J_orig, D_orig));
-  }
+    //cerr << " (jumps new: " << opath endl;
 
+  }
   return llr;
 }
 
