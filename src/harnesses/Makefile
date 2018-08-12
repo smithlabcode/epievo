@@ -18,7 +18,8 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = end_cond_sampling_test single_site_sampling_test
+PROGS = end_cond_sampling_test single_site_sampling_test pentet_rate_test \
+	metropolis_unif_test
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -51,7 +52,7 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, \
 	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-end_cond_sampling_test single_site_sampling_test: \
+end_cond_sampling_test single_site_sampling_test pentet_rate_test metropolis_unif_test: \
 	$(addprefix $(COMMON_DIR)/, StateSeq.o \
 	EpiEvoModel.o SingleSiteSampler.o EndCondSampling.o \
 	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o \
