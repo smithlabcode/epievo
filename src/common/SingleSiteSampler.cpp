@@ -409,9 +409,9 @@ proposal_prob(const vector<double> &triplet_rates,
   const double root_p0 =
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
   cerr << "PROPOSAL ROOT_P0 = " << root_p0 << ", sampled root = "
-  << the_path[0].init_state << endl;
+  << the_path[1].init_state << endl;
 
-  double prob = the_path[0].init_state ? 1.0 - root_p0 : root_p0;
+  double prob = the_path[1].init_state ? 1.0 - root_p0 : root_p0;
   cerr << "branch: start = " << prob << endl;
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
@@ -453,7 +453,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   // ADS: this is unfortunate; we need to slice/transpose the original
   // paths because of how they are organized
   vector<Path> original(th.n_nodes);
-  for (size_t i = 0; i < th.n_nodes; ++i)
+  for (size_t i = 1; i < th.n_nodes; ++i)
     original[i] = paths[i][site_id];
 
   const double orig_proposal =
