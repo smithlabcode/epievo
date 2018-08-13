@@ -30,17 +30,28 @@
 
 #include "smithlab_utils.hpp"
 
+struct mixJump {
+  mixJump() : type(false), time(0.0) {}
+  mixJump(const bool jump_type, const double jump_time) :
+    type(jump_type), time(jump_time) {}
+  bool type; // 0 - virtual jump, 1 - real jump
+  double time;
+};
+
 struct Path {
 
   Path() : init_state(false), tot_time(0.0) {}
   Path(const bool is, const double tt) :
-    init_state(is), tot_time(tt), jumps(std::vector<double>()) {}
+    init_state(is), tot_time(tt), jumps(std::vector<double>()),
+    mjumps(std::vector<mixJump>()) {}
   Path(const bool is, const double tt, const std::vector<double> &j) :
-    init_state(is), tot_time(tt), jumps(j) {}
+    init_state(is), tot_time(tt), jumps(j),
+    mjumps(std::vector<mixJump>()) {}
 
   bool init_state;
   double tot_time;
   std::vector<double> jumps;
+  std::vector<mixJump> mjumps; // only used in uniformization
 
   bool is_valid() const {
     for (size_t i = 1; i < jumps.size(); ++i)
