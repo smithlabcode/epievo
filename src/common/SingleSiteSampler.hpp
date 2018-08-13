@@ -66,12 +66,13 @@ downward_sampling_fixed_root(const TreeHelper &th, const size_t site_id,
                              std::mt19937 &gen,
                              std::vector<Path> &proposed_path);
 
-void
+bool
 Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id,
                          std::vector<std::vector<Path> > &paths_all_sites_and_branches,
                          std::mt19937 &gen,
-                         std::vector<Path> &sampled_path);
+                         std::vector<Path> &sampled_path,
+                         const bool always_accept = false);
 
 void
 Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,

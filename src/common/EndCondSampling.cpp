@@ -791,9 +791,9 @@ end_cond_sample_unif_prob(const CTMarkovModel &the_model,
                              next_end / prev_end;
     
     prob *= mjumps[i].type ? prob_jump : (1 - prob_jump);
-    
     a = mjumps[i].type ? complement_state(a) : a;
   }
+  cerr << "n: " << n <<", return proposal prob interval: " << prob << endl;
   return prob;
 }
 
