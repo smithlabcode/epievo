@@ -1245,28 +1245,22 @@ random, no additional assumptions are required on how values within
 $A$ are organized beyond the contiguity of the 8 segments. Finally,
 $B$ is a permutation on positions $1$ through $m$ such that
 $A[B[n]] = n$.
-%%% Define B
 
 When $x$ is updated by complementing the state at position $n$, three
-triplets are modified.
-% Up to 7 values in $C$ must change to
-% accommodate those modified triplets.
-% ({\it e.g.}
-% $\mathtt{00100}\rightarrow \mathtt{00000}$ changes $C[1]$ through ).
-The values $n$, $n-1$ and $n+1$ must be relocated within $A$ so that
-they reside within the appropriate range corresponding to their
-modified triplet. Focusing first on position $n$, we assume the
-corresponding triplet pattern was modified from $i0k$ (binary
-representation of integer $a$) to $i1k$ (representation of
-$a+2$). First locate $n$ in $A$ by accessing $b \gets B[n-2]$. Next,
-swap the values in $A[b]$ and $A[C[a+1]-1]$ and decrement $C[a+1]$.
-Now $n$ resides in the portion of $A$ associated with either the
-triplet pattern $i10$ or $i01$, depending on the value of $k$, and in
-both cases $n$ is currently in an incorrect location. We swap
-$A[C[a+1]]$ and $A[C[a+2]-1]$, moving $n$ from first to the last
-location in its current segment. We decrement $C[a+2]$, which extends
-the segment corresponding to $a+2$ by one position, effectively
-including $n$ in the correct segment. Finally, we set
+triplets are modified. The values $n$, $n-1$ and $n+1$ must be
+relocated within $A$ so that they reside within the appropriate range
+corresponding to their modified triplet. Focusing first on position
+$n$, we assume the corresponding triplet pattern was modified from
+$i0k$ (binary representation of integer $a$) to $i1k$ (representation
+of $a+2$). First locate $n$ in $A$ by accessing $b \gets
+B[n-2]$. Next, swap the values in $A[b]$ and $A[C[a+1]-1]$ and
+decrement $C[a+1]$.  Now $n$ resides in the portion of $A$ associated
+with either the triplet pattern $i10$ or $i01$, depending on the value
+of $k$, and in both cases $n$ is currently in an incorrect
+location. We swap $A[C[a+1]]$ and $A[C[a+2]-1]$, moving $n$ from first
+to the last location in its current segment. We decrement $C[a+2]$,
+which extends the segment corresponding to $a+2$ by one position,
+effectively including $n$ in the correct segment. Finally, we set
 $B[n-2]\gets A[C[a+2]]$. This procedure required accessing two values
 in $B$, making two swaps within $A$, and changing two values in $C$.
 
