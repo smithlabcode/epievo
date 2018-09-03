@@ -285,7 +285,9 @@ terms of {\it site-specific paths}. In particular, for site $1\leq n
 \begin{equation}\label{localJumps}
 \begin{array}{llll}
 H_n = (s_n, Y_n), ~\mbox{ where} & s_n \in \{0,1\},\\
-                                & Y_n = (y_1, \ldots, y_{w_n}), & \mbox{ with } 0\leq y_i < y_{j} < \tau, & \mbox{ for } 1\leq i < j \leq w_n.
+                                 & Y_n = (y_1, \ldots, y_{w_n}),
+                                 & \mbox{ with } 0\leq y_i < y_{j} < \tau,
+                                 & \mbox{ for } 1\leq i < j \leq w_n.
 \end{array}
 \end{equation}
 Our assumption that instantaneous rates are non-zero only for
@@ -310,8 +312,6 @@ instantaneous rate $\lambda(i, j, k)$ is a function of the states at
 the site of interest and its two immediate neighbors.  Since we assume
 the evolutionary process is symmetric with respect to the direction
 along the genome, we require $\lambda(i, j, k) = \lambda(k, j, i)$.
-
-
 
 \subsection{Relating the substitution model and the stationary distribution}
 
@@ -368,8 +368,8 @@ above according to an $8\times8$ matrix:
 \end{equation}
 We may interpret the non-zero entries in $\Lambda$ as corresponding to
 biological events outlined in Section~\ref{biodefs}. The values
-$\mathcal{B}$ and $\mathcal{D}$ are the rates of ``birth''
-and ``death,'' respectively, for epigenomic features. The value
+$\mathcal{B}$ and $\mathcal{D}$ are the rates of ``birth'' and
+``death,'' respectively, for epigenomic features. The value
 $\mathcal{M}$ corresponds to the merging of two features into a single
 contiguous interval ($101\rightarrow 111$). Conversely, the value
 $\mathcal{S}$ corresponds to epigenomic features ``splitting'' and
@@ -451,16 +451,22 @@ $\sum_{ijk}\pi_{ijk}\lambda_{ijk}$, where $\pi_{ijk}$ is the
 stationary distribution for the pattern $ijk$ in the epigenome.
 %%% ADS: above, can we generalize away from epigenome here?
 These assumptions suggest a simulation procedure, detailed in
-Algorithm \ref{alg:simulation}.
+Algorithm \ref{alg:simulation}. Note that
+Algorithm~\ref{alg:simulation} requires an abstract data type that can
+dynamically maintain specific information about the current global
+state sequence $s$. In Appendix~\ref{} we present a data structure
+that supports all required operations in constant time while requiring
+only linear space.
 
 \begin{algorithm}[t]
   \begin{algorithmic}[1]
     \caption{Simulating epigenome evolution}\label{alg:simulation}
     \REQUIRE Binary state sequence $s$ of length $N$, time $\tau$ and rates $\Lambda$.
     \ENSURE Simulated global path $H = (s, Y, V)$ for change times $Y$ and positions $V$.
-    \STATE $t \gets 0$, $V\gets\emptyset$, $Y\gets\emptyset$
-    \WHILE {$t < \tau$, and $x \gets s(t)$}
-    \STATE Sample holding time $y\sim \mathit{Exp}(-R_{xx})$, where $-R_{xx} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk}$
+    \STATE $t \gets 0$, $V\gets\emptyset$, $Y\gets\emptyset$, $x \gets s$
+    \WHILE {$t < \tau$}
+    \STATE Sample holding time $y\sim \mathit{Exp}(-R_{xx})$,
+           where $-R_{xx} = \sum_{i,j,k}c_{ijk}(x)\lambda_{ijk}$
     \STATE $t \gets t + y$
     \IF {$t < \tau$}
     \STATE Sample binary triplet $ijk$ with probability proportional to $c_{ijk}(x)\lambda_{ijk}$
@@ -469,7 +475,6 @@ Algorithm \ref{alg:simulation}.
     \STATE Append $n$ to $V$ and append $t$ to $Y$
     \ENDIF
     \ENDWHILE
-    %% \STATE Append a copy of current state sequence $x$ to $X$ and append time $\tau$ to $Y$
     \RETURN $H = (s, Y, V)$
   \end{algorithmic}
 \end{algorithm}
@@ -1159,6 +1164,122 @@ smaller than $t$ is
     \ENDWHILE
   \end{algorithmic}
 \end{algorithm}
+
+\appendix
+
+\section{Data structuring}
+\label{sec:datastruct}
+
+We say the site at position $n$ in a state sequence $x$ matches a
+triplet pattern $ijk\in\{0,1\}^3$ iff $(x_{n-1},x_n,x_{n+1})=(i,j,k)$.
+For convenience in our explanation below, we may use the binary
+triplet $ijk$ interchangeably with its numerical representation:
+integer values in $[0,8)$. The latter interpretation will help when a
+binary tripet is used as an index into an array.
+
+Algorithm~\ref{alg:simulation} assumes an abstract data type defined
+by the following operations:
+\begin{enumerate}
+\item Triplet count retrieval: given a state sequence $x$ and a binary
+  triplet $ijk$, return the number $c_{ijk}(x)$ of sites in $x$
+  matching the triplet pattern $ijk$. We denote this operation simply
+  by $c_{ijk}(x)$.
+\item Triplet site sampling: given a state $x$ and a binary triplet
+  $ijk$, return a position $n$ sampled uniformly at random from the
+  set of positions matching triplet pattern $ijk$. We denote this
+  operation by $\mathit{sample}(x, ijk)$.
+\end{enumerate}
+For static $x$, a table of 8 values suffices for $c_{ijk}(x)$ in
+constant time, and 8 sets suffice for $\mathit{sample}(x, ijk)$ in
+constant time, each requiring linear time
+pre-processing. Algorithm~\ref{alg:simulation} requires supporting
+$c_{ijk}(x)$ and $\mathit{sample}(x, ijk)$ as $x$ changes by
+complementing the state at random positions. Reconstructing simple
+tables is too costly. Modifying existing structures requires not only
+considering the change to triplet pattern centered on position $n$ but
+also those centered on $n-1$ and $n+1$, as their last and first bits,
+respectively, are complemented. So we must also take into account
+updates to information about $x_{n-1}$ and $x_{n+1}$. Changing up to 6
+values in a table storing $c_{ijk}(x)$ poses no problem, but the
+necessary updates that would be required to support
+$\mathit{sample}(x, ijk)$ if positions corresponding to each triple
+are explicitly stored as sets requires those data structures have
+dynamic sizes.
+
+Clearly the state sequence $x$ itself supports the two required
+operations: triplet count retrieval can be accomplished by a linear
+scan of $x$, as can triplet site sampling, neither changing the size
+of $x$, the underlying data structure. However, in the context of
+Algorithm~\ref{alg:simulation}, linear time operations would
+drastically restrict the simulation time interval and the size of
+state sequences that can be simulated.
+
+We designed a data structure that supports the individual operations
+outlined above in constant time, independent of both the length of the
+state sequence $x$ and the time interval $t$, and requires only
+constant time for updates. We call this data structure a {\it binary
+  triplet sampler}. Let $\mathit{BTS}(x)$ be a binary triplet sampler
+that supports access of $c_{ijk}(x)$ and $\mathit{sample}(x,ijk)$. For
+any position $n$, the operation $\mathit{update}(\mathit{BTS}(x), n)$
+modifies $\mathit{BTS}(x)$ so that it is valid for
+$\mathit{BTS}(x_{\bar{n}})$, where
+$x_{\bar{n}} = (x_1,\ldots,\bar{x}_n,\ldots,x_m)$ has the
+complementary state at position $n$.
+
+For a binary state sequence $x$ the binary triplet sampler
+$\mathit{BTS}(x) = \{A, B, C\}$ is composed of 3 arrays. The array $C$
+has 9 values, with $C[a]$ equal to the number of times occurrences of
+triplet patterns in $x$ that precede the triplet pattern matching the
+binary representation of $0\leq a \leq 8$. So $C[0] = 0$ and
+$C[8] = m-2$ always holds. The array $A$ has size $m-2$ and contains
+each value $2$ through $m-1$ exactly once. The values in $A$ are
+organized as ``segments'' such that the consecutive entries $A[C[a]]$
+through $A[C[a+1] - 1]$ all indicate positions $n$ corresponding to
+triplet pattern $ijk$ matching the binary representation of $a$. To
+perform the operation $c_{ijk}(x)$ the BTS returns
+$C[(ijk)+1] - C[ijk]$. To perform the operation
+$\mathit{sample}(x,ijk)$, the BTS first samples an integer $u$
+uniformly from the half open interval $[0,c_{ijk}(x))$, and then
+returns $A[C[ijk] + u]$. Note that since $u$ is sampled uniformly at
+random, no additional assumptions are required on how values within
+$A$ are organized beyond the contiguity of the 8 segments. Finally,
+$B$ is a permutation on positions $1$ through $m$ such that
+$A[B[n]] = n$.
+%%% Define B
+
+When $x$ is updated by complementing the state at position $n$, three
+triplets are modified.
+% Up to 7 values in $C$ must change to
+% accommodate those modified triplets.
+% ({\it e.g.}
+% $\mathtt{00100}\rightarrow \mathtt{00000}$ changes $C[1]$ through ).
+The values $n$, $n-1$ and $n+1$ must be relocated within $A$ so that
+they reside within the appropriate range corresponding to their
+modified triplet. Focusing first on position $n$, we assume the
+corresponding triplet pattern was modified from $i0k$ (binary
+representation of integer $a$) to $i1k$ (representation of
+$a+2$). First locate $n$ in $A$ by accessing $b \gets B[n-2]$. Next,
+swap the values in $A[b]$ and $A[C[a+1]-1]$ and decrement $C[a+1]$.
+Now $n$ resides in the portion of $A$ associated with either the
+triplet pattern $i10$ or $i01$, depending on the value of $k$, and in
+both cases $n$ is currently in an incorrect location. We swap
+$A[C[a+1]]$ and $A[C[a+2]-1]$, moving $n$ from first to the last
+location in its current segment. We decrement $C[a+2]$, which extends
+the segment corresponding to $a+2$ by one position, effectively
+including $n$ in the correct segment. Finally, we set
+$B[n-2]\gets A[C[a+2]]$. This procedure required accessing two values
+in $B$, making two swaps within $A$, and changing two values in $C$.
+
+The above procedure must be repeated to account for changes to the
+triplet patterns for positions $n-1$ and $n+1$. One of these will
+require a single swap within $A$, and the other will requre $4$. The
+scenario in which the triplet pattern corresponding to position $n$ is
+modified from $i1k$ to $i0k$ is similar. Decrements to values $C$
+become increments, and swaps within $A$ move values from the end of
+segments to the beginning of segments. To summarize, each update to
+$x$ at some position $n$ modifies the arrays of the BTS by 7 swaps
+within $A$, $7$ changes (increments or decrements) in $C$, and 3
+changes in $B$.
 
 \end{document}
 
