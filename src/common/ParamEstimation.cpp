@@ -89,7 +89,7 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
 /* branches in likelihood and gradient ascent steps are scalers that
    should be multiplied to input branch lengths after the optimization
    is over */
-static void
+void
 get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<vector<double> > &J,
                           vector<vector<double> > &D) {
@@ -267,7 +267,7 @@ candidate_rates_and_branches(const double step_size,
                              vector<double> &updated_rates,
                              vector<double> &updated_branches) {
   // ADS: does it matter which of these updates happens first?
-  candidate_rates(step_size, gradient, rates, updated_rates);
+  candidate_rates(step_size, gradient, rates, updated_rates); 
   candidate_branches(J, D, updated_rates, updated_branches);
 }
 

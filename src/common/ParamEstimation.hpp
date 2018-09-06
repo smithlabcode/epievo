@@ -45,5 +45,11 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
 void
 estimate_root_distribution(const std::vector<std::vector<Path> > &all_paths,
                            EpiEvoModel &the_model);
+
+
+void
+get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,
+                          std::vector<std::vector<double> > &J,
+                          std::vector<std::vector<double> > &D);
     
 #endif
