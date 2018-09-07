@@ -74,7 +74,7 @@ add_sufficient_statistics(const vector<Path> &paths,
     add_sufficient_statistics(paths[i-1], paths[i], paths[i+1], J, D);
 }
 
-static void
+void
 get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<double> &J, vector<double> &D) {
   static const size_t n_triplets = 8;
@@ -89,7 +89,7 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
 /* branches in likelihood and gradient ascent steps are scalers that
    should be multiplied to input branch lengths after the optimization
    is over */
-void
+static void
 get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<vector<double> > &J,
                           vector<vector<double> > &D) {

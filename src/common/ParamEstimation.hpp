@@ -49,7 +49,6 @@ estimate_root_distribution(const std::vector<std::vector<Path> > &all_paths,
 
 void
 get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,
-                          std::vector<std::vector<double> > &J,
-                          std::vector<std::vector<double> > &D);
+                          std::vector<double> &J, std::vector<double> &D);
     
 #endif

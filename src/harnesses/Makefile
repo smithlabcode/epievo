@@ -19,7 +19,7 @@
 # 02110-1301 USA
 
 PROGS = end_cond_sampling_test single_site_sampling_test pentet_rate_test \
-	metropolis_unif_test
+	metropolis_unif_test extract_stats
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -57,6 +57,9 @@ end_cond_sampling_test single_site_sampling_test pentet_rate_test metropolis_uni
 	EpiEvoModel.o SingleSiteSampler.o EndCondSampling.o \
 	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o \
 	TreeHelper.o)
+
+extract_stats: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o ParamEstimation.o StateSeq.o)
+
 
 install: all
 	@mkdir -p ../../bin
