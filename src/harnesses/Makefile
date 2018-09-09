@@ -19,7 +19,7 @@
 # 02110-1301 USA
 
 PROGS = end_cond_sampling_test single_site_sampling_test pentet_rate_test \
-	metropolis_unif_test extract_stats
+	metropolis_unif_test extract_stats stationary_stats_est
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -49,17 +49,19 @@ all: $(PROGS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, \
 	OptionParser.o smithlab_utils.o smithlab_os.o) \
-	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o Path.o) \
+	$(addprefix $(COMMON_DIR)/, TreeHelper.o PhyloTreePreorder.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
 end_cond_sampling_test single_site_sampling_test pentet_rate_test metropolis_unif_test: \
 	$(addprefix $(COMMON_DIR)/, StateSeq.o \
 	EpiEvoModel.o SingleSiteSampler.o EndCondSampling.o \
-	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o \
-	TreeHelper.o)
+	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o)
 
 extract_stats: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o ParamEstimation.o StateSeq.o)
 
+stationary_stats_est: \
+	$(addprefix $(COMMON_DIR)/, \
+	TripletSampler.o StateSeq.o EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
 install: all
 	@mkdir -p ../../bin
