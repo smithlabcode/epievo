@@ -544,18 +544,22 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
   downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
                     proposed_path);
 
-  // acceptance rate
-  const double log_acc_rate =
-    log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
-
-  std::uniform_real_distribution<double> unif(0.0, 1.0);
-
   bool accepted = false;
-  if (always_accept || log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate)) {
+  // acceptance rate
+  if (!always_accept) {
+    const double log_acc_rate =
+    log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
+    
+    std::uniform_real_distribution<double> unif(0.0, 1.0);
+    if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate)) {
+      accepted = true;
+      for (size_t i = 1; i < th.n_nodes; ++i)
+        paths[i][site_id] = proposed_path[i];
+    }
+  } else {
     accepted = true;
-    for (size_t i = 1; i < th.n_nodes; ++i)
-      paths[i][site_id] = proposed_path[i];
   }
+
   return accepted;
 }
 
