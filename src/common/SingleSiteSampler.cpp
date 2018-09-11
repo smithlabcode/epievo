@@ -348,6 +348,14 @@ proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
   size_t start_jump = 0, end_jump = 0;
   
   double prob = 1.0;
+  
+  vector<mixJump> mixtype_jumps(path.mjumps);
+  if (path.jumps.size() > 0 && path.mjumps.size() == 0) {
+    // This is an initial path without any virtual jump information
+    for (size_t jump_id = 0; jump_id < path.jumps.size(); jump_id++)
+      mixtype_jumps.push_back(mixJump(true, path.jumps[jump_id]));
+  }
+
   for (size_t i = 0; i < n_intervals; ++i) {
     size_t n_real_jumps = 0;
 
@@ -355,9 +363,9 @@ proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
     end_time += seg_info[i].len;
     
     // get the end_jump as the first jump occurring after end_time
-    while (end_jump < path.mjumps.size() &&
-           path.mjumps[end_jump].time < end_time) {
-      n_real_jumps += (path.mjumps[end_jump].type);
+    while (end_jump < mixtype_jumps.size() &&
+           mixtype_jumps[end_jump].time < end_time) {
+      n_real_jumps += (mixtype_jumps[end_jump].type);
       ++end_jump;
     }
     
@@ -367,10 +375,10 @@ proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     const double interval_prob =
-    end_cond_sample_unif_prob(ctmm, path.mjumps, start_state, end_state,
+    end_cond_sample_unif_prob(ctmm, mixtype_jumps, start_state, end_state,
                               start_time, end_time, start_jump, end_jump);
-    cerr << "interval: " << prob << " X " << interval_prob << " = "
-    << prob * interval_prob << endl;
+    cout << "interval: " << prob << " X " << interval_prob << " = "
+     << prob * interval_prob << endl;
     prob *= interval_prob;
     assert(std::isfinite(prob));
     
@@ -408,18 +416,18 @@ proposal_prob(const vector<double> &triplet_rates,
   // compute posterior probability of state 0 at root node
   const double root_p0 =
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
-  cerr << "PROPOSAL ROOT_P0 = " << root_p0 << ", sampled root = "
-  << the_path[1].init_state << endl;
+  // cerr << "PROPOSAL ROOT_P0 = " << root_p0 << ", sampled root = "
+  // << the_path[1].init_state << endl;
 
   double prob = the_path[1].init_state ? 1.0 - root_p0 : root_p0;
-  cerr << "branch: start = " << prob << endl;
+  // cerr << "branch: start = " << prob << endl;
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     //prob *= proposal_prob_branch(seg_info[node_id], fh[node_id], the_path[node_id]);
     const double prob_unif = proposal_prob_branch_unif(seg_info[node_id],
                                                        fh[node_id],
                                                        the_path[node_id]);
-    cerr << "branch: " << prob << " X " << prob_unif << " = " << prob * prob_unif << endl;
+    // cerr << "branch: " << prob << " X " << prob_unif << " = " << prob * prob_unif << endl;
     prob *= prob_unif;
   }
 
@@ -465,7 +473,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     orig_counts += original[b].jumps.size();
     orig_counts_mix += original[b].mjumps.size();
   }
-  cerr << "\norig_proposal = " << orig_proposal
+  cout << "\nsite: " << site_id << ", orig_proposal = " << orig_proposal
        << ", orig_jumps = " << orig_counts
        << ", orig_jumps_mix = " << orig_counts_mix<< endl << endl;
   
@@ -478,11 +486,11 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     update_counts += proposed_path[b].jumps.size();
     update_counts_mix += proposed_path[b].mjumps.size();
   }
-  cerr << "\nupdate_proposal = " << update_proposal
+  cout << "\nsite: " << site_id << ", update_proposal = " << update_proposal
        << ", update_jumps = " << update_counts
        << ", update_jumps_mix = " << update_counts_mix << endl << endl;
   
-  assert(site_id > 1);
+  // assert(site_id > 1);
 
   double llr = log(orig_proposal) - log(update_proposal);
   
@@ -495,18 +503,24 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     vector<Path>::const_iterator opth(paths[i].begin() + site_id);
     fill_n(begin(D_orig), n_triples, 0.0);
     fill_n(begin(J_orig), n_triples, 0.0);
-    add_sufficient_statistics(*(opth - 2), *(opth - 1), *opth, J_orig, D_orig);
-    add_sufficient_statistics(*(opth - 1), *opth, *(opth + 1), J_orig, D_orig);
-    add_sufficient_statistics(*opth, *(opth + 1), *(opth + 2), J_orig, D_orig);
+    if (site_id > 1)
+      add_sufficient_statistics(*(opth - 2), *(opth - 1), *opth, J_orig, D_orig);
+    if (site_id > 0)
+      add_sufficient_statistics(*(opth - 1), *opth, *(opth + 1), J_orig, D_orig);
+    if (site_id < paths[i].size() - 2)
+      add_sufficient_statistics(*opth, *(opth + 1), *(opth + 2), J_orig, D_orig);
 
     // sufficient stats for current pentet using proposed path at mid
     // vector<Path>::const_iterator pth(paths[i].begin() + site_id);
     vector<Path>::const_iterator ppth(proposed_path.begin() + i);
     fill_n(begin(D_prop), n_triples, 0.0);
     fill_n(begin(J_prop), n_triples, 0.0);
-    add_sufficient_statistics(*(opth - 2), *(opth - 1), *ppth, J_prop, D_prop);
-    add_sufficient_statistics(*(opth - 1), *ppth, *(opth + 1), J_prop, D_prop);
-    add_sufficient_statistics(*ppth, *(opth + 1), *(opth + 2), J_prop, D_prop);
+    if (site_id > 1)
+      add_sufficient_statistics(*(opth - 2), *(opth - 1), *ppth, J_prop, D_prop);
+    if (site_id > 0)
+      add_sufficient_statistics(*(opth - 1), *ppth, *(opth + 1), J_prop, D_prop);
+    if (site_id < paths[i].size() - 2)
+      add_sufficient_statistics(*ppth, *(opth + 1), *(opth + 2), J_prop, D_prop);
 
     // scale the rates so they apply to the current branch lengths
     transform(begin(mod.triplet_rates), end(mod.triplet_rates),
@@ -520,7 +534,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     //cerr << " (jumps new: " << opath endl;
 
   }
-  cerr << "llr = " << llr << endl;
+  // cerr << "llr = " << llr << endl;
   return llr;
 }
 
@@ -551,14 +565,14 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
     log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
     
     std::uniform_real_distribution<double> unif(0.0, 1.0);
-    if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate)) {
+    if (log_acc_rate >= 0 || unif(gen) < exp(log_acc_rate))
       accepted = true;
-      for (size_t i = 1; i < th.n_nodes; ++i)
-        paths[i][site_id] = proposed_path[i];
-    }
   } else {
     accepted = true;
   }
+  if (accepted)
+    for (size_t i = 1; i < th.n_nodes; ++i)
+      paths[i][site_id] = proposed_path[i];
 
   return accepted;
 }
