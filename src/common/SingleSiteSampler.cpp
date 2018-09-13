@@ -213,22 +213,31 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
 
-    /*
-    assert(end_cond_sample_forward_rejection(10000000,
-                                             ctmm,
-                                             prev_state,
-                                             sampled_state,
-                                             seg_info[i].len,
-                                             gen,
-                                             sampled_path.jumps, time_passed));
+    /* Poisson */
+    end_cond_sample_Poisson(ctmm, prev_state, sampled_state, seg_info[i].len,
+                         gen, sampled_path.jumps, time_passed);
+    
+    /* forward
+     assert(end_cond_sample_forward_rejection(10000000,
+     ctmm,
+     prev_state,
+     sampled_state,
+     seg_info[i].len,
+     gen,
+     sampled_path.jumps, time_passed));
     */
+    
+    /* unif
     end_cond_sample_unif(ctmm, prev_state, sampled_state, seg_info[i].len,
                          gen, sampled_path.jumps, sampled_path.mjumps,
                          time_passed);
-
-    // end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len, gen,
-    //                        sampled_path.jumps, time_passed);
-
+    */
+    
+    /* direct
+    end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len, gen,
+                           sampled_path.jumps, time_passed);
+    */
+     
     // prepare for next interval
     time_passed += seg_info[i].len;
     prev_state = sampled_state;
@@ -311,9 +320,14 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
+    /* direct
     const double interval_prob =
     end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
                         start_time, end_time, start_jump, end_jump);
+    */
+    const double interval_prob =
+    end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
+                                 start_time, end_time, start_jump, end_jump);
     prob *= interval_prob;
     assert(std::isfinite(prob));
 
@@ -423,12 +437,15 @@ proposal_prob(const vector<double> &triplet_rates,
   // cerr << "branch: start = " << prob << endl;
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    //prob *= proposal_prob_branch(seg_info[node_id], fh[node_id], the_path[node_id]);
+    prob *= proposal_prob_branch(seg_info[node_id], fh[node_id], the_path[node_id]);
+    
+    /* Unif
     const double prob_unif = proposal_prob_branch_unif(seg_info[node_id],
                                                        fh[node_id],
                                                        the_path[node_id]);
     // cerr << "branch: " << prob << " X " << prob_unif << " = " << prob * prob_unif << endl;
     prob *= prob_unif;
+    */
   }
 
 
@@ -534,7 +551,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     //cerr << " (jumps new: " << opath endl;
 
   }
-  // cerr << "llr = " << llr << endl;
+  cout << "llr = " << llr << endl;
   return llr;
 }
 
