@@ -48,6 +48,13 @@ end_cond_sample_unif(const CTMarkovModel &the_model,
                      std::vector<mixJump> &mjumps,
                      const double start_time = 0.0);
 
+void
+end_cond_sample_Poisson(const CTMarkovModel &the_model,
+                        const size_t start_state, const size_t end_state,
+                        const double time_interval,
+                        std::mt19937 &gen, std::vector<double> &jump_times,
+                        const double start_time = 0.0);
+
 
 bool
 end_cond_sampling_Nielsen(const size_t max_sample_count,
@@ -70,6 +77,13 @@ end_cond_sample_unif_prob(const CTMarkovModel &the_model,
                           const size_t start_state, const size_t end_state,
                           const double start_time, const double end_time,
                           size_t start_jump, const size_t end_jump);
+
+double
+end_cond_sample_Poisson_prob(const CTMarkovModel &the_model,
+                             const std::vector<double> &jump_times,
+                             const size_t start_state, const size_t end_state,
+                             const double start_time, const double end_time,
+                             size_t start_jump, const size_t end_jump);
 
 double
 forward_sample_prob(const CTMarkovModel &the_model,
