@@ -871,14 +871,15 @@ end_cond_sample_Poisson_prob(const CTMarkovModel &the_model,
   const double muT = rate * T;
   const double denom = (start_state == end_state) ?
   (exp(muT) + exp(-muT)) / 2 : (exp(muT) - exp(-muT)) / 2;
-  
+  double prob = pow(rate, n) / denom;
+  /*
   double prob = (start_state == end_state) ? 1 / denom : rate / denom;
-  
   size_t i = (n % 2 == 0) ? 0 : 1;
   while (i <= n) {
     i += 2;
     prob *= ( rate * rate );
   }
+  */
   return prob;
 }
 
