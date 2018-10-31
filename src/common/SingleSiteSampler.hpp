@@ -57,7 +57,17 @@ downward_sampling(const TreeHelper &th, const size_t site_id,
                   const std::vector<FelsHelper> &fh,
                   std::mt19937 &gen,
                   std::vector<Path> &new_path);
-
+/*
+void
+downward_nonstop_sampling(const TreeHelper &th, const size_t site_id,
+                          const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
+                          const std::vector<std::vector<double> > &root_trans_prob,
+                          const std::vector<std::vector<SegmentInfo> > &seg_info,
+                          const std::vector<FelsHelper> &fh,
+                          std::mt19937 &gen,
+                          std::vector<Path> &new_path);
+*/
+ 
 void
 downward_sampling_fixed_root(const TreeHelper &th, const size_t site_id,
                              const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
@@ -87,10 +97,6 @@ Gibbs_independent_site(const std::vector<double> rates, const TreeHelper &th,
                        std::vector<std::vector<Path> > &paths_all_sites_and_branches,
                        std::mt19937 &gen,
                        std::vector<Path> &sampled_path);
-
-void
-add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
-                          std::vector<double> &J, std::vector<double> &D);
 
 /* Pruning
   - post-order traversal of nodes
