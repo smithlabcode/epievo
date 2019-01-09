@@ -262,23 +262,8 @@ EpiEvoModel::get_stationary_triplet_proportions(vector<double> &props) const {
 void
 scale_rates(const vector<double> &rates, const vector<double> &branches,
             vector<double> &scaled_rates, vector<double> &scaled_branches) {
-
-  // pair-wise potentials Q
-  two_by_two rate_mat(2, vector<double>(2, 1.0));
-  rate_mat[0][0] = rate_mat[0][1] * sqrt(rates[2]/rates[0]);
-  rate_mat[1][1] = rate_mat[0][1] * sqrt(rates[2]/rates[0]) * (rates[1]/rates[3]);
-
-  // transition probability matrix
-  two_by_two trans_mat;
-  horiz_potential_to_horiz_trans_prob(rate_mat, trans_mat);
-
-  // proportions of triplets at stationarity
-  vector<double> stationary_triplet_props;
-  compute_stationary_triplet_proportions(trans_mat, stationary_triplet_props);
-
-  double unit = 0.0;
-  for (size_t i = 0; i < stationary_triplet_props.size(); ++i)
-    unit += stationary_triplet_props[i]*rates[i];
+  
+  double unit = rate_scaling_factor(rates);
 
   scaled_rates = rates;
   transform(scaled_rates.begin(), scaled_rates.end(),
@@ -348,38 +333,53 @@ read_model(const string &param_file, EpiEvoModel &m) {
   std::ifstream in(param_file.c_str());
   if (!in)
     throw std::runtime_error("Could not open file: " + param_file);
-
-  /* read the stationary distribution */
+  
   string dummy_label;
   in >> dummy_label;
-  assert(dummy_label == "stationary");
-  m.T.resize(2, vector<double>(2, 0.0));
-  in >> m.T[0][0] >> m.T[1][1];
-  m.T[1][0] = 1.0 - m.T[1][1];
-  m.T[0][1] = 1.0 - m.T[0][0];
+  if(dummy_label == "stationary") {
+    /* read the stationary distribution */
+    m.T.resize(2, vector<double>(2, 0.0));
+    in >> m.T[0][0] >> m.T[1][1];
+    m.T[1][0] = 1.0 - m.T[1][1];
+    m.T[0][1] = 1.0 - m.T[0][0];
+    
+    assert(is_probability_distribution(m.T[0]) &&
+           is_probability_distribution(m.T[1]));
+    
+    /* read the baseline */
+    in >> dummy_label;
+    assert(dummy_label == "baseline");
+    m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
+    in >> m.stationary_logbaseline[0][0]
+    >> m.stationary_logbaseline[1][1];
+    
+    /* read the initial distribution (at root) */
+    in >> dummy_label;
+    assert(dummy_label == "init");
+    m.init_T.resize(2, vector<double>(2, 0.0));
+    in >> m.init_T[0][0] >> m.init_T[1][1];
+    m.init_T[1][0] = 1.0 - m.init_T[1][1];
+    m.init_T[0][1] = 1.0 - m.init_T[0][0];
+    
+    assert(is_probability_distribution(m.init_T[0]) &&
+           is_probability_distribution(m.init_T[1]));
+    
+    m.initialize();
+  } else {
+    assert(dummy_label == "000");
+    m.T.resize(2, vector<double>(2, 0.0));
+    m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
+    m.init_T.resize(2, vector<double>(2, 0.0));
 
-  assert(is_probability_distribution(m.T[0]) &&
-         is_probability_distribution(m.T[1]));
+    /* read triplet transition rates */
+    vector<double> rates;
+    rates.resize(8, 0.0);
+    in >> rates[0];
+    for (size_t i = 1; i < 8; i++)
+      in >> dummy_label >> rates[i];
+    m.rebuild_from_triplet_rates(rates);
+  }
 
-  /* read the baseline */
-  in >> dummy_label;
-  assert(dummy_label == "baseline");
-  m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
-  in >> m.stationary_logbaseline[0][0]
-     >> m.stationary_logbaseline[1][1];
-
-  /* read the initial distribution (at root) */
-  in >> dummy_label;
-  assert(dummy_label == "init");
-  m.init_T.resize(2, vector<double>(2, 0.0));
-  in >> m.init_T[0][0] >> m.init_T[1][1];
-  m.init_T[1][0] = 1.0 - m.init_T[1][1];
-  m.init_T[0][1] = 1.0 - m.init_T[0][0];
-
-  assert(is_probability_distribution(m.init_T[0]) &&
-         is_probability_distribution(m.init_T[1]));
-
-  m.initialize();
 }
 
 /* Read model file
@@ -442,11 +442,7 @@ EpiEvoModel::initialize() {
   compute_triplet_rates();
 
   // scale for one change per site per unit time
-  scale_triplet_rates();
-
-  // scale for one change per site per unit time
-  scale_triplet_rates();
-
+  // scale_triplet_rates();
 }
 
 
