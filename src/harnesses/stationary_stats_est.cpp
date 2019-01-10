@@ -209,10 +209,24 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
   }
 }
 
+
 static void
-assign_reversed_changes_to_sites(const vector<GlobalJump> &global_path,
+assign_ori_changes_to_sites(const vector<GlobalJump> &global_path,
                         vector<Path> &by_site) {
 
+  const size_t n_changes = global_path.size();
+  for (size_t i = 0; i < n_changes; ++i) {
+    const size_t pos = global_path[i].position;
+    const double time = global_path[i].timepoint;
+    by_site[pos].jumps.push_back(time);
+  }
+}
+
+
+static void
+assign_reversed_changes_to_sites(const vector<GlobalJump> &global_path,
+                                 vector<Path> &by_site) {
+  
   const size_t n_changes = global_path.size();
   for (size_t i = 0; i < n_changes; ++i) {
     const size_t j = n_changes - i - 1;
@@ -223,6 +237,23 @@ assign_reversed_changes_to_sites(const vector<GlobalJump> &global_path,
 }
 
 
+static bool
+check_homo_sites(const vector<Path> &by_site,
+                 const vector<size_t> censored_site) {
+  bool homo = true;
+  size_t site_id = 0;
+  while(homo && site_id < by_site.size()) {
+    if (std::find(censored_site.begin(), censored_site.end(),
+                  site_id) == censored_site.end()) {
+      homo = (by_site[site_id].jumps.empty()) ? true : false;
+    }
+    site_id++;
+  }
+  return homo;
+}
+
+
+
 int main(int argc, const char **argv) {
 
   try {
@@ -230,11 +261,14 @@ int main(int argc, const char **argv) {
     string outfile;
     string pathfile;
     string tree_file;
+    string root_states_file;
     string statfile;
+    bool FIX_NEIGHBORS = false;
     bool VERBOSE = false;
     bool write_only_leaves = false;
     size_t n_sites = 100;
     size_t n_samples = 1000;
+    vector<size_t> consored_site = {2};
 
     double evolutionary_time = numeric_limits<double>::lowest();
 
@@ -256,12 +290,15 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths"
                       "as sorted jump times (default: stdout)", false, pathfile);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
+    opt_parse.add_opt("root", 'r', "root states file", false, root_states_file);
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
                       evolutionary_time);
     opt_parse.add_opt("leaf", 'l', "write only leaf states", false,
                       write_only_leaves);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
+    opt_parse.add_opt("fix", 'f', "fix neighbors",
+                      false, FIX_NEIGHBORS);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -345,11 +382,26 @@ int main(int argc, const char **argv) {
       cerr << "[OBTAINING ROOT SEQUENCE]" << endl;
 
     vector<char> root_seq;
-    if (VERBOSE)
-      cerr << "[SIMULATING: " << th.node_names[0] << " (ROOT)]" << endl;
-    the_model.sample_state_sequence_init(n_sites, gen, root_seq);
-    if (VERBOSE)
-      cerr << "[ROOT LENGTH: " << n_sites << "]" << endl;
+    if (root_states_file.empty()) {
+      if (VERBOSE)
+        cerr << "[SIMULATING: " << th.node_names[0] << " (ROOT)]" << endl;
+      the_model.sample_state_sequence_init(n_sites, gen, root_seq);
+      if (VERBOSE)
+        cerr << "[ROOT LENGTH: " << n_sites << "]" << endl;
+    }
+    else {
+      if (VERBOSE)
+        cerr << "[READING ROOT FILE: " << root_states_file << "]" << endl;
+      vector<string> node_names;
+      vector<vector<char> > state_sequences;
+      read_states_file(root_states_file, node_names, state_sequences);
+      root_seq = state_sequences.front();
+      n_sites = root_seq.size();
+      if (VERBOSE)
+        cerr << "[LOADED: " << th.node_names[0] << " (ROOT)]" << endl
+        << "[ROOT LENGTH: " << n_sites << "]" << endl;
+    }
+    cerr << root_seq << endl;
    
     StateSeq s(root_seq);
     if (VERBOSE) {
@@ -363,84 +415,73 @@ int main(int argc, const char **argv) {
       // do we need to divide by the sequene length here?
       cerr << "mutations per site (at root): " << total_rate << endl;
     }
-
-    if (!pathfile.empty())
-      write_root_to_pathfile_global(pathfile, th.node_names[0], s);
-
+    
     vector<StateSeq> sequences(n_nodes, s);
 
     /* HEADER LINE OF OUTPUT STAT FILE */
-    std::ofstream of;
-    of.open(statfile.c_str());
-    std::ostream out(of.rdbuf());
-    if (!out)
-      throw std::runtime_error("bad output file: " + statfile);
-    out << "J_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
-    << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111\n" << endl;
-  
+    bool wrote_local_path = false;
+    size_t sample_id = 0;
+    vector<vector<GlobalJump> > the_paths;
     
-    for (size_t sample_id = 0; sample_id < n_samples; sample_id++) {
+    while (sample_id < n_samples) {
       /* SIMULATION */
       vector<vector<Path> > all_paths;
+      the_paths.clear();
       
       // root node
       all_paths.push_back(vector<Path> (n_sites, Path()));
       
       // iterate over branches
       for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
+        vector<GlobalJump> the_path;
         vector<Path> branch_paths;
         const double curr_branch_len = th.branches[node_id];
         
         TripletSampler ts(sequences[th.parent_ids[node_id]]);
         double time_value = 0;
-        vector<GlobalJump> the_path;
+        
+        vector<Path> path_by_site(n_sites);
+        for (size_t j = 0; j < path_by_site.size(); ++j) {
+          path_by_site[j].init_state = sequences[th.parent_ids[node_id]].seq[j];
+          path_by_site[j].tot_time = curr_branch_len;
+        }
         
         while (time_value < curr_branch_len)
           sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value);
         
         ts.get_sequence(sequences[node_id]);
+        the_paths.push_back(the_path);
         
-        // Convert REVERTED global jumps to local paths
-        vector<Path> path_by_site(n_sites);
-        for (size_t j = 0; j < path_by_site.size(); ++j) {
-          path_by_site[j].init_state = sequences[node_id].seq[j];
-          path_by_site[j].tot_time = curr_branch_len;
-        }
-        assign_reversed_changes_to_sites(the_path, path_by_site);
-        // Now we sepcifically want to test branch 1 only
-        if (node_id == 1)
-          all_paths.push_back(path_by_site);
-                        
-        if (sample_id == 0 && !pathfile.empty()) {
-          // reverse global jumps
-          vector<GlobalJump> reversed_jumps(the_path);
-          std::reverse(reversed_jumps.begin(), reversed_jumps.end());
-          for(size_t j = 0; j < reversed_jumps.size(); j++) {
-            reversed_jumps[j].timepoint = curr_branch_len -
-            reversed_jumps[j].timepoint;
-          }
+        // Convert global jumps to local paths
+        assign_ori_changes_to_sites(the_path, path_by_site);
 
-          // only output one instance of simualted paths
-          append_to_pathfile_global(pathfile, th.node_names[node_id],
-                                    reversed_jumps);
-          if (!outfile.empty())
-            write_output(write_only_leaves, th, outfile, th.node_names,
-                         sequences);
+        // Now we sepcifically want to test branch 1 only
+        if (node_id == 1) {
+          all_paths.push_back(path_by_site);
         }
       }
       
-      /* EXTRACT SUMMARY STATISTICS */
-      vector<double> J;
-      vector<double> D;
-      get_sufficient_statistics(all_paths, J, D);
-      for (size_t i = 0; i < 8; i++)
-        out << J[i] << "\t";
-      for (size_t i = 0; i < 7; i++)
-        out << D[i] << "\t";
-      out << D[7] << endl;
-
+      /* WRITE OUTPUT METH FILE */
+      if (!wrote_local_path && !pathfile.empty()
+          && (!FIX_NEIGHBORS || check_homo_sites(all_paths[1], consored_site))) {
+        // only output one instance of simualted paths
+        write_root_to_pathfile_global(pathfile, th.node_names[0],
+                                      sequences[0]);
+        
+        for (size_t i = 0; i < the_paths.size(); i++) {
+          append_to_pathfile_global(pathfile, th.node_names[i+1],
+                                    the_paths[i]);
+        }
+        
+        if (!outfile.empty())
+          write_output(write_only_leaves, th, outfile, th.node_names,
+                       sequences);
+        wrote_local_path = true;
+      }
+      if (!FIX_NEIGHBORS || check_homo_sites(all_paths[1], consored_site)) {
+        sample_id++;
+      }
     }
-
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
