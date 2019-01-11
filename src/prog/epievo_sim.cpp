@@ -87,8 +87,9 @@ read_states_file(const string &statesfile,
   size_t site_count = 0;
   while (getline(in, buffer)) {
     istringstream iss;
-    iss.rdbuf()->pubsetbuf(const_cast<char*>(buffer.c_str()), buffer.size());
-
+    //iss.rdbuf()->pubsetbuf(const_cast<char*>(buffer.c_str()), buffer.size());
+    iss.str(std::move(buffer));
+    
     size_t site_index = 0;
     iss >> site_index; // not important info but must be removed
 
@@ -100,7 +101,8 @@ read_states_file(const string &statesfile,
 
     if (node_idx < n_nodes)
       throw std::runtime_error("inconsistent number of states: " +
-                               to_string(node_idx) + "/" + to_string(n_nodes));
+                               to_string(node_idx) + "/" + to_string(n_nodes)
+                               + "/" + to_string(site_index));
 
     ++site_count;
   }
@@ -216,6 +218,8 @@ int main(int argc, const char **argv) {
     string tree_file;
     string root_states_file;
     bool VERBOSE = false;
+    bool SCALE = true;
+    bool TRPARAM = false;
     bool write_only_leaves = false;
     size_t n_sites = 100;
 
@@ -239,6 +243,9 @@ int main(int argc, const char **argv) {
                       evolutionary_time);
     opt_parse.add_opt("leaf", 'l', "write only leaf states", false,
                       write_only_leaves);
+    opt_parse.add_opt("scale", 'S', "scale the branch lengths", false, SCALE);
+    opt_parse.add_opt("rates", 'R', "use triplet transition rates",
+                      false, TRPARAM);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -285,7 +292,10 @@ int main(int argc, const char **argv) {
       cerr << "reading parameter file: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
-    the_model.scale_triplet_rates();
+    const double mu = rate_scaling_factor(the_model.triplet_rates);
+    if (SCALE)
+      the_model.scale_triplet_rates();
+
     if (VERBOSE)
       cerr << the_model << endl;
 
