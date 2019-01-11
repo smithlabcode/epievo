@@ -131,7 +131,7 @@ int main(int argc, const char **argv) {
 
     if (!OPTBRANCH) {
       compute_estimates_for_rates_only(VERBOSE, param_tol,
-                                       all_paths, th, the_model);
+                                       all_paths, the_model);
     }
     else
       compute_estimates_rates_and_branches(VERBOSE, param_tol, all_paths,
