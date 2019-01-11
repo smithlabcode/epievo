@@ -31,8 +31,14 @@
 void
 compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
+                                 const std::vector<double> &J,
+                                 const std::vector<double> &D,
+                                 EpiEvoModel &the_model);
+
+void
+compute_estimates_for_rates_only(const bool VERBOSE,
+                                 const double param_tol,
                                  const std::vector<std::vector<Path> > &all_paths,
-                                 const TreeHelper &th,
                                  EpiEvoModel &the_model);
 
 void
@@ -50,5 +56,15 @@ estimate_root_distribution(const std::vector<std::vector<Path> > &all_paths,
 void
 get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,
                           std::vector<double> &J, std::vector<double> &D);
+
+void
+estimate_sufficient_statistics_by_simulation(const std::vector<std::vector<Path> > &all_paths,
+                                             const EpiEvoModel the_model,
+                                             const TreeHelper &th,
+                                             std::vector<double> &J,
+                                             std::vector<double> &D,
+                                             std::mt19937 &gen,
+                                             const size_t n = 10000);
+
     
 #endif
