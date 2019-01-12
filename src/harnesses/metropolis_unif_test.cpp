@@ -40,6 +40,7 @@
 #include "SingleSiteSampler.hpp"
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
+#include "ParamEstimation.hpp"
 
 using std::vector;
 using std::endl;
@@ -48,16 +49,6 @@ using std::cout;
 using std::string;
 using std::runtime_error;
 using std::numeric_limits;
-
-
-static void
-assign_changes_to_sites(const vector<GlobalJump> &global_path,
-                        vector<Path> &by_site) {
-
-  const size_t n_changes = global_path.size();
-  for (size_t i = 0; i < n_changes; ++i)
-    by_site[global_path[i].position].jumps.push_back(global_path[i].timepoint);
-}
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -87,16 +78,75 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
     outpath << i << '\t' << path_by_site[i] << '\n';
 }
 
+static void
+delete_last_branch(vector<vector<Path> > &paths, vector<string> &node_names,
+                   TreeHelper &th) {
+  paths.pop_back();
+  node_names.pop_back();
+  th.branches.pop_back();
+  th.parent_ids.pop_back();
+  th.subtree_sizes.pop_back();
+  th.subtree_sizes[0]--;
+  th.n_nodes--;
+}
+
+
+static bool
+check_homo_sites(const vector<Path> &by_site,
+                 const vector<size_t> censored_site) {
+  bool homo = true;
+  size_t site_id = 0;
+  while(homo && site_id < by_site.size()) {
+    if (std::find(censored_site.begin(), censored_site.end(),
+                  site_id) == censored_site.end()) {
+      //homo = ((by_site[site_id].jumps.empty()) &&
+      //        (!by_site[site_id].init_state)) ? true : false;
+      homo = (by_site[site_id].jumps.empty()) ? true : false;
+      //cerr << "checked site: " << site_id << endl;
+    }
+    //cerr << site_id << ": " << by_site[site_id].init_state << " "
+    // << by_site[site_id].jumps.size() << " = " << homo << endl;
+    site_id++;
+  }
+  //cerr << endl;
+  return homo;
+}
+
+
+static void
+mean_var(const vector<double> x, double &mean, double &var) {
+  mean = 0;
+  var = 0;
+  const double sq_sum = std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
+
+  if (x.size() > 0) {
+    mean = std::accumulate(x.begin(), x.end(), 0.0) / x.size();
+    var = sq_sum / x.size() - mean * mean;
+  }
+}
+
 
 int main(int argc, const char **argv) {
   try {
     bool VERBOSE = false;
+    bool FIX_NEIGHBORS = false;
+    bool EST_PARAM = false;
+    
     string outfile;
     string statfile;
+    string tracefile;
 
     size_t rounds = 10;
     size_t rng_seed = std::numeric_limits<size_t>::max();
     size_t the_branch = 1;
+    vector<size_t> consored_site = {2};
+    size_t batch = 100;
+    size_t burning = 1000;
+    /* proposal: 0 - direct, 1 - unif, 2 - poisson, 3 - forward */
+    size_t proposal = 0;
+    
+    const size_t iteration = 10; // MLE iterations
+    static const double param_tol = 1e-10;
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "test mcmc procedure",
                            "<param> <treefile> <path_file>");
@@ -104,13 +154,26 @@ int main(int argc, const char **argv) {
                       false, rounds);
     opt_parse.add_opt("branch", 'b', "branch to simulate",
                       false, the_branch);
+    opt_parse.add_opt("batch", 'B', "batch size",
+                      false, batch);
+    opt_parse.add_opt("burning", 'L', "burining length",
+                      false, burning);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("statfile", 'S', "MCMC stats",
                       false, statfile);
+    opt_parse.add_opt("tracefile", 't', "MCMC trace",
+                      false, tracefile);
     opt_parse.add_opt("outfile", 'o', "outfile (sampling paths)",
                       false, outfile);
+    opt_parse.add_opt("estparam", 'm', "estimate model parameters",
+                      false, EST_PARAM);
+    opt_parse.add_opt("fix", 'f', "fix neighbors",
+                      false, FIX_NEIGHBORS);
+    opt_parse.add_opt("proposal", 'P', "MCMC proposal",
+                      false, proposal);
+    
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -141,7 +204,7 @@ int main(int argc, const char **argv) {
     std::ifstream tree_in(treefile.c_str());
     if (!tree_in || !(tree_in >> the_tree))
       throw runtime_error("cannot read tree file: " + treefile);
-    const TreeHelper th(the_tree);
+    TreeHelper th(the_tree);
 
     /* (2) READING PARAMETERS FROM FILE */
     if (VERBOSE)
@@ -149,7 +212,7 @@ int main(int argc, const char **argv) {
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     the_model.scale_triplet_rates();
-    if (VERBOSE)
+    //if (VERBOSE)
       cerr << the_model << endl;
     
     /* (3) LOADING PATHS */
@@ -159,6 +222,24 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > paths; // along multiple branches
     read_paths(input_file, node_names, paths);
     const size_t n_sites = paths[the_branch].size();
+    // remove unwanted branch for now
+    delete_last_branch(paths, node_names, th);
+    
+    if (VERBOSE)
+      cerr << "[ROOT SEQUENCE: ]" << endl;
+    
+    for (size_t pos = 0; pos < paths[the_branch].size(); pos++) {
+      cerr << paths[the_branch][pos].init_state;
+    }
+    cerr << endl;
+    
+    if (VERBOSE)
+      cerr << "[LEAF SEQUENCE: ]" << endl;
+    
+    for (size_t pos = 0; pos < paths[the_branch].size(); pos++) {
+      cerr << paths[the_branch][pos].end_state();
+    }
+    cerr << endl;
     
     /* (4) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -168,36 +249,155 @@ int main(int argc, const char **argv) {
     std::mt19937 gen(rng_seed);
     if (VERBOSE)
       cerr << "[INITIALIZED RNG (seed=" << rng_seed << ")]" << endl;
-
+    
     /* (5) MCMC */
+    // FILE RECORDING ROOT STATES
+    string rootfile = statfile + ".root";
+    std::ofstream of_root;
+    of_root.open(rootfile.c_str());
+    std::ostream out_root(of_root.rdbuf());
+    
+    // FILE RECORDING SUMMARY STATS
     std::ofstream outstat(statfile.c_str());
-    outstat << "ROUND\tSITE\tNJUMPS_OLD\tNJUMPS_NEW\tACCEPTED" << endl;
-    for (size_t r = 1; r <= rounds; ++r) {
-      if (VERBOSE)
-        cerr << "*********************\nROUND: " << r << endl;
-      for (size_t site_id = 2; site_id < n_sites - 2; ++site_id) {
-        outstat << r << "\t" << site_id << "\t"
-                << count_jumps(paths, site_id) << "\t";
-        if (VERBOSE)
-          cerr << "site: " << site_id
-               << ", original n_jumps:" << count_jumps(paths, site_id);
+    outstat << "J_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
+    << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111" << endl;
+
+    // FILE RECORDING MODEL PARAMETERS
+    string outparamfile = statfile + ".param";;
+    std::ofstream outparam(outparamfile.c_str());
+    outparam << "st0\tst1\tbl0\tbl1\trt0\trt1" << endl;
+    
+    // FILE RECORDING BATCH MEAN/VAR
+    string trace_mean_file = tracefile + ".mean";
+    string trace_var_file = tracefile + ".var";
+    std::ofstream of_trace_mean, of_trace_var;
+    of_trace_mean.open(trace_mean_file.c_str());
+    of_trace_var.open(trace_var_file.c_str());
+
+    std::ostream out_trace_mean(of_trace_mean.rdbuf());
+    std::ostream out_trace_var(of_trace_var.rdbuf());
+    out_trace_mean << "J_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
+    << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111" << endl;
+    out_trace_var << "J_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
+    << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111" << endl;
+    /* PREPARE MCMC */
+    size_t sampling_interval = batch;  
+    size_t itr = 0;
+    size_t last_sample_point = itr;
+    size_t num_sample_collected = 0;
+    vector<double> pos_num_update(n_sites, 0.0);
+    vector<double> J;
+    vector<double> D;
+    vector<vector<double> > J_batch(8, vector<double> (sampling_interval, 0.0));
+    vector<vector<double> > D_batch(8, vector<double> (sampling_interval, 0.0));
+
+    const size_t offset = 1;
+    while (num_sample_collected < rounds) {
+
+      bool update_happens = false;
+      
+      /* MCMC PROCEDURE */
+      for (size_t site_id = offset; site_id < n_sites - offset; ++site_id) {
         vector<Path> proposed_path;
         const bool accpeted = Metropolis_Hastings_site(the_model, th, site_id,
                                                        paths, gen,
-                                                       proposed_path, r == 1);
-        outstat << count_jumps(paths, site_id) << "\t" << accpeted << endl;
+                                                       proposed_path, proposal);
+        if (accpeted) {
+          if (VERBOSE && site_id == 2)
+            cout << "site: " << site_id
+            << ", original n_jumps:" << count_jumps(paths, site_id);
+          if (VERBOSE && site_id == 2)
+            cout << ", updated n_jumps:" << proposed_path[the_branch].jumps.size() << endl << endl;
+          
+          paths[the_branch][site_id] = proposed_path[the_branch];
+          pos_num_update[site_id-1]++;
+          update_happens = accpeted;
+        }
+      }
+      itr++;
+
+      /* PROCESS MCMC STATS */
+      
+      // CALCULATE SUFFICIENT STATS
+      get_sufficient_statistics(paths, J, D);
+      
+      // RECORD BATCH STATS
+      for (size_t i = 0; i < 8; i++) {
+        J_batch[i][itr - last_sample_point - 1] = J[i];
+        D_batch[i][itr - last_sample_point - 1] = D[i];
+      }
+      
+      // COLLECT/OUTPUT J AND D
+      if (itr > burning &&
+          (!FIX_NEIGHBORS ||
+           check_homo_sites(paths[the_branch], consored_site))) {
+            for (size_t i = 0; i < 8; i++)
+              outstat << J[i] << "\t";
+            for (size_t i = 0; i < 7; i++)
+              outstat << D[i] << "\t";
+            outstat << D[7] << endl;
+            
+            // OUTPUT ROOT
+            for (size_t i = 0; i < n_sites - 1; i++)
+              out_root << paths[the_branch][i].init_state << "\t";
+            out_root << paths[the_branch][n_sites - 1].init_state << endl;
+            
+      }
+      
+      // NEW SAMPLING POINT
+      if ((itr - last_sample_point) == sampling_interval) {
         
-        if (VERBOSE)
-          cerr << ", updated n_jumps:" << count_jumps(paths, site_id) << endl;
+        num_sample_collected++;
         
+        // RESET SAMPLING POINT
+        last_sample_point = itr;
+        
+        // CALCULATE/OUTPUT BATCH STATS
+        for (size_t i = 0; i < 8; i++) {
+          double mean, var;
+          mean_var(J_batch[i], mean, var);
+          out_trace_mean << mean << "\t";
+          out_trace_var << var << "\t";
+        }
+        for (size_t i = 0; i < 7; i++) {
+          double mean, var;
+          mean_var(D_batch[i], mean, var);
+          out_trace_mean << mean << "\t";
+          out_trace_var << var << "\t";
+        }
+        double mean, var;
+        mean_var(D_batch[7], mean, var);
+        out_trace_mean << mean << endl;
+        out_trace_var << var << endl;
+      }
+      
+      /* (7) PARAMETER ESTIMATION */
+      if (EST_PARAM) {
+        for (size_t i = 0; i < iteration; i++) {
+          compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
+          estimate_root_distribution(paths, the_model);
+        }
+        outparam << the_model.T[0][0] << "\t"
+        << the_model.T[1][1] << "\t"
+        << the_model.stationary_logbaseline[0][0] << "\t"
+        << the_model.stationary_logbaseline[1][1] << "\t"
+        << the_model.init_T[0][0] << "\t"
+        << the_model.init_T[1][1] << endl;
       }
     }
     
+    if (VERBOSE) {
+      cerr << "METROPOLIS-HASTINGS NUMBER OF SUCCESS: ";
+      for (size_t i = 0; i < n_sites; i++)
+        cerr << pos_num_update[i] << ", ";
+    }
+    cerr << endl;
+
     /* (6) OUTPUT */
     write_root_to_pathfile_local(outfile, th.node_names.front());
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
       append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
-   
+    
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
