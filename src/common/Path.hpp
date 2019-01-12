@@ -40,15 +40,17 @@ struct mixJump {
 
 struct Path {
 
-  Path() : init_state(false), tot_time(0.0) {}
+  Path() : init_state(false), mjump_touched(false), tot_time(0.0) {}
   Path(const bool is, const double tt) :
-    init_state(is), tot_time(tt), jumps(std::vector<double>()),
+    init_state(is), mjump_touched(false), tot_time(tt),
+  jumps(std::vector<double>()),
     mjumps(std::vector<mixJump>()) {}
   Path(const bool is, const double tt, const std::vector<double> &j) :
-    init_state(is), tot_time(tt), jumps(j),
+    init_state(is), tot_time(tt), mjump_touched(false), jumps(j),
     mjumps(std::vector<mixJump>()) {}
 
   bool init_state;
+  bool mjump_touched;
   double tot_time;
   std::vector<double> jumps;
   std::vector<mixJump> mjumps; // only used in uniformization
