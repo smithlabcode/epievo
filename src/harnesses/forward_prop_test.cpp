@@ -192,6 +192,7 @@ int main(int argc, const char **argv) {
     
     bool VERBOSE = false;
     bool FIX_NEIGHBORS = false;
+    bool FIX_ROOT = false;
     string outfile;
     string statfile;
     
@@ -218,7 +219,9 @@ int main(int argc, const char **argv) {
                       false, outfile);
     opt_parse.add_opt("fix", 'f', "fix neighbors",
                       false, FIX_NEIGHBORS);
-    
+    opt_parse.add_opt("fixroot", 'R', "fix root states",
+                      false, FIX_ROOT);
+
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -307,18 +310,19 @@ int main(int argc, const char **argv) {
     size_t num_sample_collected = 0;
     size_t num_single_process = 0;
     while (num_sample_collected < rounds) {
-      bool accept = false;
       vector<vector<Path> > updated_paths(paths);
+      bool pass = true;
 
       /* (a) SAMPLING ROOT SEQUENCE */
-      // vector<char> root_seq;
-      the_model.sample_state_sequence_init(n_sites, gen, root_seq);
+      if (!FIX_ROOT)
+        the_model.sample_state_sequence_init(n_sites, gen, root_seq);
       
       StateSeq s(root_seq);
       vector<StateSeq> sequences(n_nodes, s);
       vector<vector<GlobalJump> > global_paths;
 
-      for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
+      for (size_t node_id = 1; pass && (node_id < n_nodes); ++node_id) {
+        // start new branch
         vector<GlobalJump> global_path;
         const double curr_branch_len = th.branches[node_id];
    
@@ -342,27 +346,31 @@ int main(int argc, const char **argv) {
         updated_paths[node_id] = path_by_site;
         
         // leaf sequence agree?
-        if (check_leaf_seq(sequences[node_id], paths[node_id]) &&
-            (!FIX_NEIGHBORS || check_homo_sites(path_by_site, consored_site))) {
-          accept = true;
-          global_paths.push_back(global_path);
-          
-          // output
-          vector<double> J;
-          vector<double> D;
-          get_sufficient_statistics(updated_paths, J, D);
-          for (size_t i = 0; i < 8; i++)
-            outstat << J[i] << "\t";
-          for (size_t i = 0; i < 7; i++)
-            outstat << D[i] << "\t";
-          outstat << D[7] << endl;
-          // write root
-          for (size_t site_id = 0; site_id < n_sites - 1; site_id++)
-            out_root << updated_paths[the_branch][site_id].init_state << "\t";
-          out_root << updated_paths[the_branch][n_sites - 1].init_state << endl;
-
-          num_sample_collected++;
-        }
+        pass = th.is_leaf(node_id) ?
+        check_leaf_seq(sequences[node_id], paths[node_id]) : true;
+        
+        global_paths.push_back(global_path);
+        
+        // if (check_leaf_seq(sequences[node_id], paths[node_id]) &&
+        //    (!FIX_NEIGHBORS || check_homo_sites(path_by_site, consored_site))) {
+      }
+      
+      if (pass) {
+        // output
+        vector<double> J;
+        vector<double> D;
+        get_sufficient_statistics(updated_paths, J, D);
+        for (size_t i = 0; i < 8; i++)
+          outstat << J[i] << "\t";
+        for (size_t i = 0; i < 7; i++)
+          outstat << D[i] << "\t";
+        outstat << D[7] << endl;
+        // write root
+        for (size_t site_id = 0; site_id < n_sites - 1; site_id++)
+          out_root << updated_paths[the_branch][site_id].init_state << "\t";
+        out_root << updated_paths[the_branch][n_sites - 1].init_state << endl;
+        
+        num_sample_collected++;
       }
     }
     

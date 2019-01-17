@@ -79,15 +79,17 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
 }
 
 static void
-delete_last_branch(vector<vector<Path> > &paths, vector<string> &node_names,
+delete_branches(vector<vector<Path> > &paths, vector<string> &node_names,
                    TreeHelper &th) {
-  paths.pop_back();
-  node_names.pop_back();
-  th.branches.pop_back();
-  th.parent_ids.pop_back();
-  th.subtree_sizes.pop_back();
-  th.subtree_sizes[0]--;
-  th.n_nodes--;
+  while(paths.size() > 2) {
+    paths.pop_back();
+    node_names.pop_back();
+    th.branches.pop_back();
+    th.parent_ids.pop_back();
+    th.subtree_sizes.pop_back();
+    th.subtree_sizes[0]--;
+    th.n_nodes--;
+  }
 }
 
 
@@ -130,6 +132,7 @@ int main(int argc, const char **argv) {
   try {
     bool VERBOSE = false;
     bool FIX_NEIGHBORS = false;
+    bool FIX_ROOT = false;
     bool EST_PARAM = false;
     
     string outfile;
@@ -138,7 +141,7 @@ int main(int argc, const char **argv) {
 
     size_t rounds = 10;
     size_t rng_seed = std::numeric_limits<size_t>::max();
-    size_t the_branch = 1;
+    size_t the_branch = std::numeric_limits<size_t>::max();
     vector<size_t> consored_site = {2};
     size_t batch = 100;
     size_t burning = 1000;
@@ -171,6 +174,8 @@ int main(int argc, const char **argv) {
                       false, EST_PARAM);
     opt_parse.add_opt("fix", 'f', "fix neighbors",
                       false, FIX_NEIGHBORS);
+    opt_parse.add_opt("fixroot", 'R', "fix root states",
+                      false, FIX_ROOT);
     opt_parse.add_opt("proposal", 'P', "MCMC proposal",
                       false, proposal);
     
@@ -212,34 +217,34 @@ int main(int argc, const char **argv) {
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     the_model.scale_triplet_rates();
-    //if (VERBOSE)
+    if (VERBOSE)
       cerr << the_model << endl;
-    
+
     /* (3) LOADING PATHS */
     if (VERBOSE)
       cerr << "[READING PATHS FILE: " << input_file << "]" << endl;
     vector<string> node_names;
     vector<vector<Path> > paths; // along multiple branches
     read_paths(input_file, node_names, paths);
-    const size_t n_sites = paths[the_branch].size();
-    // remove unwanted branch for now
-    delete_last_branch(paths, node_names, th);
-    
-    if (VERBOSE)
-      cerr << "[ROOT SEQUENCE: ]" << endl;
-    
-    for (size_t pos = 0; pos < paths[the_branch].size(); pos++) {
-      cerr << paths[the_branch][pos].init_state;
+    const size_t n_sites = paths[1].size();
+    if (the_branch == 1) {
+      // remove unwanted branches
+      delete_branches(paths, node_names, th);
+    }
+      
+    cerr << "[ROOT SEQUENCE: ]" << endl;
+    for (size_t pos = 0; pos < n_sites; pos++) {
+      cerr << paths[1][pos].init_state;
     }
     cerr << endl;
     
-    if (VERBOSE)
+    if (the_branch == 1) {
       cerr << "[LEAF SEQUENCE: ]" << endl;
-    
-    for (size_t pos = 0; pos < paths[the_branch].size(); pos++) {
-      cerr << paths[the_branch][pos].end_state();
+      for (size_t pos = 0; pos < n_sites; pos++) {
+        cerr << paths[the_branch][pos].end_state();
+      }
+      cerr << endl;
     }
-    cerr << endl;
     
     /* (4) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -281,15 +286,14 @@ int main(int argc, const char **argv) {
     out_trace_var << "J_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
     << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111" << endl;
     /* PREPARE MCMC */
-    size_t sampling_interval = batch;  
     size_t itr = 0;
     size_t last_sample_point = itr;
     size_t num_sample_collected = 0;
     vector<double> pos_num_update(n_sites, 0.0);
     vector<double> J;
     vector<double> D;
-    vector<vector<double> > J_batch(8, vector<double> (sampling_interval, 0.0));
-    vector<vector<double> > D_batch(8, vector<double> (sampling_interval, 0.0));
+    vector<vector<double> > J_batch(8, vector<double> (batch, 0.0));
+    vector<vector<double> > D_batch(8, vector<double> (batch, 0.0));
 
     const size_t offset = 1;
     while (num_sample_collected < rounds) {
@@ -301,7 +305,8 @@ int main(int argc, const char **argv) {
         vector<Path> proposed_path;
         const bool accpeted = Metropolis_Hastings_site(the_model, th, site_id,
                                                        paths, gen,
-                                                       proposed_path, proposal);
+                                                       proposed_path, proposal,
+                                                       FIX_ROOT);
         if (accpeted) {
           if (VERBOSE && site_id == 2)
             cout << "site: " << site_id
@@ -309,8 +314,10 @@ int main(int argc, const char **argv) {
           if (VERBOSE && site_id == 2)
             cout << ", updated n_jumps:" << proposed_path[the_branch].jumps.size() << endl << endl;
           
-          paths[the_branch][site_id] = proposed_path[the_branch];
-          pos_num_update[site_id-1]++;
+          for (size_t b = 1; b < paths.size(); ++b)
+            paths[b][site_id] = proposed_path[b];
+
+          pos_num_update[site_id]++;
           update_happens = accpeted;
         }
       }
@@ -328,27 +335,28 @@ int main(int argc, const char **argv) {
       }
       
       // COLLECT/OUTPUT J AND D
-      if (itr > burning &&
-          (!FIX_NEIGHBORS ||
-           check_homo_sites(paths[the_branch], consored_site))) {
-            for (size_t i = 0; i < 8; i++)
-              outstat << J[i] << "\t";
-            for (size_t i = 0; i < 7; i++)
-              outstat << D[i] << "\t";
-            outstat << D[7] << endl;
+      // if (itr > burning &&
+      //    (!FIX_NEIGHBORS ||
+      //     check_homo_sites(paths[the_branch], consored_site))) {
+      if (itr > burning) {
+        for (size_t i = 0; i < 8; i++)
+          outstat << J[i] << "\t";
+        for (size_t i = 0; i < 7; i++)
+          outstat << D[i] << "\t";
+        outstat << D[7] << endl;
             
-            // OUTPUT ROOT
-            for (size_t i = 0; i < n_sites - 1; i++)
-              out_root << paths[the_branch][i].init_state << "\t";
-            out_root << paths[the_branch][n_sites - 1].init_state << endl;
-            
+        // OUTPUT ROOT
+        for (size_t i = 0; i < n_sites - 1; i++)
+          out_root << paths[1][i].init_state << "\t";
+        out_root << paths[1][n_sites - 1].init_state << endl;
       }
       
       // NEW SAMPLING POINT
-      if ((itr - last_sample_point) == sampling_interval) {
+      if ((itr - last_sample_point) == batch) {
         
-        num_sample_collected++;
-        
+        if (itr > burning)
+          num_sample_collected++;
+
         // RESET SAMPLING POINT
         last_sample_point = itr;
         

@@ -293,15 +293,18 @@ downward_sampling(const TreeHelper &th,
                   const vector<vector<SegmentInfo> > &seg_info,
                   const vector<FelsHelper> &fh,
                   std::mt19937 &gen,
-                  vector<Path> &proposed_path, const size_t proposal) {
+                  vector<Path> &proposed_path, const size_t proposal,
+                  const bool FIX_ROOT) {
 
   // compute posterior probability at root node
   const double root_p0 =
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
   proposed_path = vector<Path>(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  proposed_path.front() = Path(unif(gen) > root_p0, 0.0); // root
-  //proposed_path.front() = Path(paths[1][site_id].init_state, 0.0); // root
+  
+  proposed_path.front() = Path(paths[1][site_id].init_state, 0.0); // copy root
+  if (!FIX_ROOT)
+    proposed_path.front() = Path(unif(gen) > root_p0, 0.0); // update root
 
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
@@ -506,7 +509,6 @@ proposal_prob(const vector<double> &triplet_rates,
   const double root_p0 =
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
   
-  //double prob = 1;
   double prob = the_path[1].init_state ? 1.0 - root_p0 : root_p0;
 
   // process the paths above each node (except the root)
@@ -556,7 +558,6 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   vector<Path> original(th.n_nodes);
   for (size_t i = 1; i < th.n_nodes; ++i)
     original[i] = paths[i][site_id];
-
   const double orig_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
                   mod.init_T, fh, seg_info, original, proposal);
@@ -591,7 +592,6 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const size_t rt_prop = proposed_path[1].init_state;
   llr += (log(root_prior_prob(rt_l, rt_prop, rt_r, mod.init_T)) -
   log(root_prior_prob(rt_l, rt_orig, rt_r, mod.init_T)));
-  
   /* calculate likelihood involving internal intervals */
   vector<double> D_orig(n_triples), J_orig(n_triples);
   vector<double> D_prop(n_triples), J_prop(n_triples);
@@ -637,24 +637,24 @@ bool
 Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id, vector<vector<Path> > &paths,
                          std::mt19937 &gen, vector<Path> &proposed_path,
-                         const size_t proposal) {
+                         const size_t proposal, const bool FIX_ROOT) {
   // get rates and lengths each interval [seg_info: node x site]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
-  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     collect_segment_info(the_model.triplet_rates,
                          paths[node_id][site_id - 1],
                          paths[node_id][site_id + 1], seg_info[node_id]);
+  }
+
 
   // upward pruning and downward sampling [fh: one for each node]
   vector<FelsHelper> fh;
   pruning(th, site_id, paths, seg_info, fh);
-
   downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
-                    proposed_path, proposal);
+                    proposed_path, proposal, FIX_ROOT);
 
   // acceptance rate
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  
   const double u = unif(gen) ;
   const double log_acc_rate =
   log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path,
