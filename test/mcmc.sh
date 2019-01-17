@@ -1,0 +1,1 @@
+/Users/lizji/data/evo/mcmc/mcmc.sh

@@ -1,0 +1,1 @@
+/Users/lizji/data/evo/pyscripts/write_rootseq_to_file.py
