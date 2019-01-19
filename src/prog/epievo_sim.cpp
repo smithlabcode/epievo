@@ -292,7 +292,6 @@ int main(int argc, const char **argv) {
       cerr << "reading parameter file: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
-    const double mu = rate_scaling_factor(the_model.triplet_rates);
     if (SCALE)
       the_model.scale_triplet_rates();
 
