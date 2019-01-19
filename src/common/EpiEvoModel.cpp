@@ -377,6 +377,17 @@ read_model(const string &param_file, EpiEvoModel &m) {
     in >> rates[0];
     for (size_t i = 1; i < 8; i++)
       in >> dummy_label >> rates[i];
+    
+    /* take care of constraints between rates */
+    // lambda_100 = lambda_001
+    rates[4] = rates[1];
+    // lambda_110 = lambda_011
+    rates[6] = rates[3];
+    // B * C^2 * M = D * E^2 * S
+    // load B,D,E,C,M, compute S
+    rates[7] = (rates[0] * rates[6] * rates[6] * rates[5]) /
+    (rates[2] * rates[4] * rates[4]);
+    
     m.rebuild_from_triplet_rates(rates);
   }
 
@@ -465,7 +476,7 @@ EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
 
   triplet_rates = updated_rates;
 
-  scale_triplet_rates();
+  // scale_triplet_rates();
 
   // recompute T using the updated triplet rates
   triplet_rates_to_horiz_trans_prob(triplet_rates, T);
