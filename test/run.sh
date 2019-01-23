@@ -1,5 +1,6 @@
 proposalTexts=( 'direct' 'unif' 'poisson' 'forward' )
-proposalToTest=( 2 )
+proposalToTest=( 0 1 2 3 )
+#proposalToTest=( 2 )
 
 num=1000
 sites=5
@@ -77,7 +78,7 @@ echo 3. MCMC...
 echo Burning: $burning
 echo Batch: $batch
 if [ "$proposal" -lt ${#proposalTexts[@]} ]; then
-  proposalTexts=( ${proposalTexts[$proposal]} )
+  proposalToTest=( ${proposalToTest[$proposal]} )
 fi
 
 for (( i=0; i<${#proposalToTest[@]}; i++ )); do
