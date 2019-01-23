@@ -377,20 +377,21 @@ int main(int argc, const char **argv) {
         mean_var(D_batch[7], mean, var);
         out_trace_mean << mean << endl;
         out_trace_var << var << endl;
-      }
-      
-      /* (7) PARAMETER ESTIMATION */
-      if (EST_PARAM) {
-        for (size_t i = 0; i < iteration; i++) {
-          compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
-          estimate_root_distribution(paths, the_model);
+        
+        /* (7) PARAMETER ESTIMATION */
+        if (EST_PARAM) {
+          EpiEvoModel updated_model = the_model;
+          for (size_t i = 0; i < iteration; i++) {
+            compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, updated_model);
+            estimate_root_distribution(paths, updated_model);
+          }
+          outparam << updated_model.T[0][0] << "\t"
+          << updated_model.T[1][1] << "\t"
+          << updated_model.stationary_logbaseline[0][0] << "\t"
+          << updated_model.stationary_logbaseline[1][1] << "\t"
+          << updated_model.init_T[0][0] << "\t"
+          << updated_model.init_T[1][1] << endl;
         }
-        outparam << the_model.T[0][0] << "\t"
-        << the_model.T[1][1] << "\t"
-        << the_model.stationary_logbaseline[0][0] << "\t"
-        << the_model.stationary_logbaseline[1][1] << "\t"
-        << the_model.init_T[0][0] << "\t"
-        << the_model.init_T[1][1] << endl;
       }
     }
     
