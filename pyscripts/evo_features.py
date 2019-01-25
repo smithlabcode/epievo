@@ -108,21 +108,16 @@ def assign_features(block_states):
 
     #######################################
     block_features = []
-    if len(block_states) > 0:
-        if len(block_states) < 2:
-            block_features.append(check_single(block_states[0]))
-        elif len(block_states) < 3:
-            block_features.append(check_pair(block_states[0],
-                                            block_states[1]))
-        else:
-            block_features.append(check_pair(block_states[0],
-                                            block_states[1]))
+    if len(block_states) == 1: # only one block
+        block_features.append(check_single(block_states[0]))
+    else:
+        block_features.append(check_pair(block_states[0],block_states[1]))
+        if len(block_states) > 2: # at least three blocks
             for i in xrange(1, len(block_states)-1):
                 block_features.append(check_triple(block_states[i-1],
                                                    block_states[i],
                                                    block_states[i+1]))
-            block_features.append(check_pair(block_states[-2],
-                                            block_states[-1]))
+        block_features.append(check_pair(block_states[-1],block_states[-2]))
     return block_features
 
 #=================================================================
