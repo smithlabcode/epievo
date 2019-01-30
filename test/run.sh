@@ -16,10 +16,11 @@ batch=1
 print_usage() {
   printf "Usage: $(basename $0) [-n number] [-s sites] [-r root sequence]
           [-P proposal] [-f file prefix] [-T sample full tree]
-          [-C track convergence] [-R fix root]\n"
+          [-C track convergence]
+          [-L burning] [-B batch ] [-R fix root]\n"
 }
 
-while getopts 'n:s:r:P:f:TCRh' flag; do
+while getopts 'n:s:r:P:f:TCL:B:Rh' flag; do
   case "${flag}" in
     n) num="${OPTARG}" ;;
     s) sites="${OPTARG}" ;;
@@ -30,6 +31,8 @@ while getopts 'n:s:r:P:f:TCRh' flag; do
     C) testConv=1
        burning=0
        batch=10;;
+    L) burning="${OPTARG}" ;;
+    B) batch="${OPTARG}" ;;
     R) fixRoot=1 ;;
     h) print_usage
        exit 0 ;;
