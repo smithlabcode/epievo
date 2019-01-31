@@ -1,4 +1,4 @@
-#!/usr/local/bin/Rscript
+#!/usr/usc/R/3.3.1/lib64/R/bin/Rscript
 # Copyright (C) 2016-2018 University of Southern California
 #                         Andrew D Smith
 # Author: Andrew D. Smith, Xiaojing Ji
@@ -228,7 +228,7 @@ if (!is.null(opt$options$param)) {
     matplot(param.est, type="l",
             col=cols.param, lty=ltys,
             xlim=c(0, nrow(param.est)),
-            ylim=range(c(range(param.est), params.true[[par]])),
+            ylim=range(c(0, range(param.est), params.true[[par]])),
             xlab="MCMC time", ylab=par, main=titles[par])
     abline(h=params.true[[par]], lwd=2, col="red", lty=2)
     legend("topright", proposals,

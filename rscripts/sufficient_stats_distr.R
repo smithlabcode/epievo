@@ -1,4 +1,4 @@
-#!/usr/local/bin/Rscript
+#!/usr/usc/R/3.3.1/lib64/R/bin/Rscript
 # Copyright (C) 2016-2018 University of Southern California
 #                         Andrew D Smith
 # Author: Andrew D. Smith, Xiaojing Ji

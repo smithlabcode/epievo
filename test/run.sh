@@ -9,24 +9,27 @@ sampleTree=0
 testConv=0
 fixRoot=0
 prefix="test"
+initprefix=$prefix
 proposal=${#proposalTexts[@]}
 burning=1000
 batch=1
 
 print_usage() {
   printf "Usage: $(basename $0) [-n number] [-s sites] [-r root sequence]
-          [-P proposal] [-f file prefix] [-T sample full tree]
-          [-C track convergence]
+          [-P proposal] [-f file prefix] [-i init parameter file prefix]
+          [-T sample full tree] [-C track convergence]
           [-L burning] [-B batch ] [-R fix root]\n"
 }
 
-while getopts 'n:s:r:P:f:TCL:B:Rh' flag; do
+while getopts 'n:s:r:P:f:i:TCL:B:Rh' flag; do
   case "${flag}" in
     n) num="${OPTARG}" ;;
     s) sites="${OPTARG}" ;;
     r) rootseq="${OPTARG}" ;;
     P) proposal="${OPTARG}" ;;
-    f) prefix="${OPTARG}" ;;
+    f) prefix="${OPTARG}"
+       initprefix=$prefix ;;
+    i) initprefix="${OPTARG}" ;;
     T) sampleTree=1 ;;
     C) testConv=1
        burning=0
@@ -95,8 +98,8 @@ for (( i=0; i<${#proposalToTest[@]}; i++ )); do
   mkdir -p $dreport
 
   #--------------------------------------------------------------------------
-  mcmcCMD="./mcmc.sh -n $num -s $sites -f $prefix -p $dpar -i $dsim -o $dmcmc
--P $proposal -L $burning -B $batch"
+  mcmcCMD="./mcmc.sh -n $num -s $sites -f $prefix -j $initprefix -p $dpar
+-i $dsim -o $dmcmc -P $proposal -L $burning -B $batch"
   if [ "$sampleTree" -eq 1 ]; then
     mcmcCMD="${mcmcCMD} -T"
   fi
