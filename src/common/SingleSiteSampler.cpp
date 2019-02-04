@@ -351,7 +351,8 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
   double start_time = 0.0, end_time = 0.0;
   size_t start_jump = 0, end_jump = 0;
 
-  double prob = 1.0;
+  // double prob = 1.0;
+  double log_prob = 0.0;
   for (size_t i = 0; i < n_intervals; ++i) {
 
     // get the end_time by adding the segment length to the start_time
@@ -385,9 +386,9 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
                            start_time, end_time, start_jump, end_jump);
     }
 
-    prob *= interval_prob;
-    assert(prob > 0);
-    assert(std::isfinite(prob));
+    log_prob += interval_prob;
+    // assert(prob > 0);
+    assert(std::isfinite(log_prob));
 
     vector<vector<double> > P;
     ctmm.get_trans_prob_mat(seg_info[i].len, P);
@@ -397,15 +398,15 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
       P[start_state][0]/fh.p[i][start_state]*((i == n_intervals-1) ?
                                               fh.q[0] : fh.p[i+1][0]);
 
-    prob *= (end_state == 0) ? p0 : 1.0 - p0;
-    assert(std::isfinite(prob));
+    log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
+    assert(std::isfinite(log_prob));
 
     // prepare for next interval
     start_jump = end_jump;
     start_time = end_time;
     start_state = end_state;
   }
-  return prob;
+  return log_prob;
 }
 
 
@@ -441,7 +442,7 @@ proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
   double start_time = 0.0, end_time = 0.0;
   size_t start_jump = 0, end_jump = 0;
   
-  double prob = 1.0;
+  double log_prob = 0.0;
   
   vector<mixJump> mixtype_jumps(path.mjumps);
   if (path.jumps.size() > 0 && path.mjumps.size() == 0) {
@@ -469,10 +470,10 @@ proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     const double interval_prob =
-    end_cond_sample_unif_prob(ctmm, mixtype_jumps, start_state, end_state,
-                              start_time, end_time, start_jump, end_jump);
-    prob *= interval_prob;
-    assert(std::isfinite(prob));
+    log(end_cond_sample_unif_prob(ctmm, mixtype_jumps, start_state, end_state,
+                              start_time, end_time, start_jump, end_jump));
+    log_prob += interval_prob;
+    assert(std::isfinite(log_prob));
     
     vector<vector<double> > P;
     ctmm.get_trans_prob_mat(seg_info[i].len, P);
@@ -482,15 +483,15 @@ proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
     P[start_state][0]/fh.p[i][start_state]*((i == n_intervals-1) ?
                                             fh.q[0] : fh.p[i+1][0]);
     
-    prob *= (end_state == 0) ? p0 : 1.0 - p0;
-    assert(std::isfinite(prob));
+    log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
+    assert(std::isfinite(log_prob));
     
     // prepare for next interval
     start_jump = end_jump;
     start_time = end_time;
     start_state = end_state;
   }
-  return prob;
+  return log_prob;
 }
 
 
@@ -509,22 +510,23 @@ proposal_prob(const vector<double> &triplet_rates,
   const double root_p0 =
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
   
-  double prob = the_path[1].init_state ? 1.0 - root_p0 : root_p0;
-
+  // double prob = the_path[1].init_state ? 1.0 - root_p0 : root_p0;
+  double log_prob = the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
+  
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     /* proposal: 0 - direct, 1 - unif, 2 - poisson, 3 - forward */
     if (proposal == 1)
-      prob *= proposal_prob_branch_unif(seg_info[node_id], fh[node_id],
+      log_prob += proposal_prob_branch_unif(seg_info[node_id], fh[node_id],
                                         the_path[node_id]);
     else
-      prob *= proposal_prob_branch(seg_info[node_id], fh[node_id],
+      log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
                                    the_path[node_id], proposal);
     // homogeneous non-stop proposal
     // prob += proposal_prob_branch_nonstop(seg_info[node_id], the_path[node_id]);
     // cerr << "branch: " << prob << " X " << prob_unif << " = " << prob * prob_unif << endl;
   }
-  return prob;
+  return log_prob;
 }
 
 
@@ -561,27 +563,31 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const double orig_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
                   mod.init_T, fh, seg_info, original, proposal);
+  /*
   size_t orig_counts = 0;
   size_t orig_counts_mix = 0;
   for (size_t b = 1; b < paths.size(); ++b) {
     orig_counts += original[b].jumps.size();
     orig_counts_mix += original[b].mjumps.size();
   }
-  
+  */
   const double update_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
                   mod.init_T, fh, seg_info, proposed_path, proposal);
+  /*
   size_t update_counts = 0;
   size_t update_counts_mix = 0;
   for (size_t b = 1; b < paths.size(); ++b) {
     update_counts += proposed_path[b].jumps.size();
     update_counts_mix += proposed_path[b].mjumps.size();
   }
-  
+  */
   assert(site_id > 0 && site_id < paths[1].size());
 
-  double llr = log(orig_proposal) - log(update_proposal);
-  
+  // double llr = log(orig_proposal) - log(update_proposal);
+  double llr = orig_proposal - update_proposal;
+  cout << "llr = " << llr << endl;
+
   if (proposal == 1 && !original[1].mjump_touched)
     llr = 0;
 
@@ -619,14 +625,16 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
       add_sufficient_statistics(*ppth, *(opth + 1), *(opth + 2), J_prop, D_prop);
 
     // scale the rates so they apply to the current branch lengths
-    transform(begin(mod.triplet_rates), end(mod.triplet_rates),
-    begin(scaled_rates),
-          bind(multiplies<double>(), _1, th.branches[i]));
-
+    // transform(begin(mod.triplet_rates), end(mod.triplet_rates),
+    // begin(scaled_rates),
+    //       bind(multiplies<double>(), _1, th.branches[i]));
+    // llr += (log_likelihood(scaled_rates, J_prop, D_prop) -
+    //        log_likelihood(scaled_rates, J_orig, D_orig));
+    
     // add difference in log-likelihood for the proposed vs. original
     // to the Hastings ratio
-    llr += (log_likelihood(scaled_rates, J_prop, D_prop) -
-            log_likelihood(scaled_rates, J_orig, D_orig));
+    llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
+            log_likelihood(mod.triplet_rates, J_orig, D_orig));
   }
   // cout << "llr = " << llr << endl;
   return llr;
