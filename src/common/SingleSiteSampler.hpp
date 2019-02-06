@@ -1,7 +1,7 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Jianghan Qu and Andrew D Smith
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
- * Author: Andrew D. Smith and Jianghan Qu
+ * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -58,16 +58,6 @@ downward_sampling(const TreeHelper &th, const size_t site_id,
                   std::mt19937 &gen,
                   std::vector<Path> &new_path, const size_t proposal = 0,
                   const bool FIX_ROOT = false);
-/*
-void
-downward_nonstop_sampling(const TreeHelper &th, const size_t site_id,
-                          const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                          const std::vector<std::vector<double> > &root_trans_prob,
-                          const std::vector<std::vector<SegmentInfo> > &seg_info,
-                          const std::vector<FelsHelper> &fh,
-                          std::mt19937 &gen,
-                          std::vector<Path> &new_path);
-*/
  
 void
 downward_sampling_fixed_root(const TreeHelper &th, const size_t site_id,

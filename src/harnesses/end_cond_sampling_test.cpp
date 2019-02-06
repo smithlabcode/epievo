@@ -1,11 +1,7 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Liz Ji, Jianghan Qu and Andrew D Smith
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
- * end_cond_sampling_test: This program is to test the methods for
- * end-conditioned sampling. We assume two states, so the parameters
- * are 2 rates, and an evolutionary time.
- *
- * Author: Liz Ji, Andrew D. Smith and Jianghan Qu
+ * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -16,6 +12,11 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  */
 
 #include <string>
@@ -408,8 +409,11 @@ int main(int argc, const char **argv) {
         vector<double> proposal_prob;
         for (size_t k = 0; k < n_paths_to_sample; ++k) {
           vector<double> jump_times;
-          end_cond_sample_direct(ctmm, start_state, end_state, evo_time,
-                                 gen, jump_times);
+          vector<mixJump> mjumps;
+          //end_cond_sample_direct(ctmm, start_state, end_state, evo_time,
+          //                       gen, jump_times);
+          end_cond_sample_unif(ctmm, start_state, end_state, evo_time,
+                               gen, jump_times, mjumps);
           seg_counts.push_back(jump_times.size() + 1);
           time_in_zero.push_back(get_time_in_zero(start_state, evo_time, jump_times));
           time_in_one.push_back(evo_time - time_in_zero.back());
@@ -450,12 +454,12 @@ int main(int argc, const char **argv) {
         cout << "X(0)=" << start_state << '\t'
              << "X(T)=" << end_state << '\t'
              << "Segs=" << mean_segs << '\t'
-             << "D(0)=" << mean_zero_time << '\t'
+             << "T(0)=" << mean_zero_time << '\t'
              << "S(0)=" << mean_zero_segs << '\t'
-             << "L(0)=" << mean_zero_duration << '\t'
-             << "D(1)=" << mean_one_time << '\t'
+             << "D(0)=" << mean_zero_duration << '\t'
+             << "T(1)=" << mean_one_time << '\t'
              << "S(1)=" << mean_one_segs << '\t'
-             << "L(1)=" << mean_one_duration << '\t'
+             << "D(1)=" << mean_one_duration << '\t'
              << "Proposal prob=" << mean_proposal_prob << endl;
       }
     }

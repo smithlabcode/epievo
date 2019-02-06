@@ -1,12 +1,7 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Liz Ji, Jianghan Qu and Andrew D Smith
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
- * single_site_sampling_test: This program is to test the
- * functionality in SingleSiteSampler.*pp which includes a combination
- * of end-point sampling, in an up-down process, with virtual nodes
- * internal to a branch, along with end-point conditioned sampling.
- *
- * Author: Liz Ji, Andrew D. Smith and Jianghan Qu
+ * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -17,6 +12,11 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  */
 
 #include <string>
@@ -231,13 +231,16 @@ int main(int argc, const char **argv) {
       // remove unwanted branches
       delete_branches(paths, node_names, th);
     }
-      
+    
+    /*
     cerr << "[ROOT SEQUENCE: ]" << endl;
     for (size_t pos = 0; pos < n_sites; pos++) {
       cerr << paths[1][pos].init_state;
     }
     cerr << endl;
+    */
     
+    /*
     if (the_branch == 1) {
       cerr << "[LEAF SEQUENCE: ]" << endl;
       for (size_t pos = 0; pos < n_sites; pos++) {
@@ -245,7 +248,8 @@ int main(int argc, const char **argv) {
       }
       cerr << endl;
     }
-    
+    */
+     
     /* (4) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
@@ -294,7 +298,9 @@ int main(int argc, const char **argv) {
     vector<double> D;
     vector<vector<double> > J_batch(8, vector<double> (batch, 0.0));
     vector<vector<double> > D_batch(8, vector<double> (batch, 0.0));
-
+    vector<double> J_accu(8, 0.0);
+    vector<double> D_accu(8, 0.0);
+    
     const size_t offset = 1;
     while (num_sample_collected < rounds) {
 
@@ -334,28 +340,30 @@ int main(int argc, const char **argv) {
         D_batch[i][itr - last_sample_point - 1] = D[i];
       }
       
-      // COLLECT/OUTPUT J AND D
-      // if (itr > burning &&
-      //    (!FIX_NEIGHBORS ||
-      //     check_homo_sites(paths[the_branch], consored_site))) {
-      if (itr > burning) {
-        for (size_t i = 0; i < 8; i++)
-          outstat << J[i] << "\t";
-        for (size_t i = 0; i < 7; i++)
-          outstat << D[i] << "\t";
-        outstat << D[7] << endl;
-            
-        // OUTPUT ROOT
-        for (size_t i = 0; i < n_sites - 1; i++)
-          out_root << paths[1][i].init_state << "\t";
-        out_root << paths[1][n_sites - 1].init_state << endl;
-      }
-      
       // NEW SAMPLING POINT
       if ((itr - last_sample_point) == batch) {
         
         if (itr > burning)
           num_sample_collected++;
+        
+        // COLLECT/OUTPUT J AND D
+        if (itr > burning) {
+          for (size_t i = 0; i < 8; i++)
+            outstat << J[i] << "\t";
+          for (size_t i = 0; i < 7; i++)
+            outstat << D[i] << "\t";
+          outstat << D[7] << endl;
+          
+          for(size_t i = 0; i < 8; i++) {
+            J_accu[i] += J[i];
+            D_accu[i] += D[i];
+          }
+          
+          // OUTPUT ROOT
+          for (size_t i = 0; i < n_sites - 1; i++)
+            out_root << paths[1][i].init_state << "\t";
+          out_root << paths[1][n_sites - 1].init_state << endl;
+        }
 
         // RESET SAMPLING POINT
         last_sample_point = itr;
@@ -381,8 +389,17 @@ int main(int argc, const char **argv) {
         /* (7) PARAMETER ESTIMATION */
         if (EST_PARAM) {
           EpiEvoModel updated_model = the_model;
+          vector<double> J_mean(8, 0.0);
+          vector<double> D_mean(8, 0.0);
+          
+          for (size_t i = 0; i < 8; i++) {
+            J_mean[i] = J_accu[i] / batch;
+            D_mean[i] = D_accu[i] / batch;
+          }
+          
           for (size_t i = 0; i < iteration; i++) {
-            compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, updated_model);
+            compute_estimates_for_rates_only(VERBOSE, param_tol,
+                                             J_mean, D_mean, updated_model);
             estimate_root_distribution(paths, updated_model);
           }
           outparam << updated_model.T[0][0] << "\t"
@@ -391,6 +408,14 @@ int main(int argc, const char **argv) {
           << updated_model.stationary_logbaseline[1][1] << "\t"
           << updated_model.init_T[0][0] << "\t"
           << updated_model.init_T[1][1] << endl;
+          
+          the_model = updated_model;
+        }
+        
+        // RESET
+        for (size_t i = 0; i < 8; i++) {
+          J_accu[i] = 0.0;
+          D_accu[i] = 0.0;
         }
       }
     }

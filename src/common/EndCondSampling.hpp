@@ -1,5 +1,5 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Jianghan Qu, Andrew D Smith and Xiaojing Ji
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
  * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
@@ -18,6 +18,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA
  */
+
 #ifndef END_COND_SAMPLING_HPP
 #define END_COND_SAMPLING_HPP
 

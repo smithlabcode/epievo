@@ -1,7 +1,7 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Jianghan Qu and Andrew D Smith
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
- * Author: Jianghan Qu and Andrew D. Smith
+ * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by

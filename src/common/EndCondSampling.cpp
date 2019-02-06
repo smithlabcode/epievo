@@ -1,5 +1,5 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Jianghan Qu, Andrew D Smith and Xiaojing Ji
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
  * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
@@ -673,6 +673,32 @@ end_cond_sample_unif(const CTMarkovModel &the_model, const size_t start_state,
   assert(a == end_state);
 }
 
+double
+expected_num_jumps(const CTMarkovModel &the_model, const size_t start_state,
+                   const size_t end_state, const double T) {
+
+  const double r0 = the_model.rate0;
+  const double r1 = the_model.rate1;
+  const double s = r0 + r1;
+  const double p = r0 * r1;
+  const double d = r1 - r0;
+  const double e = exp(- s * T);
+  double N = 0;
+
+  if (start_state == end_state) {
+    N = 2 * p / s;
+    if (start_state == 0)
+      N *= ( ( (r1 - r0 * e) * T  - d * (1 - e) / s) / (r1 + r0 * e) );
+    else
+      N *= ( ( (r0 - r1 * e) * T  + d * (1 - e) / s) / (r0 + r1 * e) );
+  } else
+    N = 2 * p * T * (1 + e) / (s * (1 - e)) + d * d / (s * s);
+
+  assert(N >= 0);
+
+  return N;
+}
+
 
 static size_t
 num_Poisson_trans(const double rate, const double T, const size_t state_a,
@@ -686,10 +712,15 @@ num_Poisson_trans(const double rate, const double T, const size_t state_a,
   size_t n = (state_a == state_b) ? 0 : 1;
   prob = (state_a == state_b) ? 1 : muT;
   double sum_probs = prob;
+  
+  std::cout << "u*denom: " << u * denom << endl;
+  std::cout << "n: " << n << ", cdf: " << sum_probs << endl;
   while (sum_probs < u * denom) {
     n += 2;
     prob *= ( muT * muT / (n * (n-1)));
     sum_probs += prob;
+    std::cout << "n: " << n << ", cdf: " << sum_probs << endl;
+
   }
   return n;
 }
@@ -700,7 +731,13 @@ end_cond_sample_Poisson(const CTMarkovModel &the_model, const size_t start_state
                         const size_t end_state, const double T, std::mt19937 &gen,
                         vector<double> &jump_times, const double start_time) {
   
-  const double rate = (the_model.rate0 + the_model.rate1) / 2;
+  //const double rate = (the_model.rate0 + the_model.rate1) / 2;
+  //const double rate = std::min(the_model.rate0, the_model.rate1);
+  const double rate = expected_num_jumps(the_model, start_state, end_state, T)/T;
+
+  std::cout << "Start: " << start_state << ", End: " << end_state
+  << ", Rate: " << rate << endl;
+  
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   function<double()> distr(bind(unif, std::ref(gen)));
   
@@ -850,16 +887,26 @@ end_cond_sample_Poisson_prob(const CTMarkovModel &the_model,
                              const size_t start_jump, const size_t end_jump) {
   
   const double T = end_time - start_time;
-  const double rate = (the_model.rate0 + the_model.rate1) / 2;
+  //const double rate = (the_model.rate0 + the_model.rate1) / 2;
+  //const double rate = std::min(the_model.rate0, the_model.rate1);
+  const double rate = expected_num_jumps(the_model, start_state, end_state, T)/T;
   
   double n = end_jump - start_jump;
   
   const double muT = rate * T;
   const double denom = (start_state == end_state) ?
   (exp(muT) + exp(-muT)) / 2 : (exp(muT) - exp(-muT)) / 2;
-  
-  double prob = pow(rate, n) / denom;
-  return prob;
+  /*
+  std::cout << "time: " << T << endl;
+  std::cout << "rate: " << rate << endl;
+  std::cout << "n: " << n << endl;
+  std::cout << "nom: " << pow(rate, n) / denom << endl;
+  std::cout << "denom: " << denom / denom << endl;
+   */
+  // double prob = pow(rate, n) / denom;
+  const double log_prob = n * log(rate) - log(denom);
+  std::cout << "interval poisson log-prob: " << log_prob << endl;
+  return log_prob;
 }
 
 

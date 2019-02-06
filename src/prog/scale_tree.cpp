@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 University of Southern California
+/* Copyright (C) 2019 University of Southern California
  *                    Jianghan Qu and Andrew D Smith
  *
  * Author: Andrew D. Smith and Jianghan Qu

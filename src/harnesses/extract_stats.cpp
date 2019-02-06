@@ -1,5 +1,5 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Jianghan Qu, Andrew D Smith and Xiaojing Ji
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
  * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
@@ -44,6 +44,7 @@ int main(int argc, const char **argv) {
 
   try {
 
+    string path_dir;
     string outfile;
     bool VERBOSE = false;
 

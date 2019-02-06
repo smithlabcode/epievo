@@ -1,12 +1,7 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Liz Ji, Jianghan Qu and Andrew D Smith
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
- * single_site_sampling_test: This program is to test the
- * functionality in SingleSiteSampler.*pp which includes a combination
- * of end-point sampling, in an up-down process, with virtual nodes
- * internal to a branch, along with end-point conditioned sampling.
- *
- * Author: Liz Ji, Andrew D. Smith and Jianghan Qu
+ * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -17,6 +12,11 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  */
 
 #include <string>

@@ -1,7 +1,7 @@
-/* Copyright (C) 2018 University of Southern California
- *                    Jianghan Qu and Andrew D Smith
+/* Copyright (C) 2019 University of Southern California
+ *                    Xiaojing Ji, Jianghan Qu and Andrew D Smith
  *
- * Author: Andrew D. Smith and Jianghan Qu
+ * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ using std::placeholders::_1;
 using std::multiplies;
 using std::runtime_error;
 
-// collect rates and interval lengths
+/* collect rates and interval lengths */
 static void
 collect_segment_info(const vector<double> &triplet_rates,
                      const Path &l, const Path &r,
@@ -162,22 +162,20 @@ pruning(const TreeHelper &th, const size_t site_id,
 ///////////////            DOWNWARD SAMPLING        ////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+
+/* Compute likelihood of root state at given site and neighboring states */
+static double
+root_prior_lh(const size_t l, const size_t m, const size_t r,
+              const vector<vector<double> > &horiz_tr_prob) {
+  
+  const double p = horiz_tr_prob[l][m]*horiz_tr_prob[m][r];
+  return p;
+}
+
 /* Compute posterior probability of state 0 at root node (i.e. the
  * init_state of any/all children) for particular site using
  * information from the upward stage of Felsenstein's algorithm.
  */
-static double
-root_prior_prob(const size_t l, const size_t m, const size_t r,
-                const vector<vector<double> > &horiz_tr_prob) {
-  
-  const double p = horiz_tr_prob[l][m]*horiz_tr_prob[m][r];
-  const double p_ = (horiz_tr_prob[l][complement_state(m)]*
-                     horiz_tr_prob[complement_state(m)][r]);
-  return p;
-  //return p/(p + p_);
-}
-
-
 static double
 root_post_prob0(const size_t site_id, const vector<Path> &the_paths,
                 const vector<vector<double> > &horiz_tr_prob,
@@ -563,30 +561,14 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const double orig_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
                   mod.init_T, fh, seg_info, original, proposal);
-  /*
-  size_t orig_counts = 0;
-  size_t orig_counts_mix = 0;
-  for (size_t b = 1; b < paths.size(); ++b) {
-    orig_counts += original[b].jumps.size();
-    orig_counts_mix += original[b].mjumps.size();
-  }
-  */
+
   const double update_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
                   mod.init_T, fh, seg_info, proposed_path, proposal);
-  /*
-  size_t update_counts = 0;
-  size_t update_counts_mix = 0;
-  for (size_t b = 1; b < paths.size(); ++b) {
-    update_counts += proposed_path[b].jumps.size();
-    update_counts_mix += proposed_path[b].mjumps.size();
-  }
-  */
+
   assert(site_id > 0 && site_id < paths[1].size());
 
-  // double llr = log(orig_proposal) - log(update_proposal);
   double llr = orig_proposal - update_proposal;
-  cout << "llr = " << llr << endl;
 
   if (proposal == 1 && !original[1].mjump_touched)
     llr = 0;
@@ -598,6 +580,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const size_t rt_prop = proposed_path[1].init_state;
   llr += (log(root_prior_prob(rt_l, rt_prop, rt_r, mod.init_T)) -
   log(root_prior_prob(rt_l, rt_orig, rt_r, mod.init_T)));
+
   /* calculate likelihood involving internal intervals */
   vector<double> D_orig(n_triples), J_orig(n_triples);
   vector<double> D_prop(n_triples), J_prop(n_triples);

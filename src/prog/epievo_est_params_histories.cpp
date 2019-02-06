@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 University of Southern California
+/* Copyright (C) 2019 University of Southern California
  *                    Jianghan Qu, Andrew D Smith and Xiaojing Ji
  *
  * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
@@ -45,6 +45,19 @@ using std::cout;
 using std::string;
 
 
+static void
+delete_last_branch(vector<vector<Path> > &paths, vector<string> &node_names,
+                   TreeHelper &th) {
+  paths.pop_back();
+  node_names.pop_back();
+  th.branches.pop_back();
+  th.parent_ids.pop_back();
+  th.subtree_sizes.pop_back();
+  th.subtree_sizes[0]--;
+  th.n_nodes--;
+}
+
+
 int main(int argc, const char **argv) {
 
   try {
@@ -57,10 +70,13 @@ int main(int argc, const char **argv) {
     bool scale_the_rates = true;
     string param_file;
     string tree_file;
+    
+    size_t rng_seed = std::numeric_limits<size_t>::max();
+    size_t iteration = 10;
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "estimate parameters from"
-                           " complete data (site-specific paths)",
+                           " initial data (site-specific paths)",
                            "<path-file>");
     opt_parse.add_opt("param", 'p', "initial parameter file",
                       true, param_file);
@@ -68,12 +84,15 @@ int main(int argc, const char **argv) {
                       true, tree_file);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
+    opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("no-rate-scaling", 'S', "do not scale rates",
                       false, scale_the_rates);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
     opt_parse.add_opt("output", 'o', "output parameter file",
                       false, outfile);
+    opt_parse.add_opt("iteration", 'i', "number of MCMC-EM iterations",
+                      false, iteration);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -102,6 +121,7 @@ int main(int argc, const char **argv) {
     vector<string> node_names;
     read_paths(path_file, node_names, all_paths);
     const size_t n_sites = all_paths.back().size();
+    
 
     if (VERBOSE)
       cerr << "[READING PARAMETER FILE: " << param_file << endl;
@@ -116,28 +136,60 @@ int main(int argc, const char **argv) {
     std::ifstream tree_in(tree_file.c_str());
     if (!tree_in || !(tree_in >> the_tree))
       throw std::runtime_error("bad tree file: " + tree_file);
-    const size_t n_nodes = the_tree.get_size();
     TreeHelper th(the_tree);
+    // remove unwanted branch for now
+    delete_last_branch(all_paths, node_names, th);
+    size_t n_nodes = all_paths.size();
+    
+    if (VERBOSE)
+      cerr << "n_nodes=" << n_nodes << endl
+      << "n_sites=" << n_sites << endl;
+    
+    
+    if (rng_seed == std::numeric_limits<size_t>::max()) {
+      std::random_device rd;
+      rng_seed = rd();
+    }
+    std::mt19937 gen(rng_seed);
+    /**************************************************************************/
+    /**************************************************************************/
 
+    // FOR NOW, WE DO NOT LEARN BRANCH LENGTHS //
+      
+    /**************************************************************************/
+    /**************************************************************************/
+
+    /*
     if (VERBOSE) {
       cerr << "[INITIAL GUESS AT BRANCH LENGTHS]" << endl;
       for (size_t i = 0; i < th.node_names.size(); ++i)
         cerr << th.node_names[i] << '\t' << th.branches[i] << endl;
     }
+    */
 
-    if (VERBOSE)
-      cerr << "n_nodes=" << n_nodes << endl
-           << "n_sites=" << n_sites << endl;
-
-    if (!OPTBRANCH) {
-      compute_estimates_for_rates_only(VERBOSE, param_tol,
-                                       all_paths, th, the_model);
+    vector<double> J(8, 0.0);
+    vector<double> D(8, 0.0);
+    
+    for (size_t i = 0; i < iteration; i++) {
+      cerr << "***********************************" << endl
+      << "ITR: " << i << endl;
+      // estiamte J and D
+      cerr << "estimating sufficient statistics" << endl;
+      estimate_sufficient_statistics_by_simulation(all_paths, the_model, th,
+                                                   J, D, gen);
+      
+      // estimate parameters
+      cerr << "estimating model parameters" << endl;
+      if (!OPTBRANCH) {
+        compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
+      }
+      else
+        compute_estimates_rates_and_branches(VERBOSE, param_tol, all_paths,
+                                             th, the_model);
+      
+      estimate_root_distribution(all_paths, the_model);
+      cerr << "***********************************" << endl;
     }
-    else
-      compute_estimates_rates_and_branches(VERBOSE, param_tol, all_paths,
-                                           th, the_model);
-
-    estimate_root_distribution(all_paths, the_model);
 
     std::ofstream of;
     if (!outfile.empty()) of.open(outfile.c_str());
@@ -145,10 +197,7 @@ int main(int argc, const char **argv) {
     if (!out)
       throw std::runtime_error("bad output file: " + outfile);
 
-    out << the_model.format_for_param_file() << endl;
-    the_tree.set_branch_lengths(th.branches);
-    out << the_tree << endl;
-  }
+   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
     return EXIT_FAILURE;
