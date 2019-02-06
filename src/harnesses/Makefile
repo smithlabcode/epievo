@@ -18,8 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = end_cond_sampling_test single_site_sampling_test pentet_rate_test \
-	metropolis_unif_test extract_stats stationary_stats_est \
+PROGS = metropolis_unif_test extract_stats stationary_stats_est \
 	forward_prop_test
 
 CXX = g++
@@ -53,24 +52,17 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, \
 	$(addprefix $(COMMON_DIR)/, TreeHelper.o PhyloTreePreorder.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-end_cond_sampling_test single_site_sampling_test pentet_rate_test metropolis_unif_test: \
+metropolis_unif_test: \
 	$(addprefix $(COMMON_DIR)/, StateSeq.o \
 	EpiEvoModel.o SingleSiteSampler.o EndCondSampling.o \
-	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o)
+	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o ParamEstimation.o)
 
 extract_stats: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o ParamEstimation.o TripletSampler.o \
 		 StateSeq.o)
 
-stationary_stats_est: \
+stationary_stats_est forward_prop_test: \
 	$(addprefix $(COMMON_DIR)/, \
 	TripletSampler.o StateSeq.o EpiEvoModel.o GlobalJump.o ParamEstimation.o)
-
-forward_prop_test: \
-	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o StateSeq.o EpiEvoModel.o GlobalJump.o ParamEstimation.o)
-
-metropolis_unif_test: \
-	$(addprefix $(COMMON_DIR)/, ParamEstimation.o)
 
 install: all
 	@mkdir -p ../../bin
