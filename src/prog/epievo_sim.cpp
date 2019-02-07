@@ -228,7 +228,7 @@ int main(int argc, const char **argv) {
     size_t rng_seed = numeric_limits<size_t>::max();
 
     ////////////////////////////////////////////////////////////////////////
-    OptionParser opt_parse(strip_path(argv[0]), "simulate methylome evolution",
+    OptionParser opt_parse(strip_path(argv[0]), "simulate epigenome evolution",
                            "<params-file>");
     opt_parse.add_opt("output", 'o', "name of output file for methylomes"
                       "(default: stdout)", false, outfile);
