@@ -55,17 +55,23 @@ using std::runtime_error;
 
 
 ////////////////////////////////////////////////////////////////////////////////
+/* This function will erase all tree branches but only keep the first one.
+ */
 static void
-delete_last_branch(vector<vector<Path> > &paths, vector<string> &node_names,
-                   TreeHelper &th) {
-  paths.pop_back();
-  node_names.pop_back();
-  th.branches.pop_back();
-  th.parent_ids.pop_back();
-  th.subtree_sizes.pop_back();
-  th.subtree_sizes[0]--;
-  th.n_nodes--;
+delete_nonfirst_branches(vector<vector<Path> > &paths, vector<string> &node_names,
+                         TreeHelper &th) {
+  while(paths.size() > 2) {
+    paths.pop_back();
+    node_names.pop_back();
+    th.branches.pop_back();
+    th.parent_ids.pop_back();
+    th.subtree_sizes.pop_back();
+    th.subtree_sizes[0]--;
+    th.n_nodes--;
+  }
 }
+
+
 
 bool
 file_is_readable(const string &param_file) {
@@ -83,11 +89,11 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
 
 static void
 append_to_pathfile_local(const string &pathfile, const string &node_name,
-                         const vector<Path> &path_by_site) {
+                         const vector<Path> &paths_on_branch) {
   std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
   outpath << "NODE:" << node_name << endl;
-  for (size_t i = 0; i < path_by_site.size(); ++i)
-    outpath << i << '\t' << path_by_site[i] << '\n';
+  for (size_t i = 0; i < paths_on_branch.size(); ++i)
+    outpath << i << '\t' << paths_on_branch[i] << '\n';
 }
 
 
@@ -157,70 +163,74 @@ assign_changes_to_sites(const vector<GlobalJump> &global_path,
   }
 }
 
+
 static bool
 check_leaf_seq(const StateSeq s, const vector<Path> &by_site) {
   bool pass = true;
   size_t site_id = 0;
   while(pass && site_id < by_site.size()) {
     const bool leaf_state = s.seq[site_id];
-  //   cerr << leaf_state << endl;
     pass = (by_site[site_id].end_state() == leaf_state) ? true : false;
     site_id++;
   }
   return pass;
 }
 
-static bool
-check_homo_sites(const vector<Path> &by_site,
-                 const vector<size_t> censored_site) {
-  bool homo = true;
-  size_t site_id = 0;
-  while(homo && site_id < by_site.size()) {
-    if (std::find(censored_site.begin(), censored_site.end(),
-                  site_id) == censored_site.end()) {
-      homo = (by_site[site_id].jumps.empty()) ? true : false;
-    }
-    site_id++;
-  }
-  return homo;
+
+static void
+print_summary_stats(std::ofstream &out, const vector<double> &J,
+                    const vector<double> &D) {
+  for (size_t i = 0; i < 8; i++)
+    out << J[i] << "\t";
+  for (size_t i = 0; i < 7; i++)
+    out << D[i] << "\t";
+  out << D[7] << endl;
 }
 
+static void
+print_root_states(std::ofstream &out, const vector<vector<Path> > paths) {
+  for (size_t i = 0; i < paths[1].size(); i++)
+    out << paths[1][i].init_state << "\t";
+  out << paths[1][paths[1].size() - 1].init_state << endl;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, const char **argv) {
 
   try {
     
     bool VERBOSE = false;
-    bool FIX_NEIGHBORS = false;
     bool FIX_ROOT = false;
+    bool TEST_FIRST_BRANCH = false;  // only test the first branch
+
     string outfile;
     string statfile;
     
-    size_t rounds = 10;
+    size_t n_samples = 10;
     size_t rng_seed = std::numeric_limits<size_t>::max();
-    size_t the_branch = 1;
-    vector<size_t> consored_site = {2};
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
-                           "Forward posterior sampling"
-                           "from (stationary) simulation",
+                           "End-conditioned forward simulation",
                            "<params-file>");
-    opt_parse.add_opt("rounds", 'r', "number of MCMC rounds",
-                      false, rounds);
-    opt_parse.add_opt("branch", 'b', "branch to simulate",
-                      false, the_branch);
-    opt_parse.add_opt("verbose", 'v', "print more run info",
-                      false, VERBOSE);
+    opt_parse.add_opt("number", 'n', "number of simulations",
+                      false, n_samples);
+    opt_parse.add_opt("branch", 'b', "only test the first branch",
+                      false, TEST_FIRST_BRANCH);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
-    opt_parse.add_opt("statfile", 'S', "MCMC stats",
+    opt_parse.add_opt("statfile", 'S', "summary stats",
                       false, statfile);
     opt_parse.add_opt("outfile", 'o', "outfile (sampling paths)",
                       false, outfile);
-    opt_parse.add_opt("fix", 'f', "fix neighbors",
-                      false, FIX_NEIGHBORS);
     opt_parse.add_opt("fixroot", 'R', "fix root states",
                       false, FIX_ROOT);
+    opt_parse.add_opt("verbose", 'v', "print more run info",
+                      false, VERBOSE);
 
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -270,26 +280,27 @@ int main(int argc, const char **argv) {
     vector<string> node_names;
     vector<vector<Path> > paths; // along multiple branches
     read_paths(input_file, node_names, paths);
-    const size_t n_sites = paths[the_branch].size();
-    // remove unwanted branch for now
-    delete_last_branch(paths, node_names, th);
-    size_t n_nodes = paths.size();
+    const size_t n_sites = paths[1].size();
+    if (TEST_FIRST_BRANCH)       // if only want to test single branch
+      delete_nonfirst_branches(paths, node_names, th);
     
     vector<char> root_seq;
     if (VERBOSE)
       cerr << "[INPUT ROOT SEQUENCE: ]" << endl;
-    for (size_t pos = 0; pos < paths[the_branch].size(); pos++) {
-      cerr << paths[the_branch][pos].init_state;
-      root_seq.push_back(paths[the_branch][pos].init_state);
+    for (size_t pos = 0; pos < n_sites; pos++) {
+      if (VERBOSE)
+        cerr << paths[1][pos].init_state;
+      root_seq.push_back(paths[1][pos].init_state);
     }
-    cerr << endl;
-  
     if (VERBOSE)
+      cerr << endl;
+  
+    if (VERBOSE && TEST_FIRST_BRANCH) {
       cerr << "[INPUT LEAF SEQUENCE: ]" << endl;
-    for (size_t pos = 0; pos < paths[the_branch].size(); pos++) {
-      cerr << paths[the_branch][pos].end_state();
+      for (size_t pos = 0; pos < n_sites; pos++)
+        cerr << paths[1][pos].end_state();
+      cerr << endl;
     }
-    cerr << endl;
   
     /* (4) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -298,30 +309,38 @@ int main(int argc, const char **argv) {
     }
     std::mt19937 gen(rng_seed);
     
-    /* (5) POSTERIOR SAMPLING */
+    // FILE RECORDING ROOT STATES
     string rootfile = statfile + ".root";
-    std::ofstream of_root;
-    of_root.open(rootfile.c_str());
-    std::ofstream outstat(statfile.c_str());
-    std::ostream out_root(of_root.rdbuf());
-    outstat << "J_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
+    std::ofstream out_root(rootfile.c_str());
+
+    // FILE RECORDING SUMMARY STATS
+    std::ofstream out_stat(statfile.c_str());
+    out_stat << "J_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
     << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111" << endl;
     
-    size_t num_sample_collected = 0;
-    size_t num_single_process = 0;
-    while (num_sample_collected < rounds) {
+    /* (5) END-CONDITIONED FORWARD SIMULATION */
+
+    size_t n_collected = 0;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    /////// START FORWARD SIMULATION
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    
+    while (n_collected < n_samples) {
       vector<vector<Path> > updated_paths(paths);
       bool pass = true;
 
-      /* (a) SAMPLING ROOT SEQUENCE */
+      /* SAMPLING ROOT SEQUENCE */
       if (!FIX_ROOT)
         the_model.sample_state_sequence_init(n_sites, gen, root_seq);
       
       StateSeq s(root_seq);
-      vector<StateSeq> sequences(n_nodes, s);
+      vector<StateSeq> sequences(th.n_nodes, s);
       vector<vector<GlobalJump> > global_paths;
 
-      for (size_t node_id = 1; pass && (node_id < n_nodes); ++node_id) {
+      for (size_t node_id = 1; pass && (node_id < th.n_nodes); ++node_id) {
         // start new branch
         vector<GlobalJump> global_path;
         const double curr_branch_len = th.branches[node_id];
@@ -334,48 +353,35 @@ int main(int argc, const char **argv) {
                       time_value);
 
         ts.get_sequence(sequences[node_id]);
-        num_single_process++;
         
         // Convert global jumps to local paths
-        vector<Path> path_by_site(n_sites);
+        vector<Path> paths_on_branch(n_sites);
         for (size_t site_id = 0; site_id < n_sites; site_id++) {
-          path_by_site[site_id].init_state = s.seq[site_id];
-          path_by_site[site_id].tot_time = curr_branch_len;
+          paths_on_branch[site_id].init_state = s.seq[site_id];
+          paths_on_branch[site_id].tot_time = curr_branch_len;
         }
-        assign_changes_to_sites(global_path, path_by_site);
-        updated_paths[node_id] = path_by_site;
+        assign_changes_to_sites(global_path, paths_on_branch);
+        updated_paths[node_id] = paths_on_branch;
         
         // leaf sequence agree?
         pass = th.is_leaf(node_id) ?
         check_leaf_seq(sequences[node_id], paths[node_id]) : true;
         
         global_paths.push_back(global_path);
-        
-        // if (check_leaf_seq(sequences[node_id], paths[node_id]) &&
-        //    (!FIX_NEIGHBORS || check_homo_sites(path_by_site, consored_site))) {
       }
       
       if (pass) {
-        // output
+        /* PRINT SUMMARY STATS */
         vector<double> J;
         vector<double> D;
         get_sufficient_statistics(updated_paths, J, D);
-        for (size_t i = 0; i < 8; i++)
-          outstat << J[i] << "\t";
-        for (size_t i = 0; i < 7; i++)
-          outstat << D[i] << "\t";
-        outstat << D[7] << endl;
-        // write root
-        for (size_t site_id = 0; site_id < n_sites - 1; site_id++)
-          out_root << updated_paths[the_branch][site_id].init_state << "\t";
-        out_root << updated_paths[the_branch][n_sites - 1].init_state << endl;
         
-        num_sample_collected++;
+        print_summary_stats(out_stat, J, D);
+        print_root_states(out_root, updated_paths);
+        
+        n_collected++;
       }
     }
-    
-    cerr << "SUCCESS RATE: "
-    << static_cast<double> (num_sample_collected) / num_single_process << endl;
     
     /* (6) OUTPUT */
     write_root_to_pathfile_local(outfile, th.node_names.front());
