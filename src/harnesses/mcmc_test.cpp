@@ -151,7 +151,9 @@ int main(int argc, const char **argv) {
     const size_t iteration = 10; // MLE iterations
     static const double param_tol = 1e-10;
     ///////////////////////////////////////////////////////////////////////////
-    OptionParser opt_parse(strip_path(argv[0]), "test mcmc procedure",
+    OptionParser opt_parse(strip_path(argv[0]),
+                           "collect summary stats and estimate parameters"
+                           "using mcmc procedure",
                            "<param> <treefile> <path_file>");
     opt_parse.add_opt("rounds", 'r', "number of MCMC rounds",
                       false, rounds);
@@ -314,15 +316,6 @@ int main(int argc, const char **argv) {
                                                        proposed_path, proposal,
                                                        FIX_ROOT);
         if (accpeted) {
-          if (VERBOSE && site_id == 2)
-            cout << "site: " << site_id
-            << ", original n_jumps:" << count_jumps(paths, site_id);
-          if (VERBOSE && site_id == 2)
-            cout << ", updated n_jumps:" << proposed_path[the_branch].jumps.size() << endl << endl;
-          
-          for (size_t b = 1; b < paths.size(); ++b)
-            paths[b][site_id] = proposed_path[b];
-
           pos_num_update[site_id]++;
           update_happens = accpeted;
         }

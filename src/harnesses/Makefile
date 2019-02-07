@@ -18,8 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = metropolis_unif_test extract_stats stationary_stats_est \
-	forward_prop_test
+PROGS = mcmc_test extract_stats forward_sim_stats
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -52,7 +51,7 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, \
 	$(addprefix $(COMMON_DIR)/, TreeHelper.o PhyloTreePreorder.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-metropolis_unif_test: \
+mcmc_test: \
 	$(addprefix $(COMMON_DIR)/, StateSeq.o \
 	EpiEvoModel.o SingleSiteSampler.o EndCondSampling.o \
 	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o ParamEstimation.o)
@@ -60,7 +59,7 @@ metropolis_unif_test: \
 extract_stats: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o ParamEstimation.o TripletSampler.o \
 		 StateSeq.o)
 
-stationary_stats_est forward_prop_test: \
+forward_sim_stats: \
 	$(addprefix $(COMMON_DIR)/, \
 	TripletSampler.o StateSeq.o EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
