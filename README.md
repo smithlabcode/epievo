@@ -35,7 +35,7 @@ The above command will run a test including three steps:
 Below is the complete usage of `run.sh`:
 ```
 Usage: run.sh
-          [-n MCMC-EM iterations (10) ] [-s sites (10)]
+          [-n MCMC-EM iterations (5000) ] [-s sites (10)]
           [-P proposal 0:poisson 1:direct 2:forward 3:unif (0)]
           [-T sample full tree (false)] [-E estimate parameters (false)]
           [-L MCMC burn-in (0)] [-B MCMC batch (10)]
