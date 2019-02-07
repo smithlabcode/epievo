@@ -138,8 +138,7 @@ int main(int argc, const char **argv) {
     size_t iteration = 10;           // MCMC-EM iterations
     const size_t iteration_mle = 10; // MLE iterations
     size_t batch = 100;              // MCMC iterations
-    size_t burning = 1000;           // burning MCMC iterations
-
+    size_t burnin = 1000;           // burn-in MCMC iterations
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
@@ -155,7 +154,7 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("iteration", 'i', "number of MCMC iteration",
                       false, iteration);
     opt_parse.add_opt("batch", 'B', "batch size", false, batch);
-    opt_parse.add_opt("burning", 'L', "burining length", false, burning);
+    opt_parse.add_opt("burnin", 'L', "burining length", false, burnin);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("statfile", 'S', "summary stats", false, statfile);
     opt_parse.add_opt("tracefile", 't', "MCMC trace", false, tracefile);
@@ -264,7 +263,6 @@ int main(int argc, const char **argv) {
 
     /* MCMC PARAMETERS AND DATA*/
     size_t mcmc_itr = 0;                   // MCMC iterations elapsed
-    // size_t last_sample_point = itr;
     size_t finished_iterations = 0;        // finished MCMC-EM iterations
     vector<double> J;
     vector<double> D;
@@ -295,15 +293,15 @@ int main(int argc, const char **argv) {
       /* CALCULATE SUFFICIENT STATS */
       get_sufficient_statistics(paths, J, D);
       
-      if (mcmc_itr > burning)
-      /* RECORD STATS (POST-BURNING) */
+      if (mcmc_itr > burnin)
+      /* RECORD STATS (POST-BURN-IN) */
         for (size_t i = 0; i < 8; i++) {
-          J_batch[i][mcmc_itr - 1] = J[i];
-          D_batch[i][mcmc_itr - 1] = D[i];
+          J_batch[i][mcmc_itr - burnin - 1] = J[i];
+          D_batch[i][mcmc_itr - burnin - 1] = D[i];
         }
       
       /* FINISH MCMC BATCH */
-      if (mcmc_itr == (burning + batch)) {
+      if (mcmc_itr == (burnin + batch)) {
         /* PRINT STATS */
         print_summary_stats(out_stat, J, D);
         print_root_states(out_root, paths);

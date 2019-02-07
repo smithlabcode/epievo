@@ -100,14 +100,10 @@ num_Poisson_trans(const double rate, const double T, const size_t state_a,
   prob = (state_a == state_b) ? 1 : muT;
   double sum_probs = prob;
   
-  std::cout << "u*denom: " << u * denom << endl;
-  std::cout << "n: " << n << ", cdf: " << sum_probs << endl;
   while (sum_probs < u * denom) {
     n += 2;
     prob *= ( muT * muT / (n * (n-1)));
-    sum_probs += prob;
-    std::cout << "n: " << n << ", cdf: " << sum_probs << endl;
-    
+    sum_probs += prob;    
   }
   return n;
 }
