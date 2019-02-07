@@ -1,20 +1,23 @@
-num=1000
-sites=5
+num=5000
+sites=10
 
-paramFile=""
-treeFile=""
-initPathFile=""
-outPrefix="out"
-outDir=$PWD
+paramFile=input/test.param
+treeFile=input/test.nwk
+initPathFile=output/sim_results/test.path_local
+outPrefix=test
+outDir=output/forward
 
 sampleTree=0
 fixRoot=0
 
 print_usage() {
-  printf "Usage: $(basename $0) [-n number] [-s sites]
-          [-p parameter file] [-t tree (.nwk)] [-i input path file]
-          [-f file prefix] [-o output directory]
-          [-T sample full tree] [-R fix root]\n"
+  printf "Usage: $(basename $0)
+          [-n number (5000)] [-s sites (10)]
+          [-p parameter file (input/test.param)]
+          [-t tree (input/test.nwk)]
+          [-i input path file (output/sim_results/test.path_local)]
+          [-f file prefix (test)] [-o output directory (output/forward)]
+          [-T sample full tree (false)] [-R fix root (false)]\n"
 }
 
 while getopts 'n:s:p:t:i:f:o:TRh' flag; do
@@ -35,6 +38,7 @@ while getopts 'n:s:p:t:i:f:o:TRh' flag; do
   esac
 done
 
+mkdir -p $outDir
 pathFile=$outDir/$outPrefix.path_local
 statsFile=$outDir/$outPrefix.stats
 

@@ -1,25 +1,30 @@
-num=5000
+num=100
 proposal=0
-burnin=1000
+burnin=10
 batch=10
 
 estParam=0
 sampleTree=0
 fixRoot=0
 
-paramFile=""
-initPathFile=""
-initTreeFile=""
-outPrefix="out"
-outDir=$PWD
+initParamFile=input/test.param
+initPathFile=output/sim_results/test.path_local
+initTreeFile=input/test.nwk
+outPrefix=test
+outDir=output/mcmc/poisson
 
 print_usage() {
-  printf "Usage: $(basename $0) [-n MCMC-EM iterations]
-          [-P proposal (default: poisson)]
-          [-L MCMC burn-in length] [-B MCMC batch size]
-          [-E estimate parameters] [-T sample full tree] [-R fix root]
-          [-p parameter file] [-i initial path file] [-t initial tree (.nwk)]
-          [-f output file prefix] [-o output directory]\n"
+  printf "Usage: $(basename $0)
+          [-n MCMC-EM iterations (10)]
+          [-P proposal 0:poisson 1:direct 2:forward 3:unif (0)]
+          [-L MCMC burn-in (10)] [-B MCMC batch (10)]
+          [-E estimate parameters (false)]
+          [-T sample full tree (false)] [-R fix root (false)]
+          [-p initial parameter file (input/test.param)]
+          [-i initial path file (output/sim_results/test.path_local)]
+          [-t initial tree (input/test.nwk)]
+          [-f output file prefix (test)]
+          [-o output directory (output/mcmc/poisson)]\n"
 }
 
 while getopts 'n:P:L:B:ETRp:i:t:f:o:h' flag; do
@@ -31,7 +36,7 @@ while getopts 'n:P:L:B:ETRp:i:t:f:o:h' flag; do
     E) estParam=1 ;;
     T) sampleTree=1 ;;
     R) fixRoot=1 ;;
-    p) paramFile="${OPTARG}" ;;
+    p) initParamFile="${OPTARG}" ;;
     i) initPathFile="${OPTARG}" ;;
     t) initTreeFile="${OPTARG}" ;;
     f) outPrefix="${OPTARG}" ;;
@@ -43,7 +48,7 @@ while getopts 'n:P:L:B:ETRp:i:t:f:o:h' flag; do
   esac
 done
 
-
+mkdir -p $outDir
 outPathFile=$outDir/$outPrefix.update.path_local
 statsFile=$outDir/$outPrefix.stats
 traceFile=$outDir/$outPrefix.trace
@@ -51,7 +56,7 @@ traceFile=$outDir/$outPrefix.trace
 #------------------------------------------------------------------------------
 CMD="mcmc_test -P $proposal -B $batch -i $num -L $burnin
 -o $outPathFile -S $statsFile -t $traceFile
-$paramFile $initTreeFile $initPathFile"
+$initParamFile $initTreeFile $initPathFile"
 
 if [ "$estParam" -eq 1 ]; then
   CMD="${CMD} -m"

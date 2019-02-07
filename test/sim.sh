@@ -1,22 +1,23 @@
-num=1
-sites=5
+sites=10
 
-paramFile=""
-treeFile=""
-outPrefix="out"
-outDir=$PWD
+paramFile=input/test.param
+treeFile=input/test.nwk
+outPrefix=test
+outDir=output/sim_results
 
 rootseq=""
 
 print_usage() {
-  printf "Usage: $(basename $0) [-n number] [-s sites] [-r root sequence]
-          [-p parameter file] [-t tree (.nwk)]
-          [-f output file prefix] [-o output directory]\n"
+  printf "Usage: $(basename $0)
+          [-s sites (10)] [-r root sequence]
+          [-p parameter file (input/test.param)]
+          [-t tree (input/test.nwk)]
+          [-f output file prefix (test)]
+          [-o output directory (output/sim_results)]\n"
 }
 
-while getopts 'n:s:r:p:t:f:o:h' flag; do
+while getopts 's:r:p:t:f:o:h' flag; do
   case "${flag}" in
-    n) num="${OPTARG}" ;;
     s) sites="${OPTARG}" ;;
     r) rootseq="${OPTARG}" ;;
     p) paramFile="${OPTARG}" ;;
@@ -30,6 +31,7 @@ while getopts 'n:s:r:p:t:f:o:h' flag; do
   esac
 done
 
+mkdir -p $outDir
 inDir=$(dirname $paramFile)
 rootFile=$inDir/$rootseq.rootseq
 

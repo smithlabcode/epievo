@@ -44,12 +44,17 @@ initTreeFile=$trueTreeFile
 
 
 print_usage() {
-  printf "Usage: $(basename $0) [-n MCMC-EM iterations] [-s sites]
-          [-P proposal (default: poisson)] [-T sample full tree]
-          [-E estimate parameters]
-          [-L burnin] [-B batch ] [-R fix root] [-r root sequence]
-          [-f output file prefix] [-p true parameter file] [-t true tree (.nwk)]
-          [-i initial parameter file] [-j initial tree (.nwk)]
+  printf "Usage: $(basename $0)
+          [-n MCMC-EM iterations (5000) ] [-s sites (10)]
+          [-P proposal 0:poisson 1:direct 2:forward 3:unif (0)]
+          [-T sample full tree (false)] [-E estimate parameters (false)]
+          [-L MCMC burn-in (0)] [-B MCMC batch (10)]
+          [-R fix root (false)] [-r root sequence]
+          [-f output file prefix (test)]
+          [-p true parameter file (input/test.param)]
+          [-t true tree (input/test.nwk)]
+          [-i initial parameter file (input/test.param)]
+          [-j initial tree (input/test.nwk)]
           [-k initial (local) path file]\n"
 }
 
@@ -98,7 +103,7 @@ echo Sample full tree: $sampleTree
 echo "------------------------------------------------------------------------"
 echo 1. Generate initial paths...
 
-simCMD="./sim.sh -n 1 -s $sites -f $outPrefix -o $simDir
+simCMD="./sim.sh -s $sites -f $outPrefix -o $simDir
 -p $trueParamFile -t $trueTreeFile"
 if [ "$rootseq" != "" ]; then
   simCMD="${simCMD} -r $rootseq"
