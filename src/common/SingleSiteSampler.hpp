@@ -58,15 +58,6 @@ downward_sampling(const TreeHelper &th, const size_t site_id,
                   std::mt19937 &gen,
                   std::vector<Path> &new_path, const size_t proposal = 0,
                   const bool FIX_ROOT = false);
- 
-void
-downward_sampling_fixed_root(const TreeHelper &th, const size_t site_id,
-                             const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                             const std::vector<std::vector<SegmentInfo> > &seg_info,
-                             const std::vector<FelsHelper> &fh,
-                             std::mt19937 &gen,
-                             std::vector<Path> &proposed_path,
-                             const size_t proposal = 0);
 
 bool
 Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
@@ -76,19 +67,6 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          std::vector<Path> &sampled_path,
                          const size_t proposal = 0, const bool FIX_ROOT = false);
 
-void
-Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
-           const size_t site_id,
-           std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-           std::mt19937 &gen,
-           std::vector<Path> &sampled_path);
-
-void
-Gibbs_independent_site(const std::vector<double> rates, const TreeHelper &th,
-                       const size_t site_id,
-                       std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                       std::mt19937 &gen,
-                       std::vector<Path> &sampled_path);
 
 /* Pruning
   - post-order traversal of nodes

@@ -39,7 +39,6 @@
 using std::vector;
 using std::endl;
 using std::cerr;
-using std::cout;
 using std::string;
 using std::pair;
 using std::make_pair;
@@ -162,16 +161,6 @@ pruning(const TreeHelper &th, const size_t site_id,
 ///////////////            DOWNWARD SAMPLING        ////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-
-/* Compute likelihood of root state at given site and neighboring states */
-static double
-root_prior_lh(const size_t l, const size_t m, const size_t r,
-              const vector<vector<double> > &horiz_tr_prob) {
-  
-  const double p = horiz_tr_prob[l][m]*horiz_tr_prob[m][r];
-  return p;
-}
-
 /* Compute posterior probability of state 0 at root node (i.e. the
  * init_state of any/all children) for particular site using
  * information from the upward stage of Felsenstein's algorithm.
@@ -191,7 +180,7 @@ root_post_prob0(const size_t site_id, const vector<Path> &the_paths,
 }
 
 
-// downward sampling on a single branch, given the initial state
+/* downward sampling on a single branch, given the initial state */
 static void
 downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                          const FelsHelper &fh,
@@ -217,8 +206,6 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
     const double p0 =
       P[prev_state][0]*((i == n_intervals - 1) ?
                         fh.q[0] : fh.p[i + 1][0])/fh.p[i][prev_state];
-    // const double p1 = P[prev_state][1]*((i == n_intervals - 1) ?
-    // fh.q[1] : fh.p[i + 1][1])/fh.p[i][prev_state];
 
     const size_t sampled_state = (unif(gen) > p0);
 
@@ -255,34 +242,9 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 }
 
 
-// This function is for testing purpose
-// It will not consider the heterogeneity of the branch
-static void
-downward_sampling_branch_nonstop(const vector<SegmentInfo> &seg_info,
-                                 const size_t start_state,
-                                 const size_t end_state,
-                                 const double branch_length,
-                                 std::mt19937 &gen,
-                                 Path &sampled_path) {
-  
-  sampled_path.init_state = start_state;
-  sampled_path.tot_time = branch_length;
-  
-  // determine the ``average'' rate
-  double rate = 0;
-  const size_t n_intervals = seg_info.size();
-  for (size_t i = 0; i < n_intervals; ++i)
-    rate += (seg_info[i].rate0 + seg_info[i].rate1);
-  rate = rate / (2.0 * n_intervals);
-  
-  const CTMarkovModel ctmm(rate, rate);
-  
-  /* Poisson */
-  end_cond_sample_Poisson(ctmm, start_state, end_state, branch_length,
-                          gen, sampled_path.jumps, 0);
-}
-
-
+/* Iterates over all nodes in pre-order, and for each branch it samples new
+ * paths from top to bottom, requiring starting state has been determined.
+ */
 void
 downward_sampling(const TreeHelper &th,
                   const size_t site_id,
@@ -313,31 +275,20 @@ downward_sampling(const TreeHelper &th,
 }
 
 
-void
-downward_sampling_fixed_root(const TreeHelper &th,
-                             const size_t site_id,
-                             const vector<vector<Path> > &paths,
-                             const vector<vector<SegmentInfo> > &seg_info,
-                             const vector<FelsHelper> &fh,
-                             std::mt19937 &gen,
-                             vector<Path> &proposed_path, const size_t proposal) {
-
-  proposed_path = vector<Path>(th.n_nodes);
-  proposed_path.front() = Path(paths[1][site_id].init_state, 0.0); // root
-
-  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
-    downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
-                             th.branches[node_id], gen, proposed_path[node_id],
-                             proposal);
-  }
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////        Compute acceptance rate         /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-/*counterpart of downward_sampling_branch*/
+
+/* Compute likelihood of root state at given site and neighboring states */
+static double
+root_prior_lh(const size_t l, const size_t m, const size_t r,
+              const vector<vector<double> > &horiz_tr_prob) {
+  
+  const double p = horiz_tr_prob[l][m]*horiz_tr_prob[m][r];
+  return p;
+}
+
+/* Counterpart of downward_sampling_branch */
 static double
 proposal_prob_branch(const vector<SegmentInfo> &seg_info,
                      const FelsHelper &fh, const Path &path,
@@ -349,7 +300,6 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
   double start_time = 0.0, end_time = 0.0;
   size_t start_jump = 0, end_jump = 0;
 
-  // double prob = 1.0;
   double log_prob = 0.0;
   for (size_t i = 0; i < n_intervals; ++i) {
 
@@ -385,7 +335,6 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     }
 
     log_prob += interval_prob;
-    // assert(prob > 0);
     assert(std::isfinite(log_prob));
 
     vector<vector<double> > P;
@@ -408,28 +357,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 }
 
 
-// This function is for testing purpose
-// It will not consider the heterogeneity of the branch
-static double
-proposal_prob_branch_nonstop(const vector<SegmentInfo> &seg_info,
-                             const Path &path) {
-  // determine the ``average'' rate
-  double rate = 0;
-  const size_t n_intervals = seg_info.size();
-  for (size_t i = 0; i < n_intervals; ++i)
-    rate += (seg_info[i].rate0 + seg_info[i].rate1);
-  rate = rate / (2 * n_intervals);
-
-  const CTMarkovModel ctmm(rate, rate);
-  // cerr << "number of intervals: " << n_intervals << endl;
-  const double prob =
-  end_cond_sample_Poisson_prob(ctmm, path.jumps, path.init_state,
-                               path.end_state(),
-                               0, path.tot_time, 0, path.jumps.size());
-  return prob;
-}
-
-
+/* Compute proposal probabilities of uniformization algorithm */
 static double
 proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
                           const FelsHelper &fh, const Path &path) {
@@ -493,7 +421,7 @@ proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
 }
 
 
-// compute proposal prob
+/* compute proposal prob */
 static double
 proposal_prob(const vector<double> &triplet_rates,
               const TreeHelper &th,
@@ -508,7 +436,6 @@ proposal_prob(const vector<double> &triplet_rates,
   const double root_p0 =
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
   
-  // double prob = the_path[1].init_state ? 1.0 - root_p0 : root_p0;
   double log_prob = the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
   
   // process the paths above each node (except the root)
@@ -520,9 +447,6 @@ proposal_prob(const vector<double> &triplet_rates,
     else
       log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
                                    the_path[node_id], proposal);
-    // homogeneous non-stop proposal
-    // prob += proposal_prob_branch_nonstop(seg_info[node_id], the_path[node_id]);
-    // cerr << "branch: " << prob << " X " << prob_unif << " = " << prob * prob_unif << endl;
   }
   return log_prob;
 }
@@ -535,14 +459,12 @@ log_likelihood(const vector<double> &rates,
   double r = 0.0;
   for (size_t i = 0; i < n_triples; ++i) {
     r += J[i]*log(rates[i]) - D[i]*rates[i];
-    // std::cout << std::bitset<3>(i) << "\tJ: " << J[i] << ", D: " << D[i] << endl;
   }
-  // std::cout << "total: " << r << endl;
   return r;
 }
 
 
-// compute acceptance rate
+/* compute acceptance rate */
 double
 log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 const size_t site_id,
@@ -578,8 +500,8 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const size_t rt_r = paths[1][site_id+1].init_state;
   const size_t rt_orig = paths[1][site_id].init_state;
   const size_t rt_prop = proposed_path[1].init_state;
-  llr += (log(root_prior_prob(rt_l, rt_prop, rt_r, mod.init_T)) -
-  log(root_prior_prob(rt_l, rt_orig, rt_r, mod.init_T)));
+  llr += (log(root_prior_lh(rt_l, rt_prop, rt_r, mod.init_T)) -
+  log(root_prior_lh(rt_l, rt_orig, rt_r, mod.init_T)));
 
   /* calculate likelihood involving internal intervals */
   vector<double> D_orig(n_triples), J_orig(n_triples);
@@ -597,7 +519,6 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
       add_sufficient_statistics(*opth, *(opth + 1), *(opth + 2), J_orig, D_orig);
 
     // sufficient stats for current pentet using proposed path at mid
-    // vector<Path>::const_iterator pth(paths[i].begin() + site_id);
     vector<Path>::const_iterator ppth(proposed_path.begin() + i);
     fill_n(begin(D_prop), n_triples, 0.0);
     fill_n(begin(J_prop), n_triples, 0.0);
@@ -606,24 +527,20 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     add_sufficient_statistics(*(opth - 1), *ppth, *(opth + 1), J_prop, D_prop);
     if (site_id < paths[i].size() - 2)
       add_sufficient_statistics(*ppth, *(opth + 1), *(opth + 2), J_prop, D_prop);
-
-    // scale the rates so they apply to the current branch lengths
-    // transform(begin(mod.triplet_rates), end(mod.triplet_rates),
-    // begin(scaled_rates),
-    //       bind(multiplies<double>(), _1, th.branches[i]));
-    // llr += (log_likelihood(scaled_rates, J_prop, D_prop) -
-    //        log_likelihood(scaled_rates, J_orig, D_orig));
     
     // add difference in log-likelihood for the proposed vs. original
     // to the Hastings ratio
     llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
             log_likelihood(mod.triplet_rates, J_orig, D_orig));
   }
-  // cout << "llr = " << llr << endl;
   return llr;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+///////////////          single MCMC iteration         /////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
+/* Metropolis-Hastings sampling at single site */
 bool
 Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id, vector<vector<Path> > &paths,
@@ -650,84 +567,15 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
   const double log_acc_rate =
   log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path,
                   proposal);
-  // cout << "accept rate = " << exp(log_acc_rate)
-  // << ", u = " << u << endl;
   
   bool accepted = false;
   if (log_acc_rate >= 0 || u < exp(log_acc_rate))
     accepted = true;
 
-  // if (accepted)
-  //  for (size_t i = 1; i < th.n_nodes; ++i)
-  //    paths[i][site_id] = proposed_path[i];
+  // if accepted, replace old path with proposed one.
+  if (accepted)
+    for (size_t i = 1; i < th.n_nodes; ++i)
+      paths[i][site_id] = proposed_path[i];
 
   return accepted;
-}
-
-
-void
-Gibbs_site(const EpiEvoModel &the_model, const TreeHelper &th,
-           const size_t site_id, vector<vector<Path> > &paths,
-           std::mt19937 &gen, vector<Path> &proposed_path) {
-
-  // get rates and lengths each interval [seg_info: node x interval]
-  vector<vector<SegmentInfo> > seg_info(th.n_nodes);
-  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-    collect_segment_info(the_model.triplet_rates,
-                         paths[node_id][site_id - 1],
-                         paths[node_id][site_id + 1], seg_info[node_id]);
-
-  // upward pruning and downward sampling [fh: one for each node]
-  vector<FelsHelper> fh;
-  pruning(th, site_id, paths, seg_info, fh);
-
-  // downward_sampling_fixed_root(th, site_id, paths, the_model.init_T,
-  //                              seg_info, fh, gen, proposed_path);
-
-  // ADS: why does this need to start at 1? I thought we agreed to
-  // have the root take a valid Path, even if it has a branch length
-  // of 0.
-  downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
-                    proposed_path);
-
-  for (size_t i = 1; i < th.n_nodes; ++i) {
-    if (th.is_leaf(i) &&
-        proposed_path[i].end_state() != paths[i][site_id].end_state())
-      throw runtime_error("inconsistent leaf node terminal "
-                          "state in sampled path");
-    paths[i][site_id] = proposed_path[i];
-    assert(proposed_path[i].is_valid());
-  }
-}
-
-void
-Gibbs_independent_site(const vector<double> rates, const TreeHelper &th,
-                       const size_t site_id, vector<vector<Path> > &paths,
-                       std::mt19937 &gen, vector<Path> &proposed_path) {
-  
-  // get rates and lengths each interval [seg_info: node x interval]
-  // No virtual nodes in site-independent version: one segment per branch.
-  vector<vector<SegmentInfo> > seg_info(th.n_nodes);
-  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    seg_info[node_id] = vector<SegmentInfo>(1);
-    seg_info[node_id][0] = SegmentInfo(rates[paths[node_id][site_id].init_state],
-                                       rates[!paths[node_id][site_id].init_state],
-                                       paths[node_id][site_id].tot_time);
-  }
-  
-  // upward pruning and downward sampling [fh: one for each node]
-  vector<FelsHelper> fh;
-  pruning(th, site_id, paths, seg_info, fh);
-  
-  downward_sampling_fixed_root(th, site_id, paths, seg_info, fh, gen,
-                               proposed_path);
-  
-  for (size_t i = 1; i < th.n_nodes; ++i) {
-    if (th.is_leaf(i) &&
-        proposed_path[i].end_state() != paths[i][site_id].end_state())
-      throw runtime_error("inconsistent leaf node terminal "
-                          "state in sampled path");
-    paths[i][site_id] = proposed_path[i];
-    assert(proposed_path[i].is_valid());
-  }
 }
