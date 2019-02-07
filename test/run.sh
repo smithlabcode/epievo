@@ -1,11 +1,12 @@
-proposalTexts=( 'direct' 'unif' 'poisson' 'forward' )
+proposalTexts=( 'poisson' 'direct' 'forward' 'unif' )
 proposalToTest=( 0 1 2 3 )
 
 num=5000
-sites=5
+sites=10
 burnin=0
-batch=1
+batch=10
 
+proposal=0
 sampleTree=0
 estParam=0
 fixRoot=0
@@ -40,12 +41,12 @@ initParamFile=$trueParamFile
 initTreeFile=$trueTreeFile
 
 ################################################################################
-proposal=2
 
 
 print_usage() {
   printf "Usage: $(basename $0) [-n MCMC-EM iterations] [-s sites]
-          [-P proposal] [-T sample full tree] [-E estimate parameters]
+          [-P proposal (default: poisson)] [-T sample full tree]
+          [-E estimate parameters]
           [-L burnin] [-B batch ] [-R fix root] [-r root sequence]
           [-f output file prefix] [-p true parameter file] [-t true tree (.nwk)]
           [-i initial parameter file] [-j initial tree (.nwk)]

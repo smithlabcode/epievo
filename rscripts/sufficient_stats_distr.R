@@ -1,21 +1,22 @@
-#!/usr/usc/R/3.3.1/lib64/R/bin/Rscript
-# Copyright (C) 2016-2018 University of Southern California
-#                         Andrew D Smith
-# Author: Andrew D. Smith, Xiaojing Ji
-# 
-#  This is free software; you can redistribute it and/or modify it
+#!/usr/local/bin/Rscript
+# Copyright (C) 2019 University of Southern California
+# Xiaojing Ji, Jianghan Qu and Andrew D Smith
+#
+# Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
+#
+# This is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
-# the Free Software Foundat.corrion; either version 2 of the License, or
+# the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
-#   This is distributed in the hope that it will be useful,
+#
+# This is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
-#   You should have received a copy of the GNU General Public License
+#
+# You should have received a copy of the GNU General Public License
 # along with this software; if not, write to the Free Software
-# Foundat.corrion, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
 
@@ -38,7 +39,7 @@ filepath.est <- opt$options$est
 output <- opt$options$output
 proposal.codes <- as.numeric(opt$args)+1
 
-proposal.texts <- c("direct", "unif", "poisson", "forward")
+proposal.texts <- c("poisson", "direct", "forward", "unif")
 proposals <- proposal.texts[proposal.codes]
 
 # load the summary stats data

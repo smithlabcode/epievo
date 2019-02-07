@@ -1,5 +1,5 @@
 num=5000
-proposal=2
+proposal=0
 burnin=1000
 batch=10
 
@@ -14,7 +14,8 @@ outPrefix="out"
 outDir=$PWD
 
 print_usage() {
-  printf "Usage: $(basename $0) [-n MCMC-EM iterations] [-P proposal]
+  printf "Usage: $(basename $0) [-n MCMC-EM iterations]
+          [-P proposal (default: poisson)]
           [-L MCMC burn-in length] [-B MCMC batch size]
           [-E estimate parameters] [-T sample full tree] [-R fix root]
           [-p parameter file] [-i initial path file] [-t initial tree (.nwk)]

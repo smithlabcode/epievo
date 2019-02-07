@@ -211,17 +211,11 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
 
-    /* proposal: 0 - direct, 1 - unif, 2 - poisson, 3 - forward */
-    if (proposal == 1) { // Uniformization
-      end_cond_sample_unif(ctmm, prev_state, sampled_state, seg_info[i].len,
-                           gen, sampled_path.jumps, sampled_path.mjumps,
-                           time_passed);
-      sampled_path.mjump_touched = true;
-    } else if (proposal == 2) { // Poisson
-      end_cond_sample_Poisson(ctmm, prev_state, sampled_state,
-                              seg_info[i].len, gen, sampled_path.jumps,
-                              time_passed);
-    } else if (proposal == 3) { // Forward
+    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif */
+    if (proposal == 1) { // Direct
+      end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len,
+                             gen, sampled_path.jumps, time_passed);
+    } else if (proposal == 2) { // Forward
       assert(end_cond_sample_forward_rejection(10000000,
                                                ctmm,
                                                prev_state,
@@ -230,9 +224,16 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                                                gen,
                                                sampled_path.jumps,
                                                time_passed));
-    } else {
-      end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len,
-                             gen, sampled_path.jumps, time_passed);
+    } else if (proposal == 3) { // Uniformization
+      end_cond_sample_unif(ctmm, prev_state, sampled_state, seg_info[i].len,
+                           gen, sampled_path.jumps, sampled_path.mjumps,
+                           time_passed);
+      sampled_path.mjump_touched = true;
+
+    } else { // Default: Poisson
+      end_cond_sample_Poisson(ctmm, prev_state, sampled_state,
+                              seg_info[i].len, gen, sampled_path.jumps,
+                              time_passed);
     }
 
     // prepare for next interval
@@ -317,21 +318,21 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     
-    /* proposal: 0 - direct, 1 - unif, 2 - poisson, 3 - forward */
+    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif */
     double interval_prob;
-    if (proposal == 2) {
-      interval_prob = // Poisson
-      end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
-                                   start_time, end_time,
-                                   start_jump, end_jump);
-    } else if (proposal == 3) {
+    if (proposal == 1) {
+      interval_prob = // Direct
+      end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
+                           start_time, end_time, start_jump, end_jump);
+    } else if (proposal == 2) {
       interval_prob = // Forward
       forward_sample_prob(ctmm, path.jumps, start_state, end_state,
                           start_time, end_time, start_jump, end_jump);
     } else {
-      interval_prob = // Direct
-      end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
-                           start_time, end_time, start_jump, end_jump);
+      interval_prob = // Default: Poisson
+      end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
+                                   start_time, end_time,
+                                   start_jump, end_jump);
     }
 
     log_prob += interval_prob;
@@ -440,8 +441,8 @@ proposal_prob(const vector<double> &triplet_rates,
   
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    /* proposal: 0 - direct, 1 - unif, 2 - poisson, 3 - forward */
-    if (proposal == 1)
+    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif */
+    if (proposal == 3)
       log_prob += proposal_prob_branch_unif(seg_info[node_id], fh[node_id],
                                         the_path[node_id]);
     else

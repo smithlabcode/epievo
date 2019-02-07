@@ -142,7 +142,7 @@ int main(int argc, const char **argv) {
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
-    /* proposal: 0 - direct, 1 - unif, 2 - poisson, 3 - forward */
+    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif */
     size_t proposal = 0;
     
     static const double param_tol = 1e-10;
