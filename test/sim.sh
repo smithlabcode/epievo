@@ -1,23 +1,28 @@
 num=1
 sites=5
-prefix=""
+
+paramFile=""
+treeFile=""
+outPrefix="out"
+outDir=$PWD
+
 rootseq=""
-dpar=""
-dsim=$PWD
 
 print_usage() {
   printf "Usage: $(basename $0) [-n number] [-s sites] [-r root sequence]
-          [-f file prefix] [-p parameter directory] [-o output directory]\n"
+          [-p parameter file] [-t tree (.nwk)]
+          [-f output file prefix] [-o output directory]\n"
 }
 
-while getopts 'n:s:r:f:p:o:h' flag; do
+while getopts 'n:s:r:p:t:f:o:h' flag; do
   case "${flag}" in
     n) num="${OPTARG}" ;;
     s) sites="${OPTARG}" ;;
     r) rootseq="${OPTARG}" ;;
-    f) prefix="${OPTARG}" ;;
-    p) dpar="${OPTARG}" ;;
-    o) dsim="${OPTARG}" ;;
+    p) paramFile="${OPTARG}" ;;
+    t) treeFile="${OPTARG}" ;;
+    f) outPrefix="${OPTARG}" ;;
+    o) outDir="${OPTARG}" ;;
     h) print_usage
        exit 0 ;;
     *) print_usage
@@ -25,28 +30,22 @@ while getopts 'n:s:r:f:p:o:h' flag; do
   esac
 done
 
-outprefix=${prefix}_N${sites}
+inDir=$(dirname $paramFile)
+rootFile=$inDir/$rootseq.rootseq
 
-param=$dpar/$prefix.param
-tree=$dpar/$prefix.nwk
-rootfile=$dpar/$rootseq.rootseq
-
-outmeth=$dsim/$outprefix.outmeth
-jumps=$dsim/$outprefix.global_jumps
-paths=$dsim/$outprefix.path_local
-stats=$dsim/$outprefix.stats
+statesFile=$outDir/$outPrefix.outmeth
+globalPathFile=$outDir/$outPrefix.global_jumps
+pathFile=$outDir/$outPrefix.path_local
 
 #------------------------------------------------------------------------------
 if [ "$rootseq" = "" ]; then
-  stationary_stats_est $param -t $tree \
-    -n $sites -m $num \
-    -o $outmeth -p $jumps -S $stats
+  epievo_sim $paramFile -t $treeFile \
+    -v -n $sites -o $statesFile -p $globalPathFile
 else
-  write_rootseq_to_file.py $rootseq $rootfile
+  python ../pyscripts/write_rootseq_to_file.py $rootseq $rootFile
 
-  stationary_stats_est $param -t $tree -r $rootfile \
-    -n $sites -m $num \
-    -o $outmeth -p $jumps -S $stats
+  epievo_sim $paramFile -t $treeFile -r $rootFile \
+    -v -n $sites -o $statesFile -p $globalPathFile
 fi
 
-global_jumps_to_paths $tree $outmeth $jumps $paths
+global_jumps_to_paths $treeFile $statesFile $globalPathFile $pathFile

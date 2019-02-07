@@ -1,25 +1,32 @@
 num=1000
 sites=5
-prefix=""
-dpar=""
-dsim=$PWD
-dfw=$PWD
+
+paramFile=""
+treeFile=""
+initPathFile=""
+outPrefix="out"
+outDir=$PWD
+
+sampleTree=0
 fixRoot=0
 
 print_usage() {
-  printf "Usage: $(basename $0) [-n number] [-s sites] [-f file prefix]
-          [-f file prefix] [-p parameter directory]
-          [-i input path directory] [-o output directory] [-R fix root]\n"
+  printf "Usage: $(basename $0) [-n number] [-s sites]
+          [-p parameter file] [-t tree (.nwk)] [-i input path file]
+          [-f file prefix] [-o output directory]
+          [-T sample full tree] [-R fix root]\n"
 }
 
-while getopts 'n:s:f:p:i:o:Rh' flag; do
+while getopts 'n:s:p:t:i:f:o:TRh' flag; do
   case "${flag}" in
     n) num="${OPTARG}" ;;
     s) sites="${OPTARG}" ;;
-    f) prefix="${OPTARG}" ;;
-    p) dpar="${OPTARG}" ;;
-    i) dsim="${OPTARG}" ;;
-    o) dfw="${OPTARG}" ;;
+    p) paramFile="${OPTARG}" ;;
+    t) treeFile="${OPTARG}" ;;
+    i) initPathFile="${OPTARG}" ;;
+    f) outPrefix="${OPTARG}" ;;
+    o) outDir="${OPTARG}" ;;
+    T) sampleTree=1 ;;
     R) fixRoot=1 ;;
     h) print_usage
        exit 0 ;;
@@ -28,19 +35,20 @@ while getopts 'n:s:f:p:i:o:Rh' flag; do
   esac
 done
 
-outprefix=${prefix}_N${sites}
+pathFile=$outDir/$outPrefix.path_local
+statsFile=$outDir/$outPrefix.stats
 
-param=$dpar/$prefix.param
-tree=$dpar/$prefix.nwk
-inpaths=$dsim/$outprefix.path_local
-outpaths=$dfw/$outprefix.path_local
-stats=$dfw/$outprefix.stats
+#-------------------------------------------------------------------------------
+CMD="forward_sim_stats -n $num -S $statsFile -o $pathFile
+$paramFile $treeFile $initPathFile"
 
-#------------------------------------------------------------------------------
 if [ "$fixRoot" -eq 1 ]; then
-  forward_prop_test -r $num -S $stats -o $outpaths \
-    -R $param $tree $inpaths
-else
-  forward_prop_test -r $num -S $stats -o $outpaths \
-    $param $tree $inpaths
+  CMD="${CMD} -R"
 fi
+
+if [ "$sampleTree" -eq 0 ]; then
+  CMD="${CMD} -b"
+fi
+
+eval $CMD
+
