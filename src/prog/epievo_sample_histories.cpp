@@ -319,7 +319,7 @@ int main(int argc, const char **argv) {
     for (size_t i = 0; i < n_samples; ++i) {
       size_t site_id = site_sampler();
       vector<Path> sampled_path;
-      Gibbs_site(the_model, th, site_id, paths, gen, sampled_path);
+      Metropolis_Hastings_site(the_model, th, site_id, paths, gen, sampled_path);
     }
 
     write_root_to_pathfile_local(outfile, th.node_names.front());
