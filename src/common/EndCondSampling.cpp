@@ -82,8 +82,7 @@ expected_num_jumps(const CTMarkovModel &the_model, const size_t start_state,
   } else
     N = 2 * p * T * (1 + e) / (s * (1 - e)) + d * d / (s * s);
   
-  assert(N >= 0);
-  return N;
+  return (N > 0 ? N : (s * T / 2));
 }
 
 
