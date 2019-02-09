@@ -1,5 +1,4 @@
 num=100
-proposal=0
 burnin=10
 batch=10
 
@@ -16,7 +15,6 @@ outDir=output/mcmc/poisson
 print_usage() {
   printf "Usage: $(basename $0)
           [-n MCMC-EM iterations (10)]
-          [-P proposal 0:poisson 1:direct 2:forward 3:unif (0)]
           [-L MCMC burn-in (10)] [-B MCMC batch (10)]
           [-E estimate parameters (false)]
           [-T sample full tree (false)] [-R fix root (false)]
@@ -27,10 +25,9 @@ print_usage() {
           [-o output directory (output/mcmc/poisson)]\n"
 }
 
-while getopts 'n:P:L:B:ETRp:i:t:f:o:h' flag; do
+while getopts 'n:L:B:ETRp:i:t:f:o:h' flag; do
   case "${flag}" in
     n) num="${OPTARG}" ;;
-    P) proposal="${OPTARG}" ;;
     L) burnin="${OPTARG}" ;;
     B) batch="${OPTARG}" ;;
     E) estParam=1 ;;
@@ -54,7 +51,7 @@ statsFile=$outDir/$outPrefix.stats
 traceFile=$outDir/$outPrefix.trace
 
 #------------------------------------------------------------------------------
-CMD="mcmc_test -P $proposal -B $batch -i $num -L $burnin
+CMD="mcmc_test -B $batch -i $num -L $burnin
 -o $outPathFile -S $statsFile -t $traceFile
 $initParamFile $initTreeFile $initPathFile"
 

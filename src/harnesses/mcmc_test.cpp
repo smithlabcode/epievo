@@ -281,8 +281,10 @@ int main(int argc, const char **argv) {
       
       /* METROPOLIS-HASTINGS ALGORITHM */
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+        // XJ: We current turn off the interface of choosing Metropolis-Hastings
+        //     proposal. Poisson proposal is always used.
         Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                 proposed_path, proposal, FIX_ROOT);
+                                 proposed_path, FIX_ROOT);
       }
       mcmc_itr++;
 

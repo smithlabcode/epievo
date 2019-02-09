@@ -187,7 +187,7 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                          const size_t start_state,
                          const double branch_length,
                          std::mt19937 &gen,
-                         Path &sampled_path, const size_t proposal) {
+                         Path &sampled_path) {
 
   sampled_path.init_state = start_state;
   sampled_path.tot_time = branch_length;
@@ -211,7 +211,9 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
 
-    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif */
+    // XJ: We current turn off the interface of choosing Metropolis-Hastings
+    //     proposal. Poisson proposal is always used.
+    /*
     if (proposal == 1) { // Direct
       end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len,
                              gen, sampled_path.jumps, time_passed);
@@ -235,6 +237,10 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                               seg_info[i].len, gen, sampled_path.jumps,
                               time_passed);
     }
+    */
+    end_cond_sample_Poisson(ctmm, prev_state, sampled_state,
+                            seg_info[i].len, gen, sampled_path.jumps,
+                            time_passed);
 
     // prepare for next interval
     time_passed += seg_info[i].len;
@@ -254,7 +260,7 @@ downward_sampling(const TreeHelper &th,
                   const vector<vector<SegmentInfo> > &seg_info,
                   const vector<FelsHelper> &fh,
                   std::mt19937 &gen,
-                  vector<Path> &proposed_path, const size_t proposal,
+                  vector<Path> &proposed_path,
                   const bool FIX_ROOT) {
 
   // compute posterior probability at root node
@@ -270,8 +276,7 @@ downward_sampling(const TreeHelper &th,
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
     downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
-                             th.branches[node_id], gen, proposed_path[node_id],
-                             proposal);
+                             th.branches[node_id], gen, proposed_path[node_id]);
   }
 }
 
@@ -292,8 +297,7 @@ root_prior_lh(const size_t l, const size_t m, const size_t r,
 /* Counterpart of downward_sampling_branch */
 static double
 proposal_prob_branch(const vector<SegmentInfo> &seg_info,
-                     const FelsHelper &fh, const Path &path,
-                     const size_t proposal) {
+                     const FelsHelper &fh, const Path &path) {
 
   const size_t n_intervals = seg_info.size();
 
@@ -318,7 +322,9 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     
-    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif */
+    // XJ: We current turn off the interface of choosing Metropolis-Hastings
+    //     proposal. Poisson proposal is always used.
+    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif
     double interval_prob;
     if (proposal == 1) {
       interval_prob = // Direct
@@ -334,7 +340,11 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
                                    start_time, end_time,
                                    start_jump, end_jump);
     }
-
+    */
+    const double interval_prob =
+    end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
+                                 start_time, end_time,
+                                 start_jump, end_jump);
     log_prob += interval_prob;
     assert(std::isfinite(log_prob));
 
@@ -431,7 +441,7 @@ proposal_prob(const vector<double> &triplet_rates,
               const vector<vector<double> > &horiz_trans_prob,
               const vector<FelsHelper> &fh,
               const vector<vector<SegmentInfo> > &seg_info,
-              const vector<Path> &the_path, const size_t proposal) {
+              const vector<Path> &the_path) {
 
   // compute posterior probability of state 0 at root node
   const double root_p0 =
@@ -441,13 +451,18 @@ proposal_prob(const vector<double> &triplet_rates,
   
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif */
+    // XJ: We current turn off the interface of choosing Metropolis-Hastings
+    //     proposal. Poisson proposal is always used.
+    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif
     if (proposal == 3)
       log_prob += proposal_prob_branch_unif(seg_info[node_id], fh[node_id],
                                         the_path[node_id]);
     else
       log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
                                    the_path[node_id], proposal);
+    */
+    log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
+                                     the_path[node_id]);
   }
   return log_prob;
 }
@@ -472,7 +487,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 const vector<vector<Path> > &paths,
                 const vector<FelsHelper> &fh,
                 const vector<vector<SegmentInfo> > &seg_info,
-                const vector<Path> &proposed_path, const size_t proposal) {
+                const vector<Path> &proposed_path) {
 
   static const size_t n_triples = 8;
 
@@ -483,18 +498,18 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     original[i] = paths[i][site_id];
   const double orig_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
-                  mod.init_T, fh, seg_info, original, proposal);
+                  mod.init_T, fh, seg_info, original);
 
   const double update_proposal =
     proposal_prob(mod.triplet_rates, th, site_id, paths,
-                  mod.init_T, fh, seg_info, proposed_path, proposal);
+                  mod.init_T, fh, seg_info, proposed_path);
 
   assert(site_id > 0 && site_id < paths[1].size());
 
   double llr = orig_proposal - update_proposal;
 
-  if (proposal == 1 && !original[1].mjump_touched)
-    llr = 0;
+  // if (proposal == 1 && !original[1].mjump_touched)
+  //  llr = 0;
 
   /* calculate likelihood involving root states */
   const size_t rt_l = paths[1][site_id-1].init_state;
@@ -546,7 +561,7 @@ bool
 Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id, vector<vector<Path> > &paths,
                          std::mt19937 &gen, vector<Path> &proposed_path,
-                         const size_t proposal, const bool FIX_ROOT) {
+                         const bool FIX_ROOT) {
   // get rates and lengths each interval [seg_info: node x site]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
@@ -560,14 +575,13 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
   vector<FelsHelper> fh;
   pruning(th, site_id, paths, seg_info, fh);
   downward_sampling(th, site_id, paths, the_model.init_T, seg_info, fh, gen,
-                    proposed_path, proposal, FIX_ROOT);
+                    proposed_path, FIX_ROOT);
 
   // acceptance rate
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   const double u = unif(gen) ;
   const double log_acc_rate =
-  log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path,
-                  proposal);
+  log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
   
   bool accepted = false;
   if (log_acc_rate >= 0 || u < exp(log_acc_rate))

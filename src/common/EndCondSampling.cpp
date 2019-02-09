@@ -148,6 +148,9 @@ end_cond_sample_Poisson(const CTMarkovModel &the_model, const size_t start_state
 ////////  ##    ##  ##  #######  #####   ##         ##
 ////////  ##    ##  ##  ##   ##  ##      ##   ##    ##
 ////////  #######  #### ##    ## #######  #####     ##
+////////
+//////// Liz: Direct sampling is not completely finished and tested.
+////////      Don't use it for now.
 
 /* Probability of no jumps: no jumps has nonzero probability only when
  * both end-points have the same state. We have two versions: one
@@ -490,6 +493,11 @@ end_cond_sample_direct(const CTMarkovModel &the_model,
 /////// #####   ##    ## #######  ##  #  ## ##    ## #######  ##    ##
 /////// ##      ##    ## ##   ##  ##  #  ## ######## ##   ##  ##    ##
 /////// ##       ######  ##    ##  ### ###  ##    ## ##    ## #######
+////////
+//////// Hobolth & Stone (2009)
+//////// Liz: Forward sampling is not completely finished and tested.
+////////      Don't use it for now.
+
 
 size_t
 forward_sampling(vector<function<double()> > &the_distrs,
@@ -603,6 +611,11 @@ end_cond_sampling_Nielsen(const size_t max_sample_count,
 /////// # #  # #   #   ##   # #  ##   ###   #    #   ###   #    #   # #  # #
 /////// # #  # #   #   #    # #  # #  # #   #   #    # #   #    #   # #  # #
 /////// ###  # #  ###  #     #   # #  # #  ###  ###  # #   #   ###   #   # #
+////////
+//////// Hobolth & Stone (2009)
+//////// Liz: Uniformization sampling is not completely finished and tested.
+////////      Don't use it for now.
+
 
 struct CTMarkovUnif {
   // CTMarkovUnif is not aware of epigenomic histories

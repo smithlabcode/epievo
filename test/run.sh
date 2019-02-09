@@ -46,7 +46,6 @@ initTreeFile=$trueTreeFile
 print_usage() {
   printf "Usage: $(basename $0)
           [-n MCMC-EM iterations (5000) ] [-s sites (10)]
-          [-P proposal 0:poisson 1:direct 2:forward 3:unif (0)]
           [-T sample full tree (false)] [-E estimate parameters (false)]
           [-L MCMC burn-in (0)] [-B MCMC batch (10)]
           [-R fix root (false)] [-r root sequence]
@@ -58,11 +57,10 @@ print_usage() {
           [-k initial (local) path file]\n"
 }
 
-while getopts 'n:s:P:TEL:B:Rr:f:p:t:i:j:k:h' flag; do
+while getopts 'n:s:TEL:B:Rr:f:p:t:i:j:k:h' flag; do
   case "${flag}" in
     n) num="${OPTARG}" ;;
     s) sites="${OPTARG}" ;;
-    P) proposal="${OPTARG}" ;;
     T) sampleTree=1 ;;
     E) estParam=1
        batch=10;;
@@ -139,7 +137,6 @@ fi
 for (( i=0; i<${#proposalToTest[@]}; i++ )); do
   proposal=${proposalToTest[$i]}
   proposalLabel=${proposalTexts[$proposal]}
-  echo Proposal: $proposalLabel
    
   mcmcDir=$mcmcRootDir/$proposalLabel
   reportDir=$figDir/N$sites
@@ -147,7 +144,7 @@ for (( i=0; i<${#proposalToTest[@]}; i++ )); do
   mkdir -p $reportDir
 
   #--------------------------------------------------------------------------
-  mcmcCMD="./mcmc.sh -n $num -P $proposal -L $burnin -B $batch
+  mcmcCMD="./mcmc.sh -n $num -L $burnin -B $batch
 -p $initParamFile -i $initPathFile -t $initTreeFile
 -f $outPrefix -o $mcmcDir"
 
