@@ -30,6 +30,7 @@
 #include <iterator>
 #include <cassert>
 #include <sstream>
+#include <stdexcept>
 
 using std::vector;
 using std::string;
