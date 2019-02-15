@@ -410,24 +410,15 @@ compute_estimates_for_rates_only(const bool VERBOSE,
                                  const vector<double> &J,
                                  const vector<double> &D,
                                  EpiEvoModel &the_model) {
-  /*
-  cerr << "J:" << endl << triplet_info_to_string(J) << endl
-  << "D:" << endl << triplet_info_to_string(D) << endl
-  << "initial log-likelihood: "
-  << log_likelihood(J, D, the_model.triplet_rates) << endl;
-  */
 
   vector<double> updated_rates;
   estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
   
   the_model.rebuild_from_triplet_rates(updated_rates);
-  // the_model.scale_triplet_rates();
-  /*if (VERBOSE)
-    cerr << "updated rates:\n"
-    << triplet_info_to_string(the_model.triplet_rates) << endl
-    << "updated log-likelihood: "
-    << log_likelihood(J, D, the_model.triplet_rates) << endl;
-*/
+  /* Branch lengths and rates must be scaled at the same time.
+   * We cannot scale one without scaling the other.
+   * If the tree topology is fixed, we will not try to scale rates.
+   */ 
 }
 
 
@@ -514,109 +505,4 @@ estimate_root_distribution(const vector<vector<Path> > &all_paths,
   tot = the_model.init_T[1][0] + the_model.init_T[1][1];
   the_model.init_T[1][0] /= tot;
   the_model.init_T[1][1] /= tot;
-}
-
-
-void
-estimate_sufficient_statistics_by_simulation(const vector<vector<Path> > &paths,
-                                             const EpiEvoModel the_model,
-                                             const TreeHelper &th,
-                                             vector<double> &J,
-                                             vector<double> &D,
-                                             std::mt19937 &gen,
-                                             const size_t n) {
-  
-  const size_t n_sites = paths[1].size();
-  const size_t n_nodes = paths.size();
-  const size_t n_triplets = 8;
-
-  size_t num_sample_collected = 0;
-  while (num_sample_collected < n) {
-    bool accept = false;
-    vector<vector<Path> > updated_paths(paths);
-    vector<double> J_sampled;
-    vector<double> D_sampled;
-    
-    /* SAMPLING ROOT SEQUENCE */
-    vector<char> root_seq;
-    the_model.sample_state_sequence_init(n_sites, gen, root_seq);
-    
-    StateSeq s(root_seq);
-    vector<StateSeq> sequences(n_nodes, s);
-    
-    for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-      const double curr_branch_len = th.branches[node_id];
-      
-      /* SETTING UP LOCAL PATHS */
-      for (size_t pos = 0; pos < n_sites; pos++) {
-        updated_paths[node_id][pos].tot_time = curr_branch_len;
-        updated_paths[node_id][pos].init_state = s.seq[pos];
-      }
-      
-      /* SAMPLING SINGLE CHANGE */
-      TripletSampler ts(sequences[th.parent_ids[node_id]]);
-      double time_value = 0;
-      while (time_value < curr_branch_len) {
-        vector<size_t> triplet_counts;
-        ts.get_triplet_counts(triplet_counts);
-        
-        const double holding_rate =
-        std::inner_product(triplet_counts.begin(), triplet_counts.end(),
-                           the_model.triplet_rates.begin(), 0.0);
-        std::exponential_distribution<double> exp_distr(holding_rate);
-        const double holding_time = std::max(exp_distr(gen),
-                                             std::numeric_limits<double>::min());
-        time_value += holding_time;
-        
-
-        if (time_value < curr_branch_len) {
-          vector<double> triplet_prob(n_triplets, 0.0);
-          for (size_t i = 0; i < n_triplets; ++i)
-            triplet_prob[i] =
-            triplet_counts[i]*the_model.triplet_rates[i]/holding_rate;
-          std::discrete_distribution<size_t> multinom(triplet_prob.begin(),
-                                                      triplet_prob.end());
-          const size_t context = multinom(gen);
-          const size_t change_position = ts.random_mutate(context, gen);
-          
-          updated_paths[node_id][change_position].jumps.push_back(time_value);
-        }
-      }
-      ts.get_sequence(sequences[node_id]);
-      
-      /* CHECKING END-POINTS */
-      //accept = true;
-      bool pass = true;
-      size_t site_id = 0;
-      while(pass && site_id < paths[node_id].size()) {
-        const bool leaf_state = s.seq[site_id];
-        pass = (paths[node_id][site_id].end_state() == leaf_state) ? true : false;
-        site_id++;
-      }
-      accept = pass;
-    }
-
-    if (accept) {
-      get_sufficient_statistics(updated_paths, J_sampled, D_sampled);
-      for (size_t context = 0; context < n_triplets; context++) {
-        J[context] += J_sampled[context];
-        D[context] += D_sampled[context];
-      }
-      num_sample_collected++;
-      
-      size_t counts = 0;
-      for (size_t b = 1; b < updated_paths.size(); ++b) {
-        for (size_t pos = 0; pos < updated_paths[b].size(); ++pos)
-          counts += updated_paths[b][pos].jumps.size();
-      }
-      // cerr << counts << endl;
-    }
-  }
-  // cerr << "Total J:" << endl << triplet_info_to_string(J) << endl
-  // << "Total D:" << endl << triplet_info_to_string(D) << endl;
-  transform(begin(J), end(J), begin(J),
-            [n](double val) { return val / n; });
-            //[n](double val) { return round(val / n); });
-  transform(begin(D), end(D), begin(D),
-            [n](double val) { return val / n; });
 }

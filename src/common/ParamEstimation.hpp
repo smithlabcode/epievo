@@ -58,14 +58,5 @@ void
 get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,
                           std::vector<double> &J, std::vector<double> &D);
 
-void
-estimate_sufficient_statistics_by_simulation(const std::vector<std::vector<Path> > &all_paths,
-                                             const EpiEvoModel the_model,
-                                             const TreeHelper &th,
-                                             std::vector<double> &J,
-                                             std::vector<double> &D,
-                                             std::mt19937 &gen,
-                                             const size_t n = 10000);
-
     
 #endif
