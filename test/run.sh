@@ -144,7 +144,7 @@ for (( i=0; i<${#proposalToTest[@]}; i++ )); do
   mkdir -p $reportDir
 
   #--------------------------------------------------------------------------
-  mcmcCMD="./mcmc.sh -n $num -L $burnin -B $batch
+  mcmcCMD="./mcmc-em.sh -n $num -L $burnin -B $batch
 -p $initParamFile -i $initPathFile -t $initTreeFile
 -f $outPrefix -o $mcmcDir"
 
