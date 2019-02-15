@@ -1,25 +1,69 @@
-rep=$1
+num=50
+sites=10000
 
-dsrc=/Users/lizji/codes/EvoSim/src
-prefix=test
-dout=output/forward
+outPrefix=test
 
-cd /Users/lizji/data/evo/mle
+################################################################################
+####### ##    ###   ##    ###    ##   ###    #    ##    ###   ###    ##
+####### # #    #    # #   #     #      #    # #   # #    #    #     #
+####### # #    #    ##    ##    #      #    # #   ##     #    ##     #
+####### # #    #    # #   #     #      #    # #   # #    #    #       #
+####### ##    ###   # #   ###    ##    #     #    # #   ###   ###   ##
 
-> $dout/st0.stats
-> $dout/st1.stats
-> $dout/bl0.stats
-> $dout/bl1.stats
-> $dout/rt0.stats
-> $dout/rt1.stats
+inDir=input
+outDir=output/mle
+figDir=figures/mle
 
-for (( i=0; i<$rep; i++ )); do
-  $dsrc/prog/epievo_sim input/${prefix}.param -t input/tree.nwk -o input/${prefix}.outmeth -n 10000 -p input/${prefix}.global_jumps
-  $dsrc/prog/global_jumps_to_paths input/tree.nwk input/${prefix}.outmeth input/${prefix}.global_jumps input/${prefix}.path_local
-  $dsrc/prog/epievo_est_complete -S -p input/${prefix}.param -t input/tree.nwk -o $dout/${prefix}.param.update input/${prefix}.path_local
+mkdir -p $outDir
+mkdir -p $figDir
+
+################################################################################
+
+paramFile=$inDir/$outPrefix.param
+treeFile=$inDir/$outPrefix.nwk
+
+################################################################################
+
+print_usage() {
+  printf "Usage: $(basename $0)
+          [-n number of samples (50) ] [-s sites (10000)]
+          [-f output file prefix (test)]
+          [-p parameter file (input/test.param)]
+          [-t tree file (input/test.nwk)]\n"
+}
+
+while getopts 'n:s:f:p:t:h' flag; do
+  case "${flag}" in
+    n) num="${OPTARG}" ;;
+    s) sites="${OPTARG}" ;;
+    f) outPrefix="${OPTARG}" ;;
+    p) paramFile="${OPTARG}" ;;
+    t) treeFile="${OPTARG}" ;;
+    h) print_usage
+       exit 0 ;;
+    *) print_usage
+       exit 1 ;;
+  esac
+done
+
+# estimates of parameters
+> $outDir/${outPrefix}_st0.stats
+> $outDir/${outPrefix}_st1.stats
+> $outDir/${outPrefix}_bl0.stats
+> $outDir/${outPrefix}_bl1.stats
+> $outDir/${outPrefix}_rt0.stats
+> $outDir/${outPrefix}_rt1.stats
+
+for (( i=0; i<$num; i++ )); do
+  epievo_sim $paramFile -t $treeFile -n $sites \
+    -o $outDir/$outPrefix.outmeth -p $outDir/$outPrefix.global_jumps
+  global_jumps_to_paths $treeFile $outDir/$outPrefix.outmeth \
+    $outDir/$outPrefix.global_jumps $outDir/$outPrefix.path_local
+  epievo_est_complete -S -p $paramFile -t $treeFile \
+    -o $outDir/$outPrefix.param.update $outDir/$outPrefix.path_local
  
-  paramFile=output/${prefix}.param.update
-  text=$(<$paramFile)
+  updatedParamFile=$outDir/$outPrefix.param.update
+  text=$(<$updatedParamFile)
   st0=`echo $text | cut -d' ' -f2`
   st1=`echo $text | cut -d' ' -f3`
   bl0=`echo $text | cut -d' ' -f5`
@@ -27,13 +71,14 @@ for (( i=0; i<$rep; i++ )); do
   rt0=`echo $text | cut -d' ' -f8`
   rt1=`echo $text | cut -d' ' -f9`
 
-  echo $st0 >> $dout/st0.stats
-  echo $st1 >> $dout/st1.stats
-  echo $bl0 >> $dout/bl0.stats
-  echo $bl1 >> $dout/bl1.stats
-  echo $rt0 >> $dout/rt0.stats
-  echo $rt1 >> $dout/rt1.stats
+  echo $st0 >> $outDir/${outPrefix}_st0.stats
+  echo $st1 >> $outDir/${outPrefix}_st1.stats
+  echo $bl0 >> $outDir/${outPrefix}_bl0.stats
+  echo $bl1 >> $outDir/${outPrefix}_bl1.stats
+  echo $rt0 >> $outDir/${outPrefix}_rt0.stats
+  echo $rt1 >> $outDir/${outPrefix}_rt1.stats
 
 done
 
-/Users/lizji/data/evo/scripts/mle/mle_forward.R
+Rscript ../rscripts/compare_params.R -t $paramFile -e $outDir/$outPrefix \
+  -o $figDir/${outPrefix}_N$sites.pdf
