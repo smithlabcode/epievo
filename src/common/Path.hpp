@@ -43,10 +43,10 @@ struct Path {
   Path() : init_state(false), mjump_touched(false), tot_time(0.0) {}
   Path(const bool is, const double tt) :
     init_state(is), mjump_touched(false), tot_time(tt),
-  jumps(std::vector<double>()),
+    jumps(std::vector<double>()),
     mjumps(std::vector<mixJump>()) {}
   Path(const bool is, const double tt, const std::vector<double> &j) :
-    init_state(is), tot_time(tt), mjump_touched(false), jumps(j),
+    init_state(is), mjump_touched(false), tot_time(tt), jumps(j),
     mjumps(std::vector<mixJump>()) {}
 
   bool init_state;
@@ -95,7 +95,7 @@ get_seq_end(const std::vector<Path> &paths, std::vector<bool> &seq);
 
 void
 get_seq_at_time(const double t, const std::vector<Path> &paths,
-                 std::vector<bool> &seq);
+                std::vector<bool> &seq);
 
 void
 add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
