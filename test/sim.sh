@@ -41,13 +41,13 @@ pathFile=$outDir/$outPrefix.path_local
 
 #------------------------------------------------------------------------------
 if [ "$rootseq" = "" ]; then
-  epievo_sim $paramFile -t $treeFile \
+  ../bin/epievo_sim $paramFile -t $treeFile \
     -v -n $sites -o $statesFile -p $globalPathFile
 else
   python ../pyscripts/write_rootseq_to_file.py $rootseq $rootFile
 
-  epievo_sim $paramFile -t $treeFile -r $rootFile \
+  ../bin/epievo_sim $paramFile -t $treeFile -r $rootFile \
     -v -n $sites -o $statesFile -p $globalPathFile
 fi
 
-global_jumps_to_paths $treeFile $statesFile $globalPathFile $pathFile
+../bin/global_jumps_to_paths $treeFile $statesFile $globalPathFile $pathFile

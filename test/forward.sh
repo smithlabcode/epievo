@@ -43,7 +43,7 @@ pathFile=$outDir/$outPrefix.path_local
 statsFile=$outDir/$outPrefix.stats
 
 #-------------------------------------------------------------------------------
-CMD="forward_sim_stats -n $num -S $statsFile -o $pathFile
+CMD="../bin/forward_sim_stats -n $num -S $statsFile -o $pathFile
 $paramFile $treeFile $initPathFile"
 
 if [ "$fixRoot" -eq 1 ]; then

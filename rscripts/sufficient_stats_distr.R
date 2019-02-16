@@ -2,7 +2,7 @@
 # Copyright (C) 2019 University of Southern California
 # Xiaojing Ji, Jianghan Qu and Andrew D Smith
 #
-# Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
+# Author: Xiaojing Ji
 #
 # This is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by

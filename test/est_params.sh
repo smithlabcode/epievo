@@ -67,11 +67,11 @@ done
 > $outDir/${outPrefix}_rt1.stats
 
 for (( i=0; i<$num; i++ )); do
-  epievo_sim $trueParamFile -t $trueTreeFile -n $sites \
+  ../bin/epievo_sim $trueParamFile -t $trueTreeFile -n $sites \
     -o $outDir/$outPrefix.outmeth -p $outDir/$outPrefix.global_jumps
-  global_jumps_to_paths $trueTreeFile $outDir/$outPrefix.outmeth \
+  ../bin/global_jumps_to_paths $trueTreeFile $outDir/$outPrefix.outmeth \
     $outDir/$outPrefix.global_jumps $outDir/$outPrefix.path_local
-  mleCMD="epievo_est_complete -S -p $initParamFile -t $initTreeFile -v
+  mleCMD="../bin/epievo_est_complete -S -p $initParamFile -t $initTreeFile
 -o $outDir/$outPrefix.param.update $outDir/$outPrefix.path_local"
   if [ "$estRatesTree" -eq 1 ]; then
       mleCMD="${mleCMD} -b"
