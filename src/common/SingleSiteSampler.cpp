@@ -562,7 +562,7 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id, vector<vector<Path> > &paths,
                          std::mt19937 &gen, vector<Path> &proposed_path,
                          const bool FIX_ROOT) {
-  // get rates and lengths each interval [seg_info: node x site]
+  // get rates and lengths each interval [seg_info: node x segs]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     collect_segment_info(the_model.triplet_rates,

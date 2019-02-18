@@ -183,8 +183,6 @@ int main(int argc, const char **argv) {
 
   try {
 
-    static const double param_tol = 1e-10;
-
     string outfile;
     bool VERBOSE = false;
     bool input_includes_internal = false;

@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-class StateSeq;
+struct StateSeq;
 
 struct GlobalJump {
   /* GlobalJump: represents a change in the boolean state within a

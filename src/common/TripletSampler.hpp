@@ -26,7 +26,7 @@
 #include <random>
 #include <algorithm>
 
-class StateSeq;
+struct StateSeq;
 
 class TripletSampler {
 public:
