@@ -32,9 +32,74 @@
 #include "IndepSite.hpp"
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
+#include "EpiEvoModel.hpp"
+#include "ContinuousTimeMarkovModel.hpp"
+#include "EndCondSampling.hpp"
+
 
 using std::vector;
 using std::string;
+
+
+////////////////////////////////////////////////////////////////////////////////
+///////////////      SUFF-STATS CONDITIONAL MEANS     //////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+static void
+expectation_J(const vector<double> rates, const double T,
+              vector< vector<double>> &J0, vector< vector<double>> &J1) {
+  const double r0 = rates[0];
+  const double r1 = rates[1];
+  const double s = r0 + r1;
+  const double p = r0 * r1;
+  const double d = r1 - r0;
+  const double e = exp(- s * T);
+  
+  const double C1 = d * (1 - e) / s;
+  J0[0][0] = p * ( T * (r1 - r0*e) - C1 ) / (s * (r1 + r0*e));
+  J1[0][0] = J0[0][0];
+  
+  J0[1][1] = p * ( T * (r0 - r1*e) + C1 ) / (s * (r0 + r1*e));
+  J1[1][1] = J0[1][1];
+  
+  const double C2 = p * T * (1 + e) / (s * (1 - e));
+  const double C3 = (r0 * r0 + r1 * r1) / (s * s);
+  const double C4 = (2 * p) / (s * s);
+  
+  J0[0][1] = C2 + C3;
+  J1[0][1] = C2 - C4;
+  J0[1][0] = J1[0][1];
+  J1[1][0] = J0[0][1];
+}
+
+
+static void
+expectation_D(const vector<double> rates, const double T,
+              vector< vector<double>> &D0, vector< vector<double>> &D1) {
+  const double r0 = rates[0];
+  const double r1 = rates[1];
+  const double r00 = r0 * r0;
+  const double r11 = r1 * r1;
+  const double s = r0 + r1;
+  const double p = r0 * r1;
+  const double e = exp(- s * T);
+  
+  const double C1 = 2 * p * (1 - e) / s;
+  const double C2 = p * T * (1 + e);
+  D0[0][0] = ((r11 + r00 * e) * T + C1) / (s * (r1 + r0 * e));
+  D1[0][0] = (C2 * T - C1) / (s * (r1 + r0 * e));
+  
+  D0[1][1] = (C2 * T - C1) / (s * (r0 + r1 * e));
+  D1[1][1] = ((r00 + r11 * e) * T + C1) / (s * (r0 + r1 * e));
+  
+  const double C3 = (p - r00) * (1 - e) / s;
+  D0[0][1] = ((p - r00 * e) * T - C3) / (s * (r0 - r0 * e));
+  D1[0][1] = ((r00 - p * e) * T + C3) / (s * (r0 - r0 * e));
+  
+  const double C4 = (p - r11) * (1 - e) / s;
+  D0[0][1] = ((r11 - p * e) * T + C4) / (s * (r1 - r1 * e));
+  D1[0][1] = ((p - r11 * e) * T - C4) / (s * (r1 - r1 * e));
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,14 +124,14 @@ pruning_upward(const TreeHelper &th, const size_t site_id,
     
     vector<double> q(2, 1.0);
     if (th.is_leaf(node_id)) {
-      const bool leaf_state = paths[site_id].end_state();
+      const bool leaf_state = paths[node_id][site_id].end_state();
       q[0] = (leaf_state == false) ? 1.0 : 0.0;
       q[1] = (leaf_state == true)  ? 1.0 : 0.0;
     }
     else {
       for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c) {
-        q[0] *= fh[*c].p.front()[0];
-        q[1] *= fh[*c].p.front()[1];
+        q[0] *= fh[*c].p[0];
+        q[1] *= fh[*c].p[1];
       }
     }
     fh[node_id].q.swap(q); // assign computed q to the fh
@@ -77,7 +142,7 @@ pruning_upward(const TreeHelper &th, const size_t site_id,
       continuous_time_trans_prob_mat(rates[0], rates[1],
                                      paths[node_id][site_id].tot_time, P);
       // p <- P*q
-      const double p = { P[0][0]*q[0] + P[0][1]*q[1],
+      vector<double> p = { P[0][0]*q[0] + P[0][1]*q[1],
         P[1][0]*q[0] + P[1][1]*q[1] };
       fh[node_id].p.swap(p); // assign computed p to the fh
     }
@@ -127,16 +192,16 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
   
   // get joint distribution of end states
   vector<vector<double> > p_joint(2, vector<double> (2, 0.0));
-  joint_post(p0_parent, P, p_joint);
+  joint_post(p0_parent, fh, P, p_joint);
   p0_child = p_joint[0][0] + p_joint[1][0];
   
   // compute weighted expectation of sufficient stats
-  vector< vector<double>> J0(2, vector<double> (2, 0.0));
-  vector< vector<double>> J1(2, vector<double> (2, 0.0));
-  vector< vector<double>> D0(2, vector<double> (2, 0.0));
-  vector< vector<double>> D1(2, vector<double> (2, 0.0));
-  expectation_J(rates, paths[node_id][site_id].tot_time, J0, J1);
-  expectation_D(rates, paths[node_id][site_id].tot_time, D0, D1);
+  vector<vector<double> > J0(2, vector<double> (2, 0.0));
+  vector<vector<double> > J1(2, vector<double> (2, 0.0));
+  vector<vector<double> > D0(2, vector<double> (2, 0.0));
+  vector<vector<double> > D1(2, vector<double> (2, 0.0));
+  expectation_J(rates, T, J0, J1);
+  expectation_D(rates, T, D0, D1);
   
   for (size_t u = 0; u < 2; u++)
     for (size_t v = 0; v < 2; v++) {
@@ -160,13 +225,13 @@ pruning_downward(const TreeHelper &th, const size_t site_id,
                  vector<vector<double> > &J,
                  vector<vector<double> > &D) {
   
-  vector<double> p0_margin(node_id);
+  vector<double> p0_margin(th.n_nodes);
   
   // marginalize at root node
   p0_margin[0] = root_post_prob0(site_id, init_pi, fh[0].q);
   
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-    weighted_J_D_branch(rates, T, fh[node_id],
+    weighted_J_D_branch(rates, paths[node_id][site_id].tot_time, fh[node_id],
                         p0_margin[th.parent_ids[node_id]],
                         p0_margin[node_id], J[node_id], D[node_id]);
 }
@@ -183,7 +248,7 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
                   std::mt19937 &gen,
                   vector<Path> &sampled_path) {
   
-  vector<double> p0_margin(node_id);
+  vector<double> p0_margin(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
   // marginalize at root node
@@ -204,71 +269,12 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
     P[start_state][0] * fh[node_id].q[0] / fh[node_id].p[start_state];
     const size_t sampled_state = (unif(gen) > p0);
     
-    const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
+    const CTMarkovModel ctmm(rates[0], rates[1]);
     assert(end_cond_sample_forward_rejection(10000000, ctmm,
                                              start_state, sampled_state,
-                                             T, gen, sampled_path.jumps, 0));
+                                             T, gen,
+                                             sampled_path[node_id].jumps, 0));
   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-///////////////      SUFF-STATS CONDITIONAL MEANS     //////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-static double
-expectation_J(const vector<double> rates, const double T,
-              vector< vector<double>> &J0, vector< vector<double>> &J1) {
-  const double r0 = rates[0];
-  const double r1 = rates[1];
-  const double s = r0 + r1;
-  const double p = r0 * r1;
-  const double d = r1 - r0;
-  const double e = exp(- s * T);
-  
-  const double C1 = d * (1 - e) / s;
-  J0[0][0] = p * ( T * (r1 - r0*e) - C1 ) / (s * (r1 + r0*e));
-  J1[0][0] = J0[0][0];
-  
-  J0[1][1] = p * ( T * (r0 - r1*e) + C1 ) / (s * (r0 + r1*e));
-  J1[1][1] = J0[1][1];
-  
-  const double C2 = p * T * (1 + e) / (s * (1 - e));
-  const double C3 = (r0 * r0 + r1 * r1) / (s * s);
-  const double C4 = (2 * p) / (s * s);
-  
-  J0[0][1] = C2 + C3;
-  J1[0][1] = C2 - C4;
-  J0[1][0] = J1[0][1];
-  J1[1][0] = J0[0][1];
-}
-
-
-static double
-expectation_D(const vector<double> rates, const double T,
-              vector< vector<double>> &D0, vector< vector<double>> &D1) {
-  const double r0 = rates[0];
-  const double r1 = rates[1];
-  const double r00 = r0 * r0;
-  const double r11 = r1 * r1;
-  const double s = r0 + r1;
-  const double p = r0 * r1;
-  const double e = exp(- s * T);
-  
-  const double C1 = 2 * p * (1 - e) / s;
-  const double C2 = p * T * (1 + e);
-  D0[0][0] = ((r11 + r00 * e) * T + C1) / (s * (r1 + r0 * e));
-  D1[0][0] = (C2 * T - C1) / (s * (r1 + r0 * e));
-  
-  D0[1][1] = (C2 * T - C1) / (s * (r0 + r1 * e));
-  D1[1][1] = ((r00 + r11 * e) * T + C1) / (s * (r0 + r1 * e));
-  
-  const double C3 = (p - r00) * (1 - e) / s;
-  D0[0][1] = ((p - r00 * e) * T - C3) / (s * (r0 - r0 * e));
-  D1[0][1] = ((r00 - p * e) * T + C3) / (s * (r0 - r0 * e));
-  
-  const double C4 = (p - r11) * (1 - e) / s;
-  D0[0][1] = ((r11 - p * e) * T + C4) / (s * (r1 - r1 * e));
-  D1[0][1] = ((p - r11 * e) * T - C4) / (s * (r1 - r1 * e));
 }
 
 
@@ -337,7 +343,7 @@ compute_estimates_rates_and_branches(const vector<vector<double> > &J,
   vector<double> J_sum(2, 0.0);
   vector<double> D_sum(2, 0.0);
 
-  for (size_t b = 1; b < branches.size(); ++b) {
+  for (size_t b = 1; b < th.n_nodes; ++b) {
     J_sum[0] += J[b][0];
     J_sum[1] += J[b][1];
 
@@ -351,7 +357,7 @@ compute_estimates_rates_and_branches(const vector<vector<double> > &J,
   rates[1] = J_sum[1] / D_sum[1];
 
   // update branch lengths
-  for (size_t b = 1; b < branches.size(); ++b) {
+  for (size_t b = 1; b < th.n_nodes; ++b) {
     th.branches[b] = (J[b][0]*rates[0] + J[b][1]*rates[1]) / (D[b][0] + D[b][1]);
   }
   
