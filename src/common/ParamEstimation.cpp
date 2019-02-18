@@ -44,8 +44,6 @@ using std::cerr;
 using std::cout;
 using std::string;
 
-static const double NUMERICAL_TOLERANCE = 1e-10;
-
 
 template <class T, class U> static void
 scale_mult(const T scale_factor, U &to_scale) {
