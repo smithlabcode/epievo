@@ -51,7 +51,7 @@ statsFile=$outDir/$outPrefix.stats
 traceFile=$outDir/$outPrefix.trace
 
 #------------------------------------------------------------------------------
-CMD="../bin/mcmc_test -B $batch -i $num -L $burnin
+CMD="mcmc_test -B $batch -i $num -L $burnin
 -o $outPathFile -S $statsFile -t $traceFile
 $initParamFile $initTreeFile $initPathFile"
 
