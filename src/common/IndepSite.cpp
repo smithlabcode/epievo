@@ -142,8 +142,8 @@ pruning_upward(const TreeHelper &th, const size_t site_id,
       continuous_time_trans_prob_mat(rates[0], rates[1],
                                      paths[node_id][site_id].tot_time, P);
       // p <- P*q
-      vector<double> p = { P[0][0]*q[0] + P[0][1]*q[1],
-        P[1][0]*q[0] + P[1][1]*q[1] };
+      vector<double> p = { P[0][0]*fh[node_id].q[0] + P[0][1]*fh[node_id].q[1],
+        P[1][0]*fh[node_id].q[0] + P[1][1]*fh[node_id].q[1] };
       fh[node_id].p.swap(p); // assign computed p to the fh
     }
   }
@@ -220,15 +220,17 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
 static void
 pruning_downward(const TreeHelper &th, const size_t site_id,
                  const vector<vector<Path> > &paths,
-                 const vector<double> init_pi, const vector<double> &rates,
+                 const vector<double> &init_pi, const vector<double> &rates,
                  const vector<FelsHelper> &fh,
-                 vector<vector<double> > &J,
-                 vector<vector<double> > &D) {
+                 vector<vector<double> > &J, vector<vector<double> > &D,
+                 vector<double> &init_pi_post) {
   
   vector<double> p0_margin(th.n_nodes);
   
   // marginalize at root node
   p0_margin[0] = root_post_prob0(site_id, init_pi, fh[0].q);
+  init_pi_post[0] += p0_margin[0];
+  init_pi_post[1] += 1 - init_pi[0];
   
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
     weighted_J_D_branch(rates, paths[node_id][site_id].tot_time, fh[node_id],
@@ -245,12 +247,11 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
                   const vector<vector<Path> > &paths,
                   const vector<double> init_pi, const vector<double> &rates,
                   const vector<FelsHelper> &fh,
-                  std::mt19937 &gen,
-                  vector<Path> &sampled_path) {
+                  std::mt19937 &gen, vector<Path> &sampled_path) {
   
   vector<double> p0_margin(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-
+  
   // marginalize at root node
   p0_margin[0] = root_post_prob0(site_id, init_pi, fh[0].q);
   sampled_path = vector<Path>(th.n_nodes);
@@ -285,13 +286,15 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
 /* Obtain conditional means of sufficient statistics */
 void
 expectation_sufficient_statistics(const vector<double> rates,
-                                  const vector<double> init_pi,
+                                  const vector<double> &init_pi,
                                   const TreeHelper &th,
                                   const vector<vector<Path> > &paths,
                                   vector<vector<double> > &J,
-                                  vector<vector<double> > &D) {
+                                  vector<vector<double> > &D,
+                                  vector<double> &init_pi_post) {
   
   assert(paths.size() > 1);
+  init_pi_post = {0, 0};
   
   /* sufficient statistics: J - jump counts, D - spent time */
   J.resize(th.n_nodes);
@@ -301,12 +304,15 @@ expectation_sufficient_statistics(const vector<double> rates,
     J[node_id].resize(2);
   }
   
-  
   for (size_t site_id = 0; site_id < paths[1].size(); site_id++) {
     vector<FelsHelper> fh(th.n_nodes);
     pruning_upward(th, site_id, paths, rates, fh);
-    pruning_downward(th, site_id, paths, init_pi, rates, fh, J, D);
+    pruning_downward(th, site_id, paths, init_pi, rates, fh, J, D,
+                     init_pi_post);
   }
+  
+  init_pi_post[0] /= paths[1].size();
+  init_pi_post[1] /= paths[1].size();
 }
 
 
@@ -318,13 +324,20 @@ sample_paths(const vector<double> rates, const vector<double> init_pi,
              std::mt19937 &gen, vector<vector<Path> > &sampled_paths) {
   
   assert(paths.size() > 1);
-  sampled_paths.resize(paths[1].size());
+  
+  sampled_paths.resize(th.n_nodes);
+  for (size_t node_id = 0; node_id < th.n_nodes; ++node_id)
+    sampled_paths[node_id].resize(paths[1].size());
   
   for (size_t site_id = 0; site_id < paths[1].size(); site_id++) {
     vector<FelsHelper> fh(th.n_nodes);
     pruning_upward(th, site_id, paths, rates, fh);
-    sampling_downward(th, site_id, paths, init_pi, rates, fh,
-                      gen, sampled_paths[site_id]);
+    
+    vector<Path> site_path;
+    sampling_downward(th, site_id, paths, init_pi, rates, fh, gen, site_path);
+    
+    for (size_t node_id = 0; node_id < th.n_nodes; ++node_id)
+      sampled_paths[node_id][site_id] = site_path[node_id];
   }
 }
 
@@ -333,20 +346,62 @@ sample_paths(const vector<double> rates, const vector<double> init_pi,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-compute_estimates_rates_and_branches(const vector<vector<double> > &J,
-                                     const vector<vector<double> > &D,
-                                     vector<double> &rates, TreeHelper &th) {
+compute_sufficient_statistics(const vector<vector<Path> > &paths,
+                              vector<vector<double> > &J,
+                              vector<vector<double> > &D) {
+
+  assert(paths.size() > 1);
+  const size_t n_sites = paths[1].size();
+  
+  J.resize(paths.size());
+  D.resize(paths.size());
+  
+  for (size_t b = 1; b < paths.size(); b++) {
+    
+    J[b].resize(2);
+    D[b].resize(2);
+    vector<double> J_branch = {0.0, 0.0};
+    vector<double> D_branch = {0.0, 0.0};
+
+    for (size_t site_id = 0; site_id < n_sites; site_id++) {
+
+      size_t prev_state = paths[b][site_id].init_state;
+      double time = 0.0;
+
+      for (size_t j = 0; j < paths[b][site_id].jumps.size(); j++) {
+        J_branch[prev_state] += 1;
+        D_branch[prev_state] += ( paths[b][site_id].jumps[j] - time );
+        
+        prev_state = 1 - prev_state;
+        time = paths[b][site_id].jumps[j];
+      }
+      
+      D_branch[prev_state] += paths[b][site_id].tot_time - time;
+    }
+    
+    // get averages
+    J[b][0] = J_branch[0] / n_sites;
+    J[b][1] = J_branch[1] / n_sites;
+    D[b][0] = D_branch[0] / n_sites;
+    D[b][1] = D_branch[1] / n_sites;
+  }
+}
+
+
+void
+estimate_rates(const vector<vector<double> > &J,
+               const vector<vector<double> > &D,
+               vector<double> &rates, TreeHelper &th) {
   
   vector<double> updated_rates;
-  vector<double> updated_branches;
   
   vector<double> J_sum(2, 0.0);
   vector<double> D_sum(2, 0.0);
-
+  
   for (size_t b = 1; b < th.n_nodes; ++b) {
     J_sum[0] += J[b][0];
     J_sum[1] += J[b][1];
-
+    
     D_sum[0] += D[b][0];
     D_sum[1] += D[b][1];
   }
@@ -355,10 +410,19 @@ compute_estimates_rates_and_branches(const vector<vector<double> > &J,
   assert(D_sum[0] > 0 && D_sum[1] > 0);
   rates[0] = J_sum[0] / D_sum[0];
   rates[1] = J_sum[1] / D_sum[1];
+}
+
+
+void
+estimate_rates_and_branches(const vector<vector<double> > &J,
+                            const vector<vector<double> > &D,
+                            vector<double> &rates, TreeHelper &th) {
+  
+  estimate_rates(J, D, rates, th);
 
   // update branch lengths
   for (size_t b = 1; b < th.n_nodes; ++b) {
-    th.branches[b] = (J[b][0]*rates[0] + J[b][1]*rates[1]) / (D[b][0] + D[b][1]);
+    th.branches[b] = (J[b][0] + J[b][1]) / (D[b][0]*rates[0] + D[b][1]*rates[1]);
   }
   
   /* we don't do any scaling here */

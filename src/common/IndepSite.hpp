@@ -35,11 +35,12 @@ struct FelsHelper {
 
 void
 expectation_sufficient_statistics(const std::vector<double> rates,
-                                  const std::vector<double> init_pi,
+                                  const std::vector<double> &init_pi,
                                   const TreeHelper &th,
                                   const std::vector<std::vector<Path> > &paths,
                                   std::vector<std::vector<double> > &J,
-                                  std::vector<std::vector<double> > &D);
+                                  std::vector<std::vector<double> > &D,
+                                  std::vector<double> &init_pi_post);
 
 
 void
@@ -51,10 +52,23 @@ sample_paths(const std::vector<double> rates, const std::vector<double> init_pi,
 
 
 void
-compute_estimates_rates_and_branches(const std::vector<std::vector<double> > &J,
-                                     const std::vector<std::vector<double> > &D,
-                                     std::vector<double> &rates,
-                                     TreeHelper &th);
+compute_sufficient_statistics(const std::vector<std::vector<Path> > &paths,
+                              std::vector<std::vector<double> > &J,
+                              std::vector<std::vector<double> > &D);
+
+
+void
+estimate_rates(const std::vector<std::vector<double> > &J,
+               const std::vector<std::vector<double> > &D,
+               std::vector<double> &rates,
+               TreeHelper &th);
+
+
+void
+estimate_rates_and_branches(const std::vector<std::vector<double> > &J,
+                            const std::vector<std::vector<double> > &D,
+                            std::vector<double> &rates,
+                            TreeHelper &th);
 
 
 void
