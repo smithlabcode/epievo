@@ -246,7 +246,6 @@ int main(int argc, const char **argv) {
 
     string paramfile;
     string pathfile;
-    string new_treefile;
     
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
@@ -262,8 +261,6 @@ int main(int argc, const char **argv) {
                       false, paramfile);
     opt_parse.add_opt("param", 'o', "output path file",
                       false, pathfile);
-    opt_parse.add_opt("tree", 't', "updated tree file in newick format",
-                      false, new_treefile);
 
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -332,17 +329,10 @@ int main(int argc, const char **argv) {
 
     
     for (size_t itr = 0; itr < iterations; itr++) {
-      estimate_rates_and_branches(J, D, rates, th);
+      estimate_rates(J, D, rates, th);
       expectation_sufficient_statistics(rates, init_pi, th, paths, J, D,
                                         init_pi_post);
       init_pi = init_pi_post;
-  
-      const double mu = init_pi[0]*rates[0] + init_pi[1]*rates[1];
-      transform(rates.begin(), rates.end(),
-                rates.begin(), std::bind2nd(std::divides<double>(), mu));
-      transform(th.branches.begin(), th.branches.end(),
-                th.branches.begin(),
-                std::bind2nd(std::multiplies<double>(), mu));
       
       // Report
       if (VERBOSE)
@@ -371,21 +361,13 @@ int main(int argc, const char **argv) {
 
     // initialize a EpievoModel
     EpiEvoModel the_model;
-    const double mu = initialize_model_from_indep_rates(the_model, rates);
-    
-    // scale branches
-    vector<double> scaled_branches(th.branches);
-    std::transform(scaled_branches.begin(), scaled_branches.end(),
-                   scaled_branches.begin(),
-                   std::bind2nd(std::multiplies<double>(), mu));
-    th.branches = scaled_branches;
+    initialize_model_from_indep_rates(the_model, rates);
 
     // set init_T
     estimate_root_distribution(sampled_paths, the_model);
     
     // re-estimate triplet rates from paths
-    compute_estimates_rates_and_branches(false, param_tol, sampled_paths,
-                                         th, the_model);
+    compute_estimates_for_rates_only(false, param_tol, sampled_paths, the_model);
 
     // write parameters
     if (VERBOSE)
@@ -399,20 +381,6 @@ int main(int argc, const char **argv) {
       throw std::runtime_error("bad output param file: " + paramfile);
     
     out_param << the_model.format_for_param_file() << endl;
-    
-    // write tree
-    if (VERBOSE)
-      cerr << "[WRITING TREE FILE: " << new_treefile << "]" << endl;
-    
-    std::ofstream of_tree;
-    if (!new_treefile.empty()) of_tree.open(new_treefile.c_str());
-    std::ostream out_tree(new_treefile.empty() ?
-                          std::cout.rdbuf() : of_tree.rdbuf());
-    if (!out_tree)
-      throw std::runtime_error("bad output tree file: " + new_treefile);
-    
-    the_tree.set_branch_lengths(th.branches);
-    out_tree << the_tree << endl;
 
   }
   catch (const std::exception &e) {
