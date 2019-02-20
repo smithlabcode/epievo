@@ -211,33 +211,6 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
 
-    // XJ: We current turn off the interface of choosing Metropolis-Hastings
-    //     proposal. Poisson proposal is always used.
-    /*
-    if (proposal == 1) { // Direct
-      end_cond_sample_direct(ctmm, prev_state, sampled_state, seg_info[i].len,
-                             gen, sampled_path.jumps, time_passed);
-    } else if (proposal == 2) { // Forward
-      assert(end_cond_sample_forward_rejection(10000000,
-                                               ctmm,
-                                               prev_state,
-                                               sampled_state,
-                                               seg_info[i].len,
-                                               gen,
-                                               sampled_path.jumps,
-                                               time_passed));
-    } else if (proposal == 3) { // Uniformization
-      end_cond_sample_unif(ctmm, prev_state, sampled_state, seg_info[i].len,
-                           gen, sampled_path.jumps, sampled_path.mjumps,
-                           time_passed);
-      sampled_path.mjump_touched = true;
-
-    } else { // Default: Poisson
-      end_cond_sample_Poisson(ctmm, prev_state, sampled_state,
-                              seg_info[i].len, gen, sampled_path.jumps,
-                              time_passed);
-    }
-    */
     end_cond_sample_Poisson(ctmm, prev_state, sampled_state,
                             seg_info[i].len, gen, sampled_path.jumps,
                             time_passed);
@@ -322,25 +295,6 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     // calculate the probability for the end-conditioned path
     const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     
-    // XJ: We current turn off the interface of choosing Metropolis-Hastings
-    //     proposal. Poisson proposal is always used.
-    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif
-    double interval_prob;
-    if (proposal == 1) {
-      interval_prob = // Direct
-      end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
-                           start_time, end_time, start_jump, end_jump);
-    } else if (proposal == 2) {
-      interval_prob = // Forward
-      forward_sample_prob(ctmm, path.jumps, start_state, end_state,
-                          start_time, end_time, start_jump, end_jump);
-    } else {
-      interval_prob = // Default: Poisson
-      end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
-                                   start_time, end_time,
-                                   start_jump, end_jump);
-    }
-    */
     const double interval_prob =
     end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
                                  start_time, end_time,
@@ -359,70 +313,6 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
     assert(std::isfinite(log_prob));
 
-    // prepare for next interval
-    start_jump = end_jump;
-    start_time = end_time;
-    start_state = end_state;
-  }
-  return log_prob;
-}
-
-
-/* Compute proposal probabilities of uniformization algorithm */
-static double
-proposal_prob_branch_unif(const vector<SegmentInfo> &seg_info,
-                          const FelsHelper &fh, const Path &path) {
-  
-  const size_t n_intervals = seg_info.size();
-  
-  size_t start_state = path.init_state, end_state = path.init_state;
-  double start_time = 0.0, end_time = 0.0;
-  size_t start_jump = 0, end_jump = 0;
-  
-  double log_prob = 0.0;
-  
-  vector<mixJump> mixtype_jumps(path.mjumps);
-  if (path.jumps.size() > 0 && path.mjumps.size() == 0) {
-    // This is an initial path without any virtual jump information
-    for (size_t jump_id = 0; jump_id < path.jumps.size(); jump_id++)
-      mixtype_jumps.push_back(mixJump(true, path.jumps[jump_id]));
-  }
-
-  for (size_t i = 0; i < n_intervals; ++i) {
-    size_t n_real_jumps = 0;
-
-    // get the end_time by adding the segment length to the start_time
-    end_time += seg_info[i].len;
-    
-    // get the end_jump as the first jump occurring after end_time
-    while (end_jump < mixtype_jumps.size() &&
-           mixtype_jumps[end_jump].time < end_time) {
-      n_real_jumps += (mixtype_jumps[end_jump].type);
-      ++end_jump;
-    }
-    
-    if (n_real_jumps % 2 == 1)
-      end_state = complement_state(end_state);
-    
-    // calculate the probability for the end-conditioned path
-    const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
-    const double interval_prob =
-    log(end_cond_sample_unif_prob(ctmm, mixtype_jumps, start_state, end_state,
-                              start_time, end_time, start_jump, end_jump));
-    log_prob += interval_prob;
-    assert(std::isfinite(log_prob));
-    
-    vector<vector<double> > P;
-    ctmm.get_trans_prob_mat(seg_info[i].len, P);
-    
-    // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
-    const double p0 =
-    P[start_state][0]/fh.p[i][start_state]*((i == n_intervals-1) ?
-                                            fh.q[0] : fh.p[i+1][0]);
-    
-    log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
-    assert(std::isfinite(log_prob));
-    
     // prepare for next interval
     start_jump = end_jump;
     start_time = end_time;
@@ -451,16 +341,7 @@ proposal_prob(const vector<double> &triplet_rates,
   
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    // XJ: We current turn off the interface of choosing Metropolis-Hastings
-    //     proposal. Poisson proposal is always used.
-    /* proposal: 0 - poisson, 1 - direct, 2 - forward, 3 - unif
-    if (proposal == 3)
-      log_prob += proposal_prob_branch_unif(seg_info[node_id], fh[node_id],
-                                        the_path[node_id]);
-    else
-      log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
-                                   the_path[node_id], proposal);
-    */
+
     log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
                                      the_path[node_id]);
   }
@@ -507,9 +388,6 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   assert(site_id > 0 && site_id < paths[1].size());
 
   double llr = orig_proposal - update_proposal;
-
-  // if (proposal == 1 && !original[1].mjump_touched)
-  //  llr = 0;
 
   /* calculate likelihood involving root states */
   const size_t rt_l = paths[1][site_id-1].init_state;
