@@ -80,6 +80,7 @@ int main(int argc, const char **argv) {
     bool OPTBRANCH = false;
 
     string outfile;
+    string param_file_updated;
 
     size_t iteration = 10;           // MCMC-EM iterations
     size_t batch = 10;              // MCMC iterations
@@ -90,16 +91,23 @@ int main(int argc, const char **argv) {
     static const double param_tol = 1e-10;
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
-                           "Collect summary stats and estimate parameters"
-                           "with MCMC-EM procedure",
+                           "Estimate parameters and evolution histories"
+                           " with MCMC-EM procedure",
                            "<param> <treefile> <path_file>");
-    opt_parse.add_opt("iteration", 'i', "number of MCMC iteration",
+    opt_parse.add_opt("iteration", 'i',
+                      "number of MCMC-EM iteration (default: 10)",
                       false, iteration);
-    opt_parse.add_opt("batch", 'B', "batch size", false, batch);
-    opt_parse.add_opt("burnin", 'L', "burining length", false, burnin);
+    opt_parse.add_opt("batch", 'B',
+                      "number of MCMC iteration (default: 10)",
+                      false, batch);
+    opt_parse.add_opt("burnin", 'L',
+                      "MCMC burn-in length (default: 10)",
+                      false, burnin);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
-    opt_parse.add_opt("outfile", 'o', "outfile (sampling paths)",
+    opt_parse.add_opt("outfile", 'o', "output file of local paths",
                       false, outfile);
+    opt_parse.add_opt("outparam", 'p', "output file of parameters",
+                      false, param_file_updated);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
     opt_parse.add_opt("verbose", 'v', "print more run info",
@@ -250,11 +258,19 @@ int main(int argc, const char **argv) {
       }
     }
 
-    /* (6) OUTPUT GLOBAL PATH */
+    /* (6) OUTPUT */
     write_root_to_pathfile_local(outfile, th.node_names.front());
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
       append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
     
+    std::ofstream of_param;
+    if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
+    std::ostream out_param(param_file_updated.empty() ?
+                           std::cout.rdbuf() : of_param.rdbuf());
+    if (!out_param)
+      throw std::runtime_error("bad output param file: " + param_file_updated);
+    out_param << the_model.format_for_param_file() << endl;
+
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;

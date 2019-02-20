@@ -230,7 +230,7 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "simulate epigenome evolution",
                            "<params-file>");
-    opt_parse.add_opt("output", 'o', "name of output file for methylomes"
+    opt_parse.add_opt("output", 'o', "name of output file for epigenomic states"
                       "(default: stdout)", false, outfile);
     opt_parse.add_opt("n-sites", 'n', "length of sequence to simulate "
                       "(default: " + to_string(n_sites) + ")", false, n_sites);
@@ -241,11 +241,12 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
                       evolutionary_time);
-    opt_parse.add_opt("leaf", 'l', "write only leaf states", false,
-                      write_only_leaves);
-    opt_parse.add_opt("scale", 'S', "scale the branch lengths", false, SCALE);
-    opt_parse.add_opt("rates", 'R', "use triplet transition rates",
-                      false, TRPARAM);
+    opt_parse.add_opt("leaf", 'l', "write only leaf states (default: false)",
+                      false, write_only_leaves);
+    opt_parse.add_opt("scale", 'S', "scale the branch lengths (default: true",
+                      false, SCALE);
+    opt_parse.add_opt("rates", 'R', "use triplet transition rates "
+                      "(default: false)", false, TRPARAM);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);

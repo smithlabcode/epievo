@@ -431,6 +431,8 @@ compute_estimates_for_rates_only(const bool VERBOSE,
   vector<double> D;
   get_sufficient_statistics(all_paths, J, D);
 
+  if (VERBOSE)
+    cerr << "[ESTIMATING PARAMETERS]" << endl;
   compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
 }
 
@@ -453,16 +455,9 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   vector<vector<double> > J;
   vector<vector<double> > D;
   get_sufficient_statistics(all_paths, J, D);
-  const double init_llk =
-    log_likelihood(J, D, the_model.triplet_rates, th.branches);
-  if (VERBOSE) {
-    for (size_t b = 1; b < all_paths.size(); ++b)
-      cerr << "J[" << th.node_names[b] << "]" << endl
-           << triplet_info_to_string(J[b]) << endl
-           << "D[" << th.node_names[b] << "]" << endl
-           << triplet_info_to_string(D[b]) << endl;
-    cerr << "initial log-likelihood: " << init_llk << endl;
-  }
+
+  if (VERBOSE)
+    cerr << "[ESTIMATING PARAMETERS AND BRANCHES]" << endl;
 
   vector<double> updated_rates;
   vector<double> updated_branches;
@@ -473,15 +468,6 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
   th.branches = updated_branches;
-
-  if (VERBOSE) {
-    cerr << "updated rates:\n" << triplet_info_to_string(the_model.triplet_rates) << endl
-         << "updated_branches:" << endl;
-    for (size_t i = 0; i < th.node_names.size(); ++i)
-      cerr << th.node_names[i] << '\t' << th.branches[i] << endl;
-    cerr << "updated log-likelihood: "
-         << log_likelihood(J, D, the_model.triplet_rates, th.branches) << endl;
-  }
 }
 
 

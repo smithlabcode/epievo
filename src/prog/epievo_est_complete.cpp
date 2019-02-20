@@ -145,6 +145,9 @@ int main(int argc, const char **argv) {
     out << the_model.format_for_param_file() << endl;
     the_tree.set_branch_lengths(th.branches);
     out << the_tree << endl;
+    
+    if (VERBOSE)
+      cerr << "[FINISHED.]" << endl;
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;

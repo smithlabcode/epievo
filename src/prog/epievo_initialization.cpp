@@ -257,9 +257,9 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("iterations", 'i', "number of iterations",
                       false, iterations);
-    opt_parse.add_opt("param", 'p', "output parameter file",
+    opt_parse.add_opt("param", 'p', "output file of parameters",
                       false, paramfile);
-    opt_parse.add_opt("param", 'o', "output path file",
+    opt_parse.add_opt("param", 'o', "output file of local paths",
                       false, pathfile);
 
     vector<string> leftover_args;
@@ -312,7 +312,7 @@ int main(int argc, const char **argv) {
     /* generate initial paths by heuristics */
     vector<vector<Path> > paths; // along multiple branches
     initialize_paths(gen, th, state_sequences, paths);
-    
+
     /* Run EM to learn a site-independent model */
     vector<double> rates (2, 0.0);
     vector<double> init_pi (2, 0.0);
@@ -320,7 +320,6 @@ int main(int argc, const char **argv) {
     vector<vector<double> > J, D;
     compute_sufficient_statistics(paths, J, D);
     estimate_root_distribution(paths, init_pi);
-    cerr << "TREE BRANCHES: ";
  
     if (VERBOSE)
       cerr << "ITR\tRATE0\tRATE1\t\tINIT0\t\tINIT1\n"
