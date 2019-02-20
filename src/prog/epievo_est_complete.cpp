@@ -54,7 +54,6 @@ int main(int argc, const char **argv) {
     string outfile;
     bool VERBOSE = false;
     bool OPTBRANCH = false;
-    bool scale_the_rates = true;
     string param_file;
     string tree_file;
 
@@ -68,8 +67,6 @@ int main(int argc, const char **argv) {
                       true, tree_file);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
-    opt_parse.add_opt("no-rate-scaling", 'S', "do not scale rates",
-                      false, scale_the_rates);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
     opt_parse.add_opt("output", 'o', "output parameter file",
