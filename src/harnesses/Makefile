@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = mcmc_test extract_stats forward_sim_stats
+PROGS = extract_stats forward_sim_stats
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -50,11 +50,6 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, \
 	OptionParser.o smithlab_utils.o smithlab_os.o) \
 	$(addprefix $(COMMON_DIR)/, TreeHelper.o PhyloTreePreorder.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
-
-mcmc_test: \
-	$(addprefix $(COMMON_DIR)/, StateSeq.o \
-	EpiEvoModel.o SingleSiteSampler.o EndCondSampling.o \
-	TripletSampler.o GlobalJump.o ContinuousTimeMarkovModel.o ParamEstimation.o)
 
 extract_stats: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o ParamEstimation.o TripletSampler.o \
 		 StateSeq.o)
