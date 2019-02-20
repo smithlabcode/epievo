@@ -16,7 +16,7 @@ make install
 
 Usage
 ========================
-### Simulate epigenome evolution
+### Simulating epigenome evolution
 `epievo_sim` can be used to simulate epigenome evolution from given evolution parameters,
 tree topology, or the total time duration of a single branch. 
 #### Example
@@ -55,7 +55,7 @@ Help options:
       -about     print about message 
 ```
 
-### Estimate model parameters from complete history
+### Estimating model parameters from complete history
 `bin/epievo_est_complete` is used to obtain maximum-likelihood estimates
 of model parameters (and branch lengths if specified),
 from provided local paths of complete evolution history.
@@ -82,7 +82,7 @@ Help options:
       -about    print about message 
   ```
 
-### Estimate model parameters and histories from leaf data
+### Estimating model parameters and histories from leaf data
 Program `epievo_est_params_histories` runs a MCMC-EM algorithm to estimate model
 parameters and sample evolution histories simultaneously, which requires
 initial parameters, local paths to be provided.
