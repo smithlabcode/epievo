@@ -13,12 +13,108 @@ cd epievo
 make install
 ```
 
-### Other dependencies
-To run Python and R scripts included,
-`Python2.x` and `R` need to be installed and added to environment variables.
-You will also need to have R package `optparse`,
-`ggplot2`
-and Python libraries `argparse` installed.
+
+Usage
+========================
+### Simulate epigenome evolution
+`epievo_sim` can be used to simulate epigenome evolution from given evolution parameters,
+tree topology, or the total time duration of a single branch. 
+#### Example
+```
+cd test
+../bin/epievo_sim -v -n 1000 -o tree.states -p tree.global_jumps -t tree.nwk tree.param
+../bin/global_jumps_to_paths tree.nwk tree.states tree.global_jumps tree.local_paths
+```
+Two output files will be generated from `epievo_sim`:
+`tree.global_jumps` contains mutation information ordered by position
+and time, and `tree.states` contains epigenomic states at each position and each node.
+The second command will convert `tree.global_jumps` to `tree.local_paths`,
+which contains mutation information organized at each single site.
+Local paths are used for model inference.
+
+Below is the usage of `epievo_sim`:
+```
+Usage: epievo_sim [OPTIONS] <params-file>
+
+Options:
+  -o, -output    name of output file for epigenomic states(default: stdout) 
+  -n, -n-sites   length of sequence to simulate (default: 100) 
+  -p, -paths     name of output file for evolution paths as sorted jump times 
+                 (default: stdout) 
+  -s, -seed      rng seed 
+  -r, -root      root states file 
+  -t, -tree      Newick format tree file 
+  -T, -evo-time  evolutionary time 
+  -l, -leaf      write only leaf states (default: false) 
+  -S, -scale     scale the branch lengths (default: true 
+  -R, -rates     use triplet transition rates (default: false) 
+  -v, -verbose   print more run info 
+
+Help options:
+  -?, -help      print this help message 
+      -about     print about message 
+```
+
+### Estimate model parameters from complete history
+`bin/epievo_est_complete` is used to obtain maximum-likelihood estimates
+of model parameters (and branch lengths if specified),
+from provided local paths of complete evolution history.
+#### Example
+```
+cd test
+../bin/epievo_est_complete -v -p tree.param -t tree.nwk -o tree.param.updated tree.local_paths
+```
+The output file `tree.param.updated` contains estimated model parameters
+(and branch lengths if specified).
+Below is the usage of `epievo_est_complete`:
+```
+Usage: epievo_est_complete [OPTIONS] <path-file>
+
+Options:
+  -p, -param    initial parameter file 
+  -t, -tree     initial tree file in newick format 
+  -v, -verbose  print more run info 
+  -b, -branch   optimize branch lengths as well 
+  -o, -output   output parameter file 
+
+Help options:
+  -?, -help     print this help message 
+      -about    print about message 
+  ```
+
+### Estimate model parameters and histories from leaf data
+Program `epievo_est_params_histories` runs a MCMC-EM algorithm to estimate model
+parameters and sample evolution histories simultaneously, which requires
+initial parameters, local paths to be provided.
+If you only have observed data (epigenomic states at leaf species), you can
+use `epievo_initialization` to generate starting parameters and paths
+through heuristics and site-independent-model-based methods.
+
+#### Example
+```
+../bin/epievo_initialization -p tree.param.init -o tree.local_paths.init tree.nwk observed.states
+../bin/epievo_est_params_histories -v -o tree.local_path.est -p tree.local_path.est \
+  tree.param.init tree.nwk tree.local_paths.init
+```
+
+Below is the usage of `epievo_est_params_histories`:
+```
+Usage: epievo_est_params_histories [OPTIONS] <param> <treefile> <path_file>
+
+Options:
+  -i, -iteration  number of MCMC-EM iteration (default: 10) 
+  -B, -batch      number of MCMC iteration (default: 10) 
+  -L, -burnin     MCMC burn-in length (default: 10) 
+  -s, -seed       rng seed 
+  -o, -outfile    output file of local paths 
+  -p, -outparam   output file of parameters 
+  -b, -branch     optimize branch lengths as well 
+  -v, -verbose    print more run info 
+
+Help options:
+  -?, -help       print this help message 
+      -about      print about message 
+```
 
 File formats
 ========================
@@ -66,7 +162,7 @@ The block of root node will only include a sequence of binary states.
 Then, each node block contains a list of time and position of mutation events.
 
 ### Local path
-Local path is another way to record mutation events.
+Local path is another way to organize mutation events.
 Different from global jumps, the local path is a list of mutation times at each position.
 The format is below:
 ```
@@ -79,83 +175,6 @@ NODE:NODE3
 ...
 ```
 Again, the root node block has no mutation information.
-
-
-Usage
-========================
-### Simulate epigenome evolution
-Below command will simulate epigenome evolution from given evolution parameters,
-tree topology, or the total time duration of a single branch. Users can also
-fix the root sequence by specifying `-r` option. 
-```
-./bin/epievo_sim [OPTIONS] <params-file>
-```
-Below is the list of available options:
-```
-  -o, -output    name of output file for states of each node species (default: stdout) 
-  -n, -n-sites   length of sequence to simulate (default: 100) 
-  -p, -paths     name of output file for evolution paths as sorted jump times 
-                 (default: stdout) 
-  -s, -seed      rng seed 
-  -r, -root      root states file 
-  -t, -tree      Newick format tree file 
-  -T, -evo-time  evolutionary time 
-  -l, -leaf      write only leaf states 
-  -S, -scale     scale the branch lengths 
-  -R, -rates     use triplet transition rates instead of model parameters
-  -v, -verbose   print more run info 
-```
-
-### Estimate model parameters from local paths
-Below command will run a gradient-ascent method to obtain maximum-likelihood estimates
-of model parameters and branch lengths, from provided local paths of complete evolution history:
-```
-./bin/epievo_sim [OPTIONS] <path-file>
-```
-Below is the list of available options:
-```
-  -p, -param            initial parameter file 
-  -t, -tree             initial tree file in newick format 
-  -v, -verbose          print more run info 
-  -b, -branch           optimize branch lengths as well 
-  -o, -output           output parameter file 
-  ```
-  
-  The simulation program only generates global jumps. To convert global jumps to
-  local paths, users need to run below command:
-  ```
-  ./bin/global_jumps_to_paths [OPTIONS] <treefile> <statefile> <global jumps file> <output local paths>
-  ```
-  Available options include:
-  ```
-  -v, -verbose  print more run info 
-  ```
-
-### A simple test run
-```
-cd test
-./run.sh
-```
-The above command will run a test including three steps:
-1. Simulate one evolution path of 10-site long sequence.
-2. Fix the starting and ending states, collect 5000 simulated paths and print summary statistics.
-3. Run a MCMC sampler to get 5000 paths and print summary statistics. A report will be generated in `figures/N10`.
-
-Below is the complete usage of `run.sh`:
-```
-Usage: run.sh
-          [-n MCMC-EM iterations (5000) ] [-s sites (10)]
-          [-P proposal 0:poisson 1:direct 2:forward 3:unif (0)]
-          [-T sample full tree (false)] [-E estimate parameters (false)]
-          [-L MCMC burn-in (0)] [-B MCMC batch (10)]
-          [-R fix root (false)] [-r root sequence (null)]
-          [-f output file prefix (test)]
-          [-p true parameter file (input/test.param)]
-          [-t true tree (input/test.nwk)]
-          [-i initial parameter file (input/test.param)]
-          [-j initial tree (input/test.nwk)]
-          [-k initial (local) path file (null)]
-```
 
 
 Contacts
