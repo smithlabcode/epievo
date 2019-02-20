@@ -5,7 +5,7 @@ Building and Installing
 
 First, download `epievo` in recursive mode,
 ```
-git clone --recursive https://github.com/andrewdavidsmith/epievo.git
+git clone --recursive https://github.com/smithlabcode/epievo.git
 ```
 then install `epievo` by running
 ```
