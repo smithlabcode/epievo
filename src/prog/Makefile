@@ -20,8 +20,7 @@
 
 PROGS = epievo_sim global_jumps_to_paths \
 	extract_state_sequences epievo_est_complete \
-	epievo_sample_histories epievo_est_params_histories \
-  epievo_initialization
+	epievo_est_params_histories epievo_initialization
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -63,7 +62,7 @@ epievo_initialization: \
   GlobalJump.o IndepSite.o EpiEvoModel.o EndCondSampling.o \
   ContinuousTimeMarkovModel.o ParamEstimation.o)
 
-epievo_sample_histories epievo_est_params_histories: \
+epievo_est_params_histories: \
 	$(addprefix $(COMMON_DIR)/, \
 	TripletSampler.o StateSeq.o SingleSiteSampler.o EndCondSampling.o \
 	ContinuousTimeMarkovModel.o \
