@@ -178,6 +178,14 @@ NODE:NODE3
 Again, the root node block has no mutation information.
 
 
+Roadmap
+========================
+
+- [ ] Allow `epievo_initialization` to accept non-leaf states as observed data.
+- [ ] Allow `epievo_est_params_histories` to fix part of the data or model parameters.
+- [ ] Add MCMC convergence diagnostics.
+
+
 Contacts
 ========================
 
