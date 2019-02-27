@@ -243,7 +243,8 @@ int main(int argc, const char **argv) {
                       evolutionary_time);
     opt_parse.add_opt("leaf", 'l', "write only leaf states (default: false)",
                       false, write_only_leaves);
-    opt_parse.add_opt("scale", 'S', "scale the branch lengths (default: true",
+    opt_parse.add_opt("scale", 'S',
+                      "do not scale model parameters (default: true)",
                       false, SCALE);
     opt_parse.add_opt("rates", 'R', "use triplet transition rates "
                       "(default: false)", false, TRPARAM);
