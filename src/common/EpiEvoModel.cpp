@@ -476,8 +476,6 @@ EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
 
   triplet_rates = updated_rates;
 
-  scale_triplet_rates();
-
   // recompute T using the updated triplet rates
   triplet_rates_to_horiz_trans_prob(triplet_rates, T);
 
