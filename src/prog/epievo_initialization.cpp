@@ -259,7 +259,7 @@ int main(int argc, const char **argv) {
                       false, iterations);
     opt_parse.add_opt("param", 'p', "output file of parameters",
                       false, paramfile);
-    opt_parse.add_opt("param", 'o', "output file of local paths",
+    opt_parse.add_opt("path", 'o', "output file of local paths",
                       false, pathfile);
 
     vector<string> leftover_args;

@@ -464,10 +464,20 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   estimate_rates_and_branches(param_tol, J, D,
                               the_model.triplet_rates, th.branches,
                               updated_rates, updated_branches);
-
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
   th.branches = updated_branches;
+
+  // scale jump times
+  for (size_t b = 1; b < all_paths.size(); ++b) {
+    for (size_t i = 0; i < all_paths[b].size(); ++i) {
+      const double scale = th.branches[b] / all_paths[b][i].tot_time;
+      for (size_t j = 0; j < all_paths[b][i].jumps.size(); ++j) {
+        all_paths[b][i].jumps[j] *= scale;
+      }
+      all_paths[b][i].tot_time = th.branches[b];
+    }
+  }
 }
 
 

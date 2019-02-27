@@ -5,7 +5,7 @@ Building and Installing
 
 First, download `epievo` in recursive mode,
 ```
-git clone --recursive https://github.com/andrewdavidsmith/epievo.git
+git clone --recursive https://github.com/smithlabcode/epievo.git
 ```
 then install `epievo` by running
 ```
@@ -61,7 +61,7 @@ of model parameters (and branch lengths if specified),
 from provided local paths of complete evolution history.
 #### Example
 ```
-cd test
+[make sure you are in epievo/test directory]
 ../bin/epievo_est_complete -v -p tree.param -t tree.nwk -o tree.param.updated tree.local_paths
 ```
 The output file `tree.param.updated` contains estimated model parameters
@@ -92,6 +92,7 @@ through heuristics and site-independent-model-based methods.
 
 #### Example
 ```
+[make sure you are in epievo/test directory]
 ../bin/epievo_initialization -p tree.param.init -o tree.local_paths.init tree.nwk observed.states
 ../bin/epievo_est_params_histories -v -o tree.local_path.est -p tree.local_path.est \
   tree.param.init tree.nwk tree.local_paths.init
@@ -175,6 +176,14 @@ NODE:NODE3
 ...
 ```
 Again, the root node block has no mutation information.
+
+
+Roadmap
+========================
+
+- [ ] Allow `epievo_initialization` to accept non-leaf states as observed data.
+- [ ] Allow `epievo_est_params_histories` to fix part of the data or model parameters.
+- [ ] Add MCMC convergence diagnostics.
 
 
 Contacts
