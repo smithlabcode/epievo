@@ -103,7 +103,7 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
-      cerr << "[reading tree: " << treefile << "]" << endl;
+      cerr << "[READING TREE: " << treefile << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
     std::ifstream tree_in(treefile.c_str());
     if (!tree_in || !(tree_in >> the_tree))
@@ -112,7 +112,7 @@ int main(int argc, const char **argv) {
     const TreeHelper th(the_tree);
 
     if (VERBOSE)
-      cerr << "[reading paths: " << pathsfile << "]" << endl;
+      cerr << "[READING JUMPS: " << pathsfile << "]" << endl;
     StateSeq root;
     vector<string> node_names_from_pathsfile;
     vector<vector<GlobalJump> > the_paths; // along multiple branches
@@ -121,7 +121,7 @@ int main(int argc, const char **argv) {
     write_root_to_pathfile_local(outfile, th.node_names.front());
 
     if (VERBOSE)
-      cerr << "[reading states: " << statesfile << "]" << endl;
+      cerr << "[READING STATES FILE: " << statesfile << "]" << endl;
     vector<StateSeq> the_states;
     vector<string> node_names_from_statesfile;
     read_states_file(statesfile, node_names_from_statesfile, the_states);
@@ -131,6 +131,8 @@ int main(int argc, const char **argv) {
 
     const size_t n_sites = root.seq.size();
 
+    if (VERBOSE)
+      cerr << "[WRITING PATHS: " << outfile << "]" <<endl;
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
 
       const size_t parent_id = th.parent_ids[node_id];

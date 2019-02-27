@@ -69,7 +69,8 @@ int main(int argc, const char **argv) {
                       false, VERBOSE);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
-    opt_parse.add_opt("output", 'o', "output parameter file",
+    opt_parse.add_opt("output", 'o',
+                      "output parameter file (default: stdout)",
                       false, outfile);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);

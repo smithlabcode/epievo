@@ -54,7 +54,12 @@ using std::numeric_limits;
 
 static void
 write_root_to_pathfile_local(const string &outfile, const string &root_name) {
-  std::ofstream outpath(outfile.c_str());
+  std::ofstream of;
+  if (!outfile.empty()) of.open(outfile.c_str());
+  std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + outfile);
+  
   outpath << "NODE:" << root_name << endl;
 }
 
@@ -62,7 +67,12 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
 static void
 append_to_pathfile_local(const string &pathfile, const string &node_name,
                          const vector<Path> &path_by_site) {
-  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
+  std::ofstream of;
+  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
+  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + pathfile);
+  
   outpath << "NODE:" << node_name << endl;
   for (size_t i = 0; i < path_by_site.size(); ++i)
     outpath << i << '\t' << path_by_site[i] << '\n';
@@ -104,9 +114,11 @@ int main(int argc, const char **argv) {
                       "MCMC burn-in length (default: 10)",
                       false, burnin);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
-    opt_parse.add_opt("outfile", 'o', "output file of local paths",
+    opt_parse.add_opt("outfile", 'o',
+                      "output file of local paths (default: stdout)",
                       false, outfile);
-    opt_parse.add_opt("outparam", 'p', "output file of parameters",
+    opt_parse.add_opt("outparam", 'p',
+                      "output file of parameters (default: stdout)",
                       false, param_file_updated);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
@@ -259,10 +271,14 @@ int main(int argc, const char **argv) {
     }
 
     /* (6) OUTPUT */
+    if (VERBOSE)
+      cerr << "[WRITING PATHS]" << endl;
     write_root_to_pathfile_local(outfile, th.node_names.front());
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
       append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
     
+    if (VERBOSE)
+      cerr << "[WRITING PARAMETERS]" << endl;
     std::ofstream of_param;
     if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
     std::ostream out_param(param_file_updated.empty() ?

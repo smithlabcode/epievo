@@ -126,7 +126,9 @@ write_output(const bool only_leaf_nodes, const TreeHelper &th,
              const string &outfile, const vector<string> &node_names,
              const vector<StateSeq> &sequences) {
 
-  std::ofstream out(outfile.c_str());
+  std::ofstream of;
+  if (!outfile.empty()) of.open(outfile.c_str());
+  std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!out)
     throw std::runtime_error("bad output file: " + outfile);
 
@@ -367,8 +369,7 @@ int main(int argc, const char **argv) {
       cerr << "mutations per site (at root): " << total_rate << endl;
     }
 
-    if (!pathfile.empty())
-      write_root_to_pathfile_global(pathfile, th.node_names[0], s);
+    write_root_to_pathfile_global(pathfile, th.node_names[0], s);
 
     vector<StateSeq> sequences(n_nodes, s);
 
@@ -390,16 +391,16 @@ int main(int argc, const char **argv) {
       /* (5) EXTRACT THE SEQUENCE AT THE NODE */
       ts.get_sequence(sequences[node_id]);
 
-      if (!pathfile.empty())
-        append_to_pathfile_global(pathfile, th.node_names[node_id], the_path);
+      append_to_pathfile_global(pathfile, th.node_names[node_id], the_path);
 
       if (VERBOSE)
         cerr << "[SUMMARY:]" << endl
              << sequences[node_id].summary_string() << endl;
     }
 
-    if (!outfile.empty())
-      write_output(write_only_leaves, th, outfile, th.node_names, sequences);
+    if (VERBOSE)
+      cerr << "[WRITING EPIGENOMIC STATES]" << endl;
+    write_output(write_only_leaves, th, outfile, th.node_names, sequences);
 
   }
   catch (const std::exception &e) {

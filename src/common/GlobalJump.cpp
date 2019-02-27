@@ -73,7 +73,12 @@ operator<<(std::ostream &os, const GlobalJump &s) {
 void
 write_root_to_pathfile_global(const string &pathfile, const string &root_name,
                               const StateSeq &root) {
-  std::ofstream outpath(pathfile.c_str());
+  std::ofstream of;
+  if (!pathfile.empty()) of.open(pathfile.c_str());
+  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + pathfile);
+
   outpath << ROOT_TAG << ':' << root_name << '\n';
   copy(root.seq.begin(), root.seq.end(),
        std::ostream_iterator<bool>(outpath));
@@ -83,7 +88,12 @@ write_root_to_pathfile_global(const string &pathfile, const string &root_name,
 void
 append_to_pathfile_global(const string &pathfile, const string &node_name,
                           const vector<GlobalJump> &the_path) {
-  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
+  std::ofstream of;
+  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
+  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + pathfile);
+  
   outpath << NODE_TAG << ':' << node_name << '\n';
   for (size_t i = 0; i < the_path.size(); ++i)
     outpath << the_path[i] << '\n';

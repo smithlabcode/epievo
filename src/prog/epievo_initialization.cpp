@@ -218,7 +218,12 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
 
 static void
 write_root_to_pathfile_local(const string &outfile, const string &root_name) {
-  std::ofstream outpath(outfile.c_str());
+  std::ofstream of;
+  if (!outfile.empty()) of.open(outfile.c_str());
+  std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + outfile);
+  
   outpath << "NODE:" << root_name << endl;
 }
 
@@ -227,7 +232,12 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
 static void
 append_to_pathfile_local(const string &pathfile, const string &node_name,
                          const vector<Path> &path_by_site) {
-  std::ofstream outpath(pathfile.c_str(), std::ofstream::app);
+  std::ofstream of;
+  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
+  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + pathfile);
+  
   outpath << "NODE:" << node_name << endl;
   for (size_t i = 0; i < path_by_site.size(); ++i)
     outpath << i << '\t' << path_by_site[i] << '\n';
@@ -257,9 +267,10 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("iterations", 'i', "number of iterations",
                       false, iterations);
-    opt_parse.add_opt("param", 'p', "output file of parameters",
+    opt_parse.add_opt("param", 'p',
+                      "output file of parameters (default: stdout)",
                       false, paramfile);
-    opt_parse.add_opt("path", 'o', "output file of local paths",
+    opt_parse.add_opt("path", 'o', "output file of local paths (default: stdout)",
                       false, pathfile);
 
     vector<string> leftover_args;
@@ -345,14 +356,12 @@ int main(int argc, const char **argv) {
     
     /* write path file */
     if (VERBOSE)
-      cerr << "[WRITING PATHS FILE: " << pathfile << "]" << endl;
+      cerr << "[WRITING PATHS]" << endl;
 
-    if (!pathfile.empty()) {
-      write_root_to_pathfile_local(pathfile, th.node_names.front());
-      for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-        append_to_pathfile_local(pathfile, th.node_names[node_id],
-                                 sampled_paths[node_id]);
-    }
+    write_root_to_pathfile_local(pathfile, th.node_names.front());
+    for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+      append_to_pathfile_local(pathfile, th.node_names[node_id],
+                               sampled_paths[node_id]);
     
     /*******************************************************/
     /* Generate initial parameters of context-dependent model */
@@ -370,7 +379,7 @@ int main(int argc, const char **argv) {
 
     // write parameters
     if (VERBOSE)
-      cerr << "[WRITING PARAMETERS FILE: " << paramfile << "]" << endl;
+      cerr << "[WRITING PARAMETERS]" << endl;
 
     std::ofstream of_param;
     if (!paramfile.empty()) of_param.open(paramfile.c_str());
