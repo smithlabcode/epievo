@@ -22,13 +22,13 @@ tree topology, or the total time duration of a single branch.
 #### Example
 ```
 cd test
-../bin/epievo_sim -v -n 1000 -o tree.states -p tree.global_jumps -t tree.nwk tree.param
-../bin/global_jumps_to_paths tree.nwk tree.states tree.global_jumps tree.local_paths
+../bin/epievo_sim -v -n 1000 -o test.states -p test.global_jumps -t tree.nwk test.param
+../bin/global_jumps_to_paths tree.nwk test.states test.global_jumps test.local_paths
 ```
 Two output files will be generated from `epievo_sim`:
-`tree.global_jumps` contains mutation information ordered by position
-and time, and `tree.states` contains epigenomic states at each position and each node.
-The second command will convert `tree.global_jumps` to `tree.local_paths`,
+`test.global_jumps` contains mutation information ordered by position
+and time, and `test.states` contains epigenomic states at each position and each node.
+The second command will convert `test.global_jumps` to `test.local_paths`,
 which contains mutation information organized at each single site.
 Local paths are used for model inference.
 
@@ -46,7 +46,7 @@ Options:
   -t, -tree      Newick format tree file 
   -T, -evo-time  evolutionary time 
   -l, -leaf      write only leaf states (default: false) 
-  -S, -scale     scale the branch lengths (default: true 
+  -S, -scale     do not scale model parameters (default: true)
   -R, -rates     use triplet transition rates (default: false) 
   -v, -verbose   print more run info 
 
@@ -62,9 +62,9 @@ from provided local paths of complete evolution history.
 #### Example
 ```
 [make sure you are in epievo/test directory]
-../bin/epievo_est_complete -v -p tree.param -t tree.nwk -o tree.param.updated tree.local_paths
+../bin/epievo_est_complete -v -p test.param -t tree.nwk -o test.param.updated test.local_paths
 ```
-The output file `tree.param.updated` contains estimated model parameters
+The output file `test.param.updated` contains estimated model parameters
 (and branch lengths if specified).
 Below is the usage of `epievo_est_complete`:
 ```
@@ -93,9 +93,9 @@ through heuristics and site-independent-model-based methods.
 #### Example
 ```
 [make sure you are in epievo/test directory]
-../bin/epievo_initialization -p tree.param.init -o tree.local_paths.init tree.nwk observed.states
-../bin/epievo_est_params_histories -v -o tree.local_path.est -p tree.local_path.est \
-  tree.param.init tree.nwk tree.local_paths.init
+../bin/epievo_initialization -p test.param.init -o test.local_paths.init tree.nwk observed.states
+../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_path.est \
+  test.param.init tree.nwk test.local_paths.init
 ```
 
 Below is the usage of `epievo_est_params_histories`:
