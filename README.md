@@ -75,7 +75,7 @@ Options:
   -t, -tree     initial tree file in newick format 
   -v, -verbose  print more run info 
   -b, -branch   optimize branch lengths as well 
-  -o, -output   output parameter file 
+  -o, -output   output parameter file (default: stdout) 
 
 Help options:
   -?, -help     print this help message 
@@ -107,8 +107,8 @@ Options:
   -B, -batch      number of MCMC iteration (default: 10) 
   -L, -burnin     MCMC burn-in length (default: 10) 
   -s, -seed       rng seed 
-  -o, -outfile    output file of local paths 
-  -p, -outparam   output file of parameters 
+  -o, -outfile    output file of local paths (default: stdout)
+  -p, -outparam   output file of parameters (default: stdout) 
   -b, -branch     optimize branch lengths as well 
   -v, -verbose    print more run info 
 
