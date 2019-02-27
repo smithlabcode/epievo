@@ -23,7 +23,7 @@ tree topology, or the total time duration of a single branch.
 ```
 cd test
 ../bin/epievo_sim -v -n 1000 -o test.states -p test.global_jumps -t tree.nwk test.param
-../bin/global_jumps_to_paths tree.nwk test.states test.global_jumps test.local_paths
+../bin/global_jumps_to_paths -v tree.nwk test.states test.global_jumps test.local_paths
 ```
 Two output files will be generated from `epievo_sim`:
 `test.global_jumps` contains mutation information ordered by position
@@ -93,7 +93,7 @@ through heuristics and site-independent-model-based methods.
 #### Example
 ```
 [make sure you are in epievo/test directory]
-../bin/epievo_initialization -p test.param.init -o test.local_paths.init tree.nwk observed.states
+../bin/epievo_initialization -v -p test.param.init -o test.local_paths.init tree.nwk observed.states
 ../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_path.est \
   test.param.init tree.nwk test.local_paths.init
 ```
