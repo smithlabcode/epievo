@@ -392,7 +392,7 @@ void
 estimate_rates(const vector<vector<double> > &J,
                const vector<vector<double> > &D,
                vector<double> &rates, TreeHelper &th) {
-  
+
   vector<double> updated_rates;
   
   vector<double> J_sum(2, 0.0);
@@ -413,19 +413,59 @@ estimate_rates(const vector<vector<double> > &J,
 }
 
 
+double
+indep_rate_scaling_factor(const vector<double> &rates) {
+  
+  // stationary rates pi from T
+  vector<double> pi (2, 0.0);
+  pi[0] = rates[1] / (rates[0] + rates[1]);
+  pi[1] = rates[0] / (rates[0] + rates[1]);
+
+  return pi[0] * rates[0] + pi[1] * rates[1];
+}
+
+
+
 void
 estimate_rates_and_branches(const vector<vector<double> > &J,
                             const vector<vector<double> > &D,
-                            vector<double> &rates, TreeHelper &th) {
-  
-  estimate_rates(J, D, rates, th);
+                            vector<double> &rates, TreeHelper &th,
+                            vector<vector<Path> > &paths) {
 
-  // update branch lengths
+  vector<vector<double> > scaled_D(D);
+  // scaling
   for (size_t b = 1; b < th.n_nodes; ++b) {
-    th.branches[b] = (J[b][0] + J[b][1]) / (D[b][0]*rates[0] + D[b][1]*rates[1]);
+    scaled_D[b][0] /= th.branches[b];
+    scaled_D[b][1] /= th.branches[b];
   }
   
-  /* we don't do any scaling here */
+  // estimate rates
+  estimate_rates(J, scaled_D, rates, th);
+  
+  // update branch lengths
+  for (size_t b = 1; b < th.n_nodes; ++b)
+    th.branches[b] = (J[b][0] + J[b][1]) / (D[b][0]*rates[0] + D[b][1]*rates[1]);
+  
+  
+  // set one change per site per unit time
+  const double scale_factor = indep_rate_scaling_factor(rates);
+  transform(th.branches.begin(), th.branches.end(), th.branches.begin(),
+            std::bind(std::multiplies<double>(), std::placeholders::_1,
+                      scale_factor));
+  
+  transform(rates.begin(), rates.end(), rates.begin(),
+            std::bind(std::divides<double>(), std::placeholders::_1,
+                      scale_factor));
+  
+  // scale jump times
+  for (size_t b = 1; b < paths.size(); ++b) {
+    for (size_t i = 0; i < paths[b].size(); ++i) {
+      const double scale = th.branches[b] / paths[b][i].tot_time;
+      for (size_t j = 0; j < paths[b][i].jumps.size(); ++j)
+        paths[b][i].jumps[j] *= scale;
+      paths[b][i].tot_time = th.branches[b];
+    }
+  }
 }
 
 

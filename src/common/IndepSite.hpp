@@ -68,7 +68,8 @@ void
 estimate_rates_and_branches(const std::vector<std::vector<double> > &J,
                             const std::vector<std::vector<double> > &D,
                             std::vector<double> &rates,
-                            TreeHelper &th);
+                            TreeHelper &th,
+                            std::vector<std::vector<Path> > &paths);
 
 
 void
