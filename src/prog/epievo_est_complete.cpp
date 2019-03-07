@@ -51,20 +51,16 @@ int main(int argc, const char **argv) {
 
     static const double param_tol = 1e-10;
 
-    string outfile;
     bool VERBOSE = false;
     bool OPTBRANCH = false;
-    string param_file;
-    string tree_file;
+
+    string outfile;
+    string treefile_updated;
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "estimate parameters from"
                            " complete data (site-specific paths)",
-                           "<path-file>");
-    opt_parse.add_opt("param", 'p', "initial parameter file",
-                      true, param_file);
-    opt_parse.add_opt("tree", 't', "initial tree file in newick format",
-                      true, tree_file);
+                           "<param> <treefile> <path_file>");
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
@@ -72,6 +68,9 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("output", 'o',
                       "output parameter file (default: stdout)",
                       false, outfile);
+    opt_parse.add_opt("outtree", 't',
+                      "output file of tree (default: stdout)",
+                      false, treefile_updated);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -87,11 +86,13 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() != 1) {
+    if (leftover_args.size() < 3) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string path_file(leftover_args.front());
+    const string param_file(leftover_args[0]);
+    const string tree_file(leftover_args[1]);
+    const string path_file(leftover_args[2]);
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
@@ -131,9 +132,12 @@ int main(int argc, const char **argv) {
       compute_estimates_for_rates_only(VERBOSE, param_tol,
                                        all_paths, the_model);
     }
-    else
+    else {
       compute_estimates_rates_and_branches(VERBOSE, param_tol, all_paths,
                                            th, the_model);
+      the_tree.set_branch_lengths(th.branches);
+    }
+
 
     estimate_root_distribution(all_paths, the_model);
 
@@ -144,8 +148,16 @@ int main(int argc, const char **argv) {
       throw std::runtime_error("bad output file: " + outfile);
 
     out << the_model.format_for_param_file() << endl;
-    the_tree.set_branch_lengths(th.branches);
-    out << the_tree << endl;
+
+    if (OPTBRANCH) {
+      std::ofstream of_tree;
+      if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
+      std::ostream out_tree(treefile_updated.empty() ?
+                            std::cout.rdbuf() : of_tree.rdbuf());
+      if (!out_tree)
+        throw std::runtime_error("bad output param file: " + treefile_updated);
+      out_tree << the_tree << endl;
+    }
     
     if (VERBOSE)
       cerr << "[FINISHED.]" << endl;
