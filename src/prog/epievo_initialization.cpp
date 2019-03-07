@@ -188,7 +188,7 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
 }
 
 
-static double
+static void
 initialize_model_from_indep_rates(EpiEvoModel &the_model,
                                   const vector<double> rates) {
   const vector<vector<double> > zeros_two_by_two =
@@ -204,11 +204,7 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
   for (size_t i = 0; i < the_model.n_triplets; i++)
     triplet_rates[i] = rates[i / 2 % 2];
   
-  // rebuild from rates
-  const double mu = rate_scaling_factor(triplet_rates);
   the_model.rebuild_from_triplet_rates(triplet_rates);
-  
-  return mu;
 }
 
 
@@ -251,11 +247,14 @@ int main(int argc, const char **argv) {
     static const double param_tol = 1e-10;
     
     bool VERBOSE = false;
+    bool OPTBRANCH = false;
+
     size_t rng_seed = numeric_limits<size_t>::max();
     size_t iterations = 10;
 
     string paramfile;
     string pathfile;
+    string treefile_updated;
     
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
@@ -270,8 +269,13 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("param", 'p',
                       "output file of parameters (default: stdout)",
                       false, paramfile);
+    opt_parse.add_opt("outtree", 't',
+                      "output file of tree (default: stdout)",
+                      false, treefile_updated);
     opt_parse.add_opt("path", 'o', "output file of local paths (default: stdout)",
                       false, pathfile);
+    opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
+                      false, OPTBRANCH);
 
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -333,21 +337,28 @@ int main(int argc, const char **argv) {
     estimate_root_distribution(paths, init_pi);
  
     if (VERBOSE)
-      cerr << "ITR\tRATE0\tRATE1\t\tINIT0\t\tINIT1\n"
+      cerr << "ITR\tRATE0\tRATE1\t\tINIT0\t\tINIT1\tTREE\n"
       << "0" << "\t" << rates[0] << "\t" << rates[1] << "\t"
-      << init_pi[0] << "\t" << init_pi[1] << endl;
+      << init_pi[0] << "\t" << init_pi[1] << "\t" << the_tree << endl;
 
     
     for (size_t itr = 0; itr < iterations; itr++) {
-      estimate_rates(J, D, rates, th);
+      if (!OPTBRANCH)
+        estimate_rates(J, D, rates, th);
+      else {
+        estimate_rates_and_branches(J, D, rates, th, paths);
+        the_tree.set_branch_lengths(th.branches);
+      }
+
       expectation_sufficient_statistics(rates, init_pi, th, paths, J, D,
                                         init_pi_post);
+
       init_pi = init_pi_post;
       
       // Report
       if (VERBOSE)
         cerr << itr+1 << "\t" << rates[0] << "\t" << rates[1] << "\t"
-        << init_pi[0] << "\t" << init_pi[1] << endl;
+        << init_pi[0] << "\t" << init_pi[1] << "\t" << the_tree << endl;
     }
     
     /* Re-sample a better initial path */
@@ -367,6 +378,9 @@ int main(int argc, const char **argv) {
     /* Generate initial parameters of context-dependent model */
     /*******************************************************/
 
+    if (VERBOSE)
+      cerr << "[CONSTRUCTING EPIEVO MODEL]" << endl;
+
     // initialize a EpievoModel
     EpiEvoModel the_model;
     initialize_model_from_indep_rates(the_model, rates);
@@ -375,11 +389,17 @@ int main(int argc, const char **argv) {
     estimate_root_distribution(sampled_paths, the_model);
     
     // re-estimate triplet rates from paths
-    compute_estimates_for_rates_only(false, param_tol, sampled_paths, the_model);
+    if (!OPTBRANCH)
+      compute_estimates_for_rates_only(false, param_tol, sampled_paths,
+                                       the_model);
+    else
+      compute_estimates_rates_and_branches(false, param_tol, paths,
+                                           th, the_model);
+    the_tree.set_branch_lengths(th.branches);
 
     // write parameters
     if (VERBOSE)
-      cerr << "[WRITING PARAMETERS]" << endl;
+      cerr << "[WRITING PARAMETERS]\n" << the_model << "\n" << the_tree << endl;
 
     std::ofstream of_param;
     if (!paramfile.empty()) of_param.open(paramfile.c_str());
@@ -389,6 +409,16 @@ int main(int argc, const char **argv) {
       throw std::runtime_error("bad output param file: " + paramfile);
     
     out_param << the_model.format_for_param_file() << endl;
+    
+    if (OPTBRANCH) {
+      std::ofstream of_tree;
+      if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
+      std::ostream out_tree(treefile_updated.empty() ?
+                            std::cout.rdbuf() : of_tree.rdbuf());
+      if (!out_tree)
+        throw std::runtime_error("bad output param file: " + treefile_updated);
+      out_tree << the_tree << endl;
+    }
 
   }
   catch (const std::exception &e) {

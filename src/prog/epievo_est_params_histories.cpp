@@ -91,6 +91,7 @@ int main(int argc, const char **argv) {
 
     string outfile;
     string param_file_updated;
+    string treefile_updated;
 
     size_t iteration = 10;           // MCMC-EM iterations
     size_t batch = 10;              // MCMC iterations
@@ -120,6 +121,9 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("outparam", 'p',
                       "output file of parameters (default: stdout)",
                       false, param_file_updated);
+    opt_parse.add_opt("outtree", 't',
+                      "output file of tree (default: stdout)",
+                      false, treefile_updated);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
     opt_parse.add_opt("verbose", 'v', "print more run info",
@@ -286,6 +290,16 @@ int main(int argc, const char **argv) {
     if (!out_param)
       throw std::runtime_error("bad output param file: " + param_file_updated);
     out_param << the_model.format_for_param_file() << endl;
+    
+    if (OPTBRANCH) {
+      std::ofstream of_tree;
+      if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
+      std::ostream out_tree(treefile_updated.empty() ?
+                            std::cout.rdbuf() : of_tree.rdbuf());
+      if (!out_tree)
+        throw std::runtime_error("bad output param file: " + treefile_updated);
+      out_tree << the_tree << endl;
+    }
 
   }
   catch (const std::exception &e) {
