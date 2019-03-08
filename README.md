@@ -62,20 +62,19 @@ from provided local paths of complete evolution history.
 #### Example
 ```
 [make sure you are in epievo/test directory]
-../bin/epievo_est_complete -v -p test.param -t tree.nwk -o test.param.updated test.local_paths
+../bin/epievo_est_complete -v -o test.param.updated test.param tree.nwk test.local_paths
 ```
 The output file `test.param.updated` contains estimated model parameters
 (and branch lengths if specified).
 Below is the usage of `epievo_est_complete`:
 ```
-Usage: epievo_est_complete [OPTIONS] <path-file>
+Usage: epievo_est_complete [OPTIONS] <param> <treefile> <path_file>
 
 Options:
-  -p, -param    initial parameter file 
-  -t, -tree     initial tree file in newick format 
   -v, -verbose  print more run info 
   -b, -branch   optimize branch lengths as well 
   -o, -output   output parameter file (default: stdout) 
+  -t, -outtree  output file of tree (default: stdout) 
 
 Help options:
   -?, -help     print this help message 
@@ -108,7 +107,8 @@ Options:
   -L, -burnin     MCMC burn-in length (default: 10) 
   -s, -seed       rng seed 
   -o, -outfile    output file of local paths (default: stdout)
-  -p, -outparam   output file of parameters (default: stdout) 
+  -p, -outparam   output file of parameters (default: stdout)
+  -t, -outtree    output file of tree (default: stdout)
   -b, -branch     optimize branch lengths as well 
   -v, -verbose    print more run info 
 
