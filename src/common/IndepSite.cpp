@@ -432,20 +432,13 @@ estimate_rates_and_branches(const vector<vector<double> > &J,
                             vector<double> &rates, TreeHelper &th,
                             vector<vector<Path> > &paths) {
 
-  vector<vector<double> > scaled_D(D);
-  // scaling
-  for (size_t b = 1; b < th.n_nodes; ++b) {
-    scaled_D[b][0] /= th.branches[b];
-    scaled_D[b][1] /= th.branches[b];
-  }
-  
   // estimate rates
-  estimate_rates(J, scaled_D, rates, th);
+  estimate_rates(J, D, rates, th);
   
   // update branch lengths
   for (size_t b = 1; b < th.n_nodes; ++b)
-    th.branches[b] = (J[b][0] + J[b][1]) / (D[b][0]*rates[0] + D[b][1]*rates[1]);
-  
+    th.branches[b] *= (J[b][0] + J[b][1]) / (D[b][0]*rates[0] + D[b][1]*rates[1]);
+
   
   // set one change per site per unit time
   const double scale_factor = indep_rate_scaling_factor(rates);

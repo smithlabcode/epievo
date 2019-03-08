@@ -264,10 +264,10 @@ candidate_rates_and_branches(const double step_size,
                              const vector<double> &rates,
                              const vector<double> &branches,
                              vector<double> &updated_rates,
-                             vector<double> &updated_branches) {
+                             vector<double> &branch_scale) {
   // ADS: does it matter which of these updates happens first?
   candidate_rates(step_size, gradient, rates, updated_rates); 
-  candidate_branches(J, D, updated_rates, updated_branches);
+  candidate_branches(J, D, updated_rates, branch_scale);
 }
 
 
@@ -318,20 +318,20 @@ gradient_ascent(const double param_tol,
                 const vector<double> &branches,
                 double &updated_llk,
                 vector<double> &updated_rates,
-                vector<double> &updated_branches) {
+                vector<double> &branch_scale) {
 
-  assert(llk == log_likelihood(J, D, rates, branches));
+  assert(llk == log_likelihood(J, D, rates, branch_scale));
 
   /* compute llk and gradient */
   vector<double> gradient;
-  get_gradient(J, D, rates, branches, gradient);
+  get_gradient(J, D, rates, branch_scale, gradient);
 
   double step_size = get_starting_step_size(gradient);
   updated_llk = std::numeric_limits<double>::lowest();
   while (updated_llk < llk && step_size > param_tol) {
     candidate_rates_and_branches(step_size, J, D, gradient, rates, branches,
-                                 updated_rates, updated_branches);
-    updated_llk = log_likelihood(J, D, updated_rates, updated_branches);
+                                 updated_rates, branch_scale);
+    updated_llk = log_likelihood(J, D, updated_rates, branch_scale);
     step_size *= 0.5;
   }
   return (updated_llk > llk);
@@ -367,18 +367,22 @@ estimate_rates_and_branches(const double param_tol,
                             vector<double> &rates,
                             vector<double> &branches) {
 
-  double llk = log_likelihood(J, D, input_rates, input_branches);
+  vector<double> tmp_rates(rates);
+  vector<double> tmp_branch_scale(branches.size(), 1.0);
+  
+  double llk = log_likelihood(J, D, input_rates, tmp_branch_scale);
   rates = input_rates;
   branches = input_branches;
 
-  vector<double> tmp_rates(rates);
-  vector<double> tmp_branches(branches);
+  //vector<double> tmp_branches(branches);
   double tmp_llk = llk;
   while (gradient_ascent(param_tol, J, D, llk, rates, branches, tmp_llk,
-                         tmp_rates, tmp_branches)) {
+                         tmp_rates, tmp_branch_scale)) {
     llk = tmp_llk;
     rates.swap(tmp_rates);
-    branches.swap(tmp_branches);
+    std::transform(branches.begin(), branches.end(),
+                   tmp_branch_scale.begin(), branches.begin(),
+                   std::multiplies<int>() );
   }
   return llk;
 }
@@ -443,11 +447,13 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
                                      vector<vector<Path> > &all_paths,
                                      TreeHelper &th,
                                      EpiEvoModel &the_model) {
+  /*
   if (VERBOSE)
     cerr << "[NORMALIZING ALL PATH LENGTHS]" << endl;
   for (size_t b = 1; b < all_paths.size(); ++b)
     for (size_t i = 0; i < all_paths[b].size(); ++i)
       all_paths[b][i].scale_to_unit_length();
+  */
 
   // get initial values of sufficient statistics
   if (VERBOSE)
