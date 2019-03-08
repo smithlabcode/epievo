@@ -138,9 +138,10 @@ int main(int argc, const char **argv) {
       the_tree.set_branch_lengths(th.branches);
     }
 
-
     estimate_root_distribution(all_paths, the_model);
 
+    if (VERBOSE)
+      cerr << "[WRITING PARAMETERS]\n" <<  the_model << endl;
     std::ofstream of;
     if (!outfile.empty()) of.open(outfile.c_str());
     std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());

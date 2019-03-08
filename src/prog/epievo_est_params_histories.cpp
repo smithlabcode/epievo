@@ -282,7 +282,7 @@ int main(int argc, const char **argv) {
       append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
     
     if (VERBOSE)
-      cerr << "[WRITING PARAMETERS]" << endl;
+      cerr << "[WRITING PARAMETERS]\n" <<  the_model << endl;
     std::ofstream of_param;
     if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
     std::ostream out_param(param_file_updated.empty() ?
