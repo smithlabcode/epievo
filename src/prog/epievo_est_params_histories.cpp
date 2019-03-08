@@ -277,15 +277,6 @@ int main(int argc, const char **argv) {
     /* (6) OUTPUT */
     if (VERBOSE)
       cerr << "[WRITING PATHS]" << endl;
-    // scale jumps
-    for (size_t b = 1; b < paths.size(); ++b) {
-      for (size_t i = 0; i < paths[b].size(); ++i) {
-        const double scale = th.branches[b] / paths[b][i].tot_time;
-        for (size_t j = 0; j < paths[b][i].jumps.size(); ++j)
-          paths[b][i].jumps[j] *= scale;
-        paths[b][i].tot_time = th.branches[b];
-      }
-
     write_root_to_pathfile_local(outfile, th.node_names.front());
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
       append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);

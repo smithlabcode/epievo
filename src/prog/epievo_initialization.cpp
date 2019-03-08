@@ -365,15 +365,6 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > sampled_paths(paths);
     sample_paths(rates, init_pi, th, paths, gen, sampled_paths);
     
-    /* write path file */
-    if (VERBOSE)
-      cerr << "[WRITING PATHS]" << endl;
-
-    write_root_to_pathfile_local(pathfile, th.node_names.front());
-    for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-      append_to_pathfile_local(pathfile, th.node_names[node_id],
-                               sampled_paths[node_id]);
-    
     /*******************************************************/
     /* Generate initial parameters of context-dependent model */
     /*******************************************************/
@@ -392,11 +383,21 @@ int main(int argc, const char **argv) {
     if (!OPTBRANCH)
       compute_estimates_for_rates_only(false, param_tol, sampled_paths,
                                        the_model);
-    else
-      compute_estimates_rates_and_branches(false, param_tol, paths,
+    else {
+      compute_estimates_rates_and_branches(false, param_tol, sampled_paths,
                                            th, the_model);
-    the_tree.set_branch_lengths(th.branches);
+      the_tree.set_branch_lengths(th.branches);
+    }
 
+    // write path file
+    if (VERBOSE)
+      cerr << "[WRITING PATHS]" << endl;
+
+    write_root_to_pathfile_local(pathfile, th.node_names.front());
+    for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+      append_to_pathfile_local(pathfile, th.node_names[node_id],
+                               sampled_paths[node_id]);
+    
     // write parameters
     if (VERBOSE)
       cerr << "[WRITING PARAMETERS]\n" << the_model << "\n" << the_tree << endl;
