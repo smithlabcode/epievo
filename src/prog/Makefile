@@ -20,7 +20,7 @@
 
 PROGS = epievo_sim global_jumps_to_paths \
 	extract_state_sequences epievo_est_complete \
-	epievo_est_params_histories epievo_initialization
+	epievo_est_params_histories epievo_initialization scale_tree \
 
 CXX = g++
 CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
@@ -51,6 +51,8 @@ all: $(PROGS)
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab_os.o) \
 	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TreeHelper.o Path.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
+
+scale_tree: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o)
 
 epievo_est_complete epievo_sim: \
 	$(addprefix $(COMMON_DIR)/, \
