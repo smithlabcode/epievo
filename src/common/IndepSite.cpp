@@ -70,6 +70,7 @@ expectation_J(const vector<double> rates, const double T,
   J1[0][1] = C2 - C4;
   J0[1][0] = J1[0][1];
   J1[1][0] = J0[0][1];
+
 }
 
 
@@ -87,18 +88,22 @@ expectation_D(const vector<double> rates, const double T,
   const double C1 = 2 * p * (1 - e) / s;
   const double C2 = p * T * (1 + e);
   D0[0][0] = ((r11 + r00 * e) * T + C1) / (s * (r1 + r0 * e));
-  D1[0][0] = (C2 * T - C1) / (s * (r1 + r0 * e));
+  D1[0][0] = T - D0[0][0];
+  // D1[0][0] = (C2 * T - C1) / (s * (r1 + r0 * e));
   
-  D0[1][1] = (C2 * T - C1) / (s * (r0 + r1 * e));
+  //D0[1][1] = (C2 * T - C1) / (s * (r0 + r1 * e));
   D1[1][1] = ((r00 + r11 * e) * T + C1) / (s * (r0 + r1 * e));
-  
+  D0[1][1] = T - D1[1][1];
+
   const double C3 = (p - r00) * (1 - e) / s;
-  D0[0][1] = ((p - r00 * e) * T - C3) / (s * (r0 - r0 * e));
+  //D0[0][1] = ((p - r00 * e) * T - C3) / (s * (r0 - r0 * e));
   D1[0][1] = ((r00 - p * e) * T + C3) / (s * (r0 - r0 * e));
-  
+  D0[0][1] = T - D1[0][1];
+
   const double C4 = (p - r11) * (1 - e) / s;
-  D0[0][1] = ((r11 - p * e) * T + C4) / (s * (r1 - r1 * e));
-  D1[0][1] = ((p - r11 * e) * T - C4) / (s * (r1 - r1 * e));
+  D0[1][0] = ((r11 - p * e) * T + C4) / (s * (r1 - r1 * e));
+  //D1[1][0] = ((p - r11 * e) * T - C4) / (s * (r1 - r1 * e));
+  D1[1][0] = T - D0[1][0];
 }
 
 
@@ -135,7 +140,7 @@ pruning_upward(const TreeHelper &th, const size_t site_id,
       }
     }
     fh[node_id].q.swap(q); // assign computed q to the fh
-    
+
     /* now calculate p if we are not at root */
     if (!th.is_root(node_id)) {
       vector<vector<double> > P;
@@ -166,7 +171,7 @@ static void
 joint_post(const double p0_u, const FelsHelper &fh,
            const vector<vector<double> > &PT,
            vector<vector<double> > &p_joint) {
-  
+
   p_joint[0][0] = PT[0][0] * fh.q[0] * p0_u / fh.p[0];
   p_joint[0][1] = PT[0][1] * fh.q[1] * p0_u / fh.p[0];
   p_joint[1][0] = PT[1][0] * fh.q[0] * (1 - p0_u) / fh.p[1];
@@ -202,13 +207,14 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
   vector<vector<double> > D1(2, vector<double> (2, 0.0));
   expectation_J(rates, T, J0, J1);
   expectation_D(rates, T, D0, D1);
-  
-  for (size_t u = 0; u < 2; u++)
+ 
+  for (size_t u = 0; u < 2; u++) {
     for (size_t v = 0; v < 2; v++) {
       J[0] += p_joint[u][v]*J0[u][v];
       J[1] += p_joint[u][v]*J1[u][v];
       D[0] += p_joint[u][v]*D0[u][v];
       D[1] += p_joint[u][v]*D1[u][v];
+    }
   }
 }
 
@@ -297,12 +303,8 @@ expectation_sufficient_statistics(const vector<double> rates,
   init_pi_post = {0, 0};
   
   /* sufficient statistics: J - jump counts, D - spent time */
-  J.resize(th.n_nodes);
-  D.resize(th.n_nodes);
-  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    J[node_id].resize(2);
-    J[node_id].resize(2);
-  }
+  J = vector<vector<double> > (th.n_nodes, vector<double> (2, 0.0));
+  D = vector<vector<double> > (th.n_nodes, vector<double> (2, 0.0));
   
   for (size_t site_id = 0; site_id < paths[1].size(); site_id++) {
     vector<FelsHelper> fh(th.n_nodes);
@@ -371,12 +373,10 @@ compute_sufficient_statistics(const vector<vector<Path> > &paths,
       for (size_t j = 0; j < paths[b][site_id].jumps.size(); j++) {
         J_branch[prev_state] += 1;
         D_branch[prev_state] += ( paths[b][site_id].jumps[j] - time );
-        
         prev_state = 1 - prev_state;
         time = paths[b][site_id].jumps[j];
       }
-      
-      D_branch[prev_state] += paths[b][site_id].tot_time - time;
+      D_branch[prev_state] += (paths[b][site_id].tot_time - time);
     }
     
     // get averages
@@ -392,8 +392,6 @@ void
 estimate_rates(const vector<vector<double> > &J,
                const vector<vector<double> > &D,
                vector<double> &rates, TreeHelper &th) {
-
-  vector<double> updated_rates;
   
   vector<double> J_sum(2, 0.0);
   vector<double> D_sum(2, 0.0);
@@ -407,9 +405,10 @@ estimate_rates(const vector<vector<double> > &J,
   }
   
   // update rates
-  assert(D_sum[0] > 0 && D_sum[1] > 0);
-  rates[0] = J_sum[0] / D_sum[0];
-  rates[1] = J_sum[1] / D_sum[1];
+  if (D_sum[0] > 0)
+    rates[0] = J_sum[0] / D_sum[0];
+  if (D_sum[1] > 0)
+    rates[1] = J_sum[1] / D_sum[1];
 }
 
 
