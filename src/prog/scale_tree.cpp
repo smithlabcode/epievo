@@ -1,7 +1,7 @@
 /* Copyright (C) 2019 University of Southern California
- *                    Jianghan Qu and Andrew D Smith
+ *                    Jianghan Qu, Andrew D Smith and Xiaojing Ji
  *
- * Author: Andrew D. Smith and Jianghan Qu
+ * Author: Andrew D. Smith, Jianghan Qu and Xiaojing Ji
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -23,31 +23,43 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <exception>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "PhyloTreePreorder.hpp"
+#include "TreeHelper.hpp"
+#include "EpiEvoModel.hpp"
 
 using std::vector;
 using std::endl;
 using std::cerr;
 using std::cout;
 using std::string;
+using std::runtime_error;
+
 
 int main(int argc, const char **argv) {
 
   try {
 
+    bool VERBOSE = false;
+
     string outfile;
-    double scale_factor = 0.0;
+    string param_file;
+    double scale_factor = 1.0;
 
     OptionParser opt_parse(strip_path(argv[0]), "scale phylogenetic tree",
                            "<newick-format>");
-    opt_parse.add_opt("factor", 'f', "factor to scale by (default: unit branch sum)",
+    opt_parse.add_opt("factor", 'f', "factor to scale by (default: 1.0)",
                       false, scale_factor);
+    opt_parse.add_opt("param", 'p', "input file of epievo model parameters",
+                      false, param_file);
     opt_parse.add_opt("output", 'o', "output file (default: stdout)",
                       false, outfile);
+    opt_parse.add_opt("verbose", 'v', "print more run info",
+                      false, VERBOSE);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -70,27 +82,46 @@ int main(int argc, const char **argv) {
     const string tree_file(leftover_args.front());
     ////////////////////////////////////////////////////////////////////////
 
-    PhyloTreePreorder t;
+    if (VERBOSE)
+      cerr << "[READING TREE: " << tree_file << "]" << endl;
+    PhyloTreePreorder the_tree; // tree topology and branch lengths
+    std::ifstream tree_in(tree_file.c_str());
+    if (!tree_in || !(tree_in >> the_tree))
+      throw runtime_error("cannot read tree file: " + tree_file);
+    TreeHelper th(the_tree);
 
-    std::ifstream in(tree_file.c_str());
-    if (!in || !(in >> t))
-      throw std::runtime_error("bad tree file: " + tree_file);
+    if (!param_file.empty()) {
+      if (VERBOSE)
+        cerr << "[READING PARAMETER FILE: " << param_file << endl;
+      EpiEvoModel the_model;
+      read_model(param_file, the_model);
+      if (VERBOSE)
+        cerr << the_model << endl;
+      
+      const double rates_scale_factor =
+        rate_scaling_factor(the_model.triplet_rates);
+      // scale rates
+      transform(the_model.triplet_rates.begin(), the_model.triplet_rates.end(),
+                the_model.triplet_rates.begin(),
+                std::bind(std::divides<double>(), std::placeholders::_1,
+                          rates_scale_factor));
+      // scale tree
+      transform(th.branches.begin(), th.branches.end(), th.branches.begin(),
+                std::bind(std::multiplies<double>(), std::placeholders::_1,
+                          rates_scale_factor));
+    }
 
-    vector<double> branches;
-    t.get_branch_lengths(branches);
-
-    const double total = (scale_factor > 0.0) ? scale_factor :
-      std::accumulate(branches.begin(), branches.end(), 0.0);
-    std::transform(branches.begin(), branches.end(), branches.begin(),
-                   std::bind2nd(std::divides<double>(), total));
-
-    t.set_branch_lengths(branches);
+    transform(th.branches.begin(), th.branches.end(), th.branches.begin(),
+              std::bind(std::multiplies<double>(), std::placeholders::_1,
+                        scale_factor));
+    
+    the_tree.set_branch_lengths(th.branches);
 
     std::ofstream of;
     if (!outfile.empty()) of.open(outfile.c_str());
     std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
 
-    out << t << endl;
+    out << the_tree << endl;
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
