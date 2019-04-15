@@ -48,6 +48,8 @@ using std::placeholders::_1;
 using std::multiplies;
 using std::runtime_error;
 
+static const double param_tol = 1e-10;
+
 /* collect rates and interval lengths */
 static void
 collect_segment_info(const vector<double> &triplet_rates,
@@ -300,7 +302,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
                                  start_time, end_time,
                                  start_jump, end_jump);
     log_prob += interval_prob;
-    assert(std::isfinite(log_prob));
+    // assert(std::isfinite(log_prob));
 
     vector<vector<double> > P;
     ctmm.get_trans_prob_mat(seg_info[i].len, P);
@@ -311,7 +313,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
                                               fh.q[0] : fh.p[i+1][0]);
 
     log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
-    assert(std::isfinite(log_prob));
+    // assert(std::isfinite(log_prob));
 
     // prepare for next interval
     start_jump = end_jump;
