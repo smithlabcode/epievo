@@ -123,6 +123,19 @@ log_likelihood(const vector<double> &J, const vector<double> &D,
 static double
 log_likelihood(const vector<vector<double> > &J,
                const vector<vector<double> > &D,
+               const vector<double> &rates) {
+
+  double ll = 0;
+  for (size_t b = 1; b < J.size(); ++b) {
+    ll += log_likelihood(J[b], D[b], rates);
+  }
+  return ll;
+}
+
+
+static double
+log_likelihood(const vector<vector<double> > &J,
+               const vector<vector<double> > &D,
                const vector<double> &rates,
                const vector<double> &branches) {
 
@@ -447,6 +460,10 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
       all_paths[b][i].tot_time = th.branches[b];
     }
   }
+  
+  get_sufficient_statistics(all_paths, J, D);
+  const double llh = log_likelihood(J, D, updated_rates);
+  std::cout << llh << std::endl;
 }
 
 
