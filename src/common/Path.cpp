@@ -178,12 +178,12 @@ void get_seq_init(const vector<Path> &paths, vector<bool> &seq) {
 ////////////////////////////////////////////////////////////////////////////////
 
 Environment::Environment(const Path &pa, const Path &pb) {
-  if (pa.tot_time != pb.tot_time)
-    throw runtime_error("inconsistent times: " +
-                        to_string(pa.tot_time) + ", " +
-                        to_string(pb.tot_time));
+  //if (pa.tot_time != pb.tot_time)
+  //  throw runtime_error("inconsistent times: " +
+  //                      to_string(pa.tot_time) + ", " +
+  //                      to_string(pb.tot_time));
 
-  assert(pa.tot_time == pb.tot_time);
+  //assert(pa.tot_time == pb.tot_time);
   bool sa = pa.init_state;
   bool sb = pb.init_state;
   size_t i = 0;
