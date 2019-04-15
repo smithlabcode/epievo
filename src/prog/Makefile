@@ -23,8 +23,8 @@ PROGS = epievo_sim global_jumps_to_paths \
 	epievo_est_params_histories epievo_initialization scale_tree \
 
 CXX = g++
-CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
-OPTFLAGS = -O2
+CXXFLAGS = -Wall -std=c++11
+OPTFLAGS = -O3
 DEBUGFLAGS = -g
 LIBS = -lgsl -lgslcblas
 
