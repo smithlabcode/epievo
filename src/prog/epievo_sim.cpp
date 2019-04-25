@@ -243,10 +243,10 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
                       evolutionary_time);
-    opt_parse.add_opt("leaf", 'l', "write only leaf states (default: false)",
+    opt_parse.add_opt("leaf", 'l', "write only leaf states (default: all nodes)",
                       false, write_only_leaves);
-    opt_parse.add_opt("scale", 'S',
-                      "do not scale model parameters (default: true)",
+    opt_parse.add_opt("notscaled", 'S',
+                      "do not scale model parameters (default: scaled)",
                       false, SCALE);
     opt_parse.add_opt("rates", 'R', "use triplet transition rates "
                       "(default: false)", false, TRPARAM);
