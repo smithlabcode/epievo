@@ -1,4 +1,8 @@
-Epievo includes tools for simulation and inference of epigenome evolution. 
+Epievo includes tools for simulation and inference of epigenome evolution.
+The epigenome evolution is modeled by a context-dependent continuous-time
+Markov process, and estimated based
+on a Monte Carlo Expectation-Maximization algorithm.
+
 
 Building and Installing 
 =======================
@@ -17,43 +21,25 @@ make install
 Usage
 ========================
 ### Simulating epigenome evolution
-`epievo_sim` can be used to simulate epigenome evolution from given evolution parameters,
-tree topology, or the total time duration of a single branch. 
-#### Example
-```
-cd test
-../bin/epievo_sim -v -n 1000 -o test.states -p test.global_jumps -t tree.nwk test.param
-../bin/global_jumps_to_paths -v tree.nwk test.states test.global_jumps test.local_paths
-```
-Two output files will be generated from `epievo_sim`:
-`test.global_jumps` contains mutation information ordered by position
-and time, and `test.states` contains epigenomic states at each position and each node.
-The second command will convert `test.global_jumps` to `test.local_paths`,
-which contains mutation information organized at each single site.
-Local paths are used for model inference.
+`epievo_sim` takes [model parameters](###model-parameters) to
+simulate epigenomic states of each sepecies
+and internal jumps, based on a context-dependent continuous-time
+Markov model. It will create two outputs:
+[epigenomic states](###epigenomic-states) at each genomic position and each
+node (file name could be provided after argument `-o`),
+and [mutation events](###global-jumps) ordered by node label, genomic
+position and evolutionary time (file name could be provided after argument `-p`).
 
-Below is the usage of `epievo_sim`:
 ```
-Usage: epievo_sim [OPTIONS] <params-file>
-
-Options:
-  -o, -output    name of output file for epigenomic states(default: stdout) 
-  -n, -n-sites   length of sequence to simulate (default: 100) 
-  -p, -paths     name of output file for evolution paths as sorted jump times 
-                 (default: stdout) 
-  -s, -seed      rng seed 
-  -r, -root      root states file 
-  -t, -tree      Newick format tree file 
-  -T, -evo-time  evolutionary time 
-  -l, -leaf      write only leaf states (default: false) 
-  -S, -scale     do not scale model parameters (default: true)
-  -R, -rates     use triplet transition rates (default: false) 
-  -v, -verbose   print more run info 
-
-Help options:
-  -?, -help      print this help message 
-      -about     print about message 
+epievo_sim [options] <parameter file>
 ```
+Users can use `epievo_sim` to simulate multiple species (using argument `-t` to
+provide a [phylogenetic tree](###tree-format)), or one single branch by using
+argument `-T` to set total evolution time.
+Epigenomic states of root species can be fixed by providing a states file
+after `-r`. By default, `epievo_sim` will normalize input parameters following
+"one-mutation-per-unit-time-per-site" rule. To use un-normalized
+parameters, users can use flat `-S`.
 
 ### Estimating model parameters from complete history
 `bin/epievo_est_complete` is used to obtain maximum-likelihood estimates
@@ -116,6 +102,27 @@ Help options:
   -?, -help       print this help message 
       -about      print about message 
 ```
+
+#### Running the tests
+
+The command below will generate the complete evolution information from
+a phylogenetic tree in `tree.nwk`, and model parameters in `test.param`.
+```
+cd test
+../bin/epievo_sim -v -n 1000 -o test.states -p test.global_jumps -t tree.nwk test.param
+```
+Two output files will be generated from `epievo_sim`.
+`test.global_jumps` contains mutation information ordered by position
+and time, and `test.states` contains epigenomic states at each position and each node.
+
+To run inference programs, the global jumps should be converted to
+local paths first, by running:
+```
+../bin/global_jumps_to_paths -v tree.nwk test.states test.global_jumps test.local_paths
+```
+
+
+
 
 File formats
 ========================
