@@ -21,86 +21,60 @@ make install
 Usage
 ========================
 ### Simulating epigenome evolution
-`epievo_sim` takes [model parameters](###model-parameters) to
+`epievo_sim` takes [model parameters](#model-parameters) to
 simulate epigenomic states of each sepecies
 and internal jumps, based on a context-dependent continuous-time
 Markov model. It will create two outputs:
-[epigenomic states](###epigenomic-states) at each genomic position and each
+[epigenomic states](#epigenomic-states) at each genomic position and each
 node (file name could be provided after argument `-o`),
-and [mutation events](###global-jumps) ordered by node label, genomic
+and [mutation events](#global-jumps) ordered by node label, genomic
 position and evolutionary time (file name could be provided after argument `-p`).
 
 ```
 epievo_sim [options] <parameter file>
 ```
 Users can use `epievo_sim` to simulate multiple species (using argument `-t` to
-provide a [phylogenetic tree](###tree-format)), or one single branch by using
+provide a [phylogenetic tree](#tree-format)), or one single branch by using
 argument `-T` to set total evolution time.
 Epigenomic states of root species can be fixed by providing a states file
 after `-r`. By default, `epievo_sim` will normalize input parameters following
 "one-mutation-per-unit-time-per-site" rule. To use un-normalized
 parameters, users can use flat `-S`.
 
+
 ### Estimating model parameters from complete history
-`bin/epievo_est_complete` is used to obtain maximum-likelihood estimates
-of model parameters (and branch lengths if specified),
-from provided local paths of complete evolution history.
-#### Example
+`epievo_est_complete` is used to estimate [model parameters](#model-parameters)
+when the complete information of evolution process is given
+([evolution paths](#local-paths) and [tree](tree-format)) are known.
+The maximum-likelihood estimates are obtained based on gradient-ascent approach.
+Initial values of model parameters are required.
+By default, `epievo_est_complete` will not update tree branches. To
+learn model parameters and branches together, flag `-b` needs to be specified.
 ```
-[make sure you are in epievo/test directory]
-../bin/epievo_est_complete -v -o test.param.updated test.param tree.nwk test.local_paths
+epievo_est_complete [options] <parameter file> <tree file> <local paths>
 ```
-The output file `test.param.updated` contains estimated model parameters
-(and branch lengths if specified).
-Below is the usage of `epievo_est_complete`:
-```
-Usage: epievo_est_complete [OPTIONS] <param> <treefile> <path_file>
-
-Options:
-  -v, -verbose  print more run info 
-  -b, -branch   optimize branch lengths as well 
-  -o, -output   output parameter file (default: stdout) 
-  -t, -outtree  output file of tree (default: stdout) 
-
-Help options:
-  -?, -help     print this help message 
-      -about    print about message 
-  ```
 
 ### Estimating model parameters and histories from leaf data
-Program `epievo_est_params_histories` runs a MCMC-EM algorithm to estimate model
-parameters and sample evolution histories simultaneously, which requires
-initial parameters, local paths to be provided.
-If you only have observed data (epigenomic states at leaf species), you can
-use `epievo_initialization` to generate starting parameters and paths
-through heuristics and site-independent-model-based methods.
+In practice, epigenomic states are only observed in leaf species.
+Programs `epievo_initialization` and `epievo_est_params_histories` allow
+users to estimate [evolution paths](#local-paths) and
+[model parameters](#model-parameters) simultaneously, given
+the leaf data and a starting tree (e.g. setting all branches to ones). 
 
-#### Example
+`epievo_initialization` is used to generate initial evolution histories
+and model parameters through heuristics and site-independent-model-based
+methods.
 ```
-[make sure you are in epievo/test directory]
-../bin/epievo_initialization -v -p test.param.init -o test.local_paths.init tree.nwk observed.states
-../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_path.est \
-  test.param.init tree.nwk test.local_paths.init
+epievo_initialization [options] <tree file> <states file>
+
 ```
 
-Below is the usage of `epievo_est_params_histories`:
+Program `epievo_est_params_histories` runs a MCEM algorithm to estimate model
+parameters and sample evolution histories iteratively, which requires
+initial parameters, [evolution paths](#local-paths) to be provided.
+Users need to pass `-b` flag to estimate branch lengths as well.
 ```
-Usage: epievo_est_params_histories [OPTIONS] <param> <treefile> <path_file>
-
-Options:
-  -i, -iteration  number of MCMC-EM iteration (default: 10) 
-  -B, -batch      number of MCMC iteration (default: 10) 
-  -L, -burnin     MCMC burn-in length (default: 10) 
-  -s, -seed       rng seed 
-  -o, -outfile    output file of local paths (default: stdout)
-  -p, -outparam   output file of parameters (default: stdout)
-  -t, -outtree    output file of tree (default: stdout)
-  -b, -branch     optimize branch lengths as well 
-  -v, -verbose    print more run info 
-
-Help options:
-  -?, -help       print this help message 
-      -about      print about message 
+epievo_est_params_histories [options] <parameter file> <tree file> <local paths>
 ```
 
 #### Running the tests
@@ -121,7 +95,26 @@ local paths first, by running:
 ../bin/global_jumps_to_paths -v tree.nwk test.states test.global_jumps test.local_paths
 ```
 
+The command below will estimate model parameters (saved in `test.param.updated`) from
+tree file `tree.nwk`, local paths `test.local_paths`, given starting parameters
+`test.param`.
+```
+../bin/epievo_est_complete -v -o test.param.updated test.param tree.nwk test.local_paths
+```
 
+Now, we can try to initialize the inference procedure from a tree `tree.nwk` and
+leaf data `observed.states`. Initial estimates of parameters and evolution histories
+will be saved in `test.param.init` and `test.local_paths.init` respectively.
+```
+../bin/epievo_initialization -v -p test.param.init -o test.local_paths.init tree.nwk observed.states
+```
+Then, the command below will run a MCEM procedure to estimate model parameters and
+evolution histories, which will be printed in `test.local_path.est`
+and `test.local_path.est` respectively.
+```
+../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_path.est \
+  test.param.init tree.nwk test.local_paths.init
+```
 
 
 File formats
@@ -169,7 +162,7 @@ NODE:NODE3
 The block of root node will only include a sequence of binary states.
 Then, each node block contains a list of time and position of mutation events.
 
-### Local path
+### Local paths
 Local path is another way to organize mutation events.
 Different from global jumps, the local path is a list of mutation times at each position.
 The format is below:
