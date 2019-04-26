@@ -24,6 +24,7 @@
 #include <iostream>
 #include <fstream>
 #include <exception>
+#include <functional>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"

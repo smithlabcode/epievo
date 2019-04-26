@@ -123,19 +123,6 @@ log_likelihood(const vector<double> &J, const vector<double> &D,
 static double
 log_likelihood(const vector<vector<double> > &J,
                const vector<vector<double> > &D,
-               const vector<double> &rates) {
-
-  double ll = 0;
-  for (size_t b = 1; b < J.size(); ++b) {
-    ll += log_likelihood(J[b], D[b], rates);
-  }
-  return ll;
-}
-
-
-static double
-log_likelihood(const vector<vector<double> > &J,
-               const vector<vector<double> > &D,
                const vector<double> &rates,
                const vector<double> &branches) {
 
@@ -261,7 +248,6 @@ candidate_branches(const vector<vector<double> > &J,
     const double num = accumulate(J[b].begin(), J[b].end(), 0.0);
     const double denom = inner_product(D[b].begin(), D[b].end(),
                                        rates.begin(), 0.0);
-    // cerr << "num: " << num << ", denom: " << denom << endl;
     updated_branches[b] = num/denom;
   }
 }
@@ -321,6 +307,36 @@ gradient_ascent(const double param_tol,
 }
 
 
+/* makes a single step of gradient ascent; identifies a new set of
+   rates and branch scalers using the summary statistics in J and D */
+static bool
+gradient_ascent(const double param_tol,
+                const vector<vector<double> > &J,
+                const vector<vector<double> > &D,
+                const double llk,
+                const vector<double> &rates,
+                const vector<double> &branches,
+                double &updated_llk,
+                vector<double> &updated_rates,
+                vector<double> &branch_scale) {
+
+  assert(llk == log_likelihood(J, D, rates, branch_scale));
+
+  /* compute llk and gradient */
+  vector<double> gradient;
+  get_gradient(J, D, rates, branch_scale, gradient);
+
+  double step_size = get_starting_step_size(gradient);
+  updated_llk = std::numeric_limits<double>::lowest();
+  while (updated_llk < llk && step_size > param_tol) {
+    candidate_rates_and_branches(step_size, J, D, gradient, rates, branches,
+                                 updated_rates, branch_scale);
+    updated_llk = log_likelihood(J, D, updated_rates, branch_scale);
+    step_size *= 0.5;
+  }
+  return (updated_llk > llk);
+}
+
 
 static double
 estimate_rates(const double param_tol,
@@ -340,28 +356,37 @@ estimate_rates(const double param_tol,
   return llk;
 }
 
-
+/* Estimate rates and branches
+ */
 static double
-estimate_rates(const double param_tol,
-               const vector<vector<double> > &J,
-               const vector<vector<double> > &D,
-               const vector<double> &input_rates,
-               vector<double> &rates) {
-  
-  vector<double> J_collapsed(J.back().size(), 0.0);
-  vector<double> D_collapsed(J.back().size(), 0.0);
+estimate_rates_and_branches(const double param_tol,
+                            const vector<vector<double> > &J,
+                            const vector<vector<double> > &D,
+                            const vector<double> &input_rates,
+                            const vector<double> &input_branches,
+                            vector<double> &rates,
+                            vector<double> &branches) {
 
-  for (size_t b = 1; b < J.size(); b++) {
-    for (size_t j = 0; j < J.back().size(); j++) {
-      J_collapsed[j] += J[b][j];
-      D_collapsed[j] += D[b][j];
-    }
+  vector<double> tmp_rates(rates);
+  vector<double> tmp_branch_scale(branches.size(), 1.0);
+  
+  double llk = log_likelihood(J, D, input_rates, tmp_branch_scale);
+  rates = input_rates;
+  branches = input_branches;
+
+  //vector<double> tmp_branches(branches);
+  double tmp_llk = llk;
+  while (gradient_ascent(param_tol, J, D, llk, rates, branches, tmp_llk,
+                         tmp_rates, tmp_branch_scale)) {
+    std::cerr << tmp_llk << std::endl;
+    llk = tmp_llk;
+    rates.swap(tmp_rates);
+    std::transform(branches.begin(), branches.end(),
+                   tmp_branch_scale.begin(), branches.begin(),
+                   std::multiplies<int>() );
   }
-  
-  return estimate_rates(param_tol, J_collapsed, D_collapsed,
-                        input_rates, rates);
+  return llk;
 }
-
 
 static void
 set_one_change_per_site_per_unit_time(vector<double> &rates,
@@ -423,6 +448,13 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
                                      vector<vector<Path> > &all_paths,
                                      TreeHelper &th,
                                      EpiEvoModel &the_model) {
+  
+  if (VERBOSE)
+    cerr << "[NORMALIZING ALL PATH LENGTHS]" << endl;
+  for (size_t b = 1; b < all_paths.size(); ++b)
+    for (size_t i = 0; i < all_paths[b].size(); ++i)
+      all_paths[b][i].scale_to_unit_length();
+  
 
   // get initial values of sufficient statistics
   if (VERBOSE)
@@ -434,18 +466,13 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   if (VERBOSE)
     cerr << "[ESTIMATING PARAMETERS AND BRANCHES]" << endl;
 
-  // stage 1: update rates
   vector<double> updated_rates;
-  estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
-
-  // stage 2: update branches
-  vector<double> updated_branches(th.branches);
-  vector<double> branch_scale(th.branches.size(), 1.0);
-  candidate_branches(J, D, updated_rates, branch_scale);
-  std::transform(branch_scale.begin(), branch_scale.end(),
-                 th.branches.begin(), updated_branches.begin(),
-                 std::multiplies<double>() );
-
+  vector<double> updated_branches;
+  const double llk =
+  estimate_rates_and_branches(param_tol, J, D,
+                              the_model.triplet_rates, th.branches,
+                              updated_rates, updated_branches);
+  cerr << "log-likelihood: " << llk << endl;
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
   th.branches = updated_branches;
@@ -460,10 +487,6 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
       all_paths[b][i].tot_time = th.branches[b];
     }
   }
-  
-  get_sufficient_statistics(all_paths, J, D);
-  const double llh = log_likelihood(J, D, updated_rates);
-  std::cout << llh << std::endl;
 }
 
 
