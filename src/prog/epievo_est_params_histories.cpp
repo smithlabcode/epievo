@@ -190,12 +190,8 @@ int main(int argc, const char **argv) {
     /* (5) MCMC */
   
     /* MCMC PARAMETERS AND DATA*/
-    size_t mcmc_itr = 0;                   // MCMC iterations elapsed
-    size_t finished_iterations = 0;        // finished MCMC-EM iterations
     vector<double> J;
     vector<double> D;
-    vector<vector<double> > J_batch(8, vector<double> (batch, 0.0));
-    vector<vector<double> > D_batch(8, vector<double> (batch, 0.0));
     vector<Path> proposed_path;
     
     ////////////////////////////////////////////////////////////////////////////
@@ -206,73 +202,80 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[RUNNING MCMC-EM (seed=" << rng_seed << ")]\n"
-      << finished_iterations << "\t" << the_model.T[0][0] << "\t"
+      << "0\t" << the_model.T[0][0] << "\t"
       << the_model.T[1][1] << "\t"
       << the_model.stationary_logbaseline[0][0] << "\t"
       << the_model.stationary_logbaseline[1][1] << "\t"
       << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
       << the_tree << endl;
     
-    while (finished_iterations < iteration) {
-      
-      /* METROPOLIS-HASTINGS ALGORITHM */
-      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-        Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                 proposed_path);
+    size_t current_batch = batch;
+    
+    /* METROPOLIS-HASTINGS ALGORITHM */
+    for (size_t itr = 0; itr  < iteration; itr++) {
+      // Burning
+      for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
+        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+          Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
+                                   proposed_path);
+        }
       }
-      mcmc_itr++;
+      
+      // MCMC samples
+      current_batch += itr / 5;
+      vector<vector<double> > J_batch(8, vector<double> (current_batch, 0.0));
+      vector<vector<double> > D_batch(8, vector<double> (current_batch, 0.0));
+      for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
+        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+          Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
+                                   proposed_path);
+          
+          /* CALCULATE SUFFICIENT STATS */
+          get_sufficient_statistics(paths, J, D);
+          
+          /* RECORD STATS (POST-BURN-IN) */
+          for (size_t i = 0; i < 8; i++) {
+            J_batch[i][mcmc_itr] = J[i];
+            D_batch[i][mcmc_itr] = D[i];
+          }
+        }
+      }
+      
       //////////////////////////////////////////////////////////////////////////
       ///////////               POST-MCMC PROCESSING                 ///////////
       //////////////////////////////////////////////////////////////////////////
-      /* CALCULATE SUFFICIENT STATS */
-      get_sufficient_statistics(paths, J, D);
+      /* CALCULATE/OUTPUT BATCH AVERAGE/VAR */
+      vector<double> J_mean(8, 0.0);
+      vector<double> D_mean(8, 0.0);
       
-      if (mcmc_itr > burnin)
-      /* RECORD STATS (POST-BURN-IN) */
-        for (size_t i = 0; i < 8; i++) {
-          J_batch[i][mcmc_itr - burnin - 1] = J[i];
-          D_batch[i][mcmc_itr - burnin - 1] = D[i];
-        }
-      
-      /* MCMC OVER */
-      if (mcmc_itr == (burnin + batch)) {
-
-        /* CALCULATE/OUTPUT BATCH AVERAGE/VAR */
-        vector<double> J_mean(8, 0.0);
-        vector<double> D_mean(8, 0.0);
-
-        for (size_t i = 0; i < 8; i++) {
-          J_mean[i] = std::accumulate(J_batch[i].begin(), J_batch[i].end(), 0.0)
-          / J_batch[i].size();
-          D_mean[i] = std::accumulate(D_batch[i].begin(), D_batch[i].end(), 0.0)
-          / D_batch[i].size();
-        }
-        
-        /* PARAMETER ESTIMATION */
-        if (!OPTBRANCH)
-          compute_estimates_for_rates_only(false, param_tol,
-                                           J_mean, D_mean, the_model);
-        else {
-          compute_estimates_rates_and_branches(false, param_tol, paths,
-                                               th, the_model);
-          the_tree.set_branch_lengths(th.branches);
-        }
-
-        estimate_root_distribution(paths, the_model);
-        
-        /* RESET MCMC BATCH */
-        mcmc_itr = 0;
-        finished_iterations++;
-        
-        if (VERBOSE)
-          cerr << finished_iterations << "\t" << the_model.T[0][0] << "\t"
-          << the_model.T[1][1] << "\t"
-          << the_model.stationary_logbaseline[0][0] << "\t"
-          << the_model.stationary_logbaseline[1][1] << "\t"
-          << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
-          << the_tree << endl;
+      for (size_t i = 0; i < 8; i++) {
+        J_mean[i] = std::accumulate(J_batch[i].begin(), J_batch[i].end(), 0.0)
+        / J_batch[i].size();
+        D_mean[i] = std::accumulate(D_batch[i].begin(), D_batch[i].end(), 0.0)
+        / D_batch[i].size();
       }
+      
+      /* PARAMETER ESTIMATION */
+      if (!OPTBRANCH)
+        compute_estimates_for_rates_only(false, param_tol,
+                                         J_mean, D_mean, the_model);
+      else {
+        compute_estimates_rates_and_branches(false, param_tol, paths,
+                                             th, the_model);
+        the_tree.set_branch_lengths(th.branches);
+      }
+      
+      estimate_root_distribution(paths, the_model);
+      
+      if (VERBOSE)
+        cerr << itr << "\t" << the_model.T[0][0] << "\t"
+        << the_model.T[1][1] << "\t"
+        << the_model.stationary_logbaseline[0][0] << "\t"
+        << the_model.stationary_logbaseline[1][1] << "\t"
+        << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
+        << the_tree << endl;
     }
+  
 
     /* (6) OUTPUT */
     if (VERBOSE)
