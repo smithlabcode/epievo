@@ -222,22 +222,21 @@ int main(int argc, const char **argv) {
       }
       
       // MCMC samples
-      current_batch += itr / 5;
+      current_batch += (itr+1) / 5;
       vector<vector<double> > J_batch(8, vector<double> (current_batch, 0.0));
       vector<vector<double> > D_batch(8, vector<double> (current_batch, 0.0));
       for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
-        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
           Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
                                    proposed_path);
-          
-          /* CALCULATE SUFFICIENT STATS */
-          get_sufficient_statistics(paths, J, D);
-          
-          /* RECORD STATS (POST-BURN-IN) */
-          for (size_t i = 0; i < 8; i++) {
-            J_batch[i][mcmc_itr] = J[i];
-            D_batch[i][mcmc_itr] = D[i];
-          }
+        
+        /* CALCULATE SUFFICIENT STATS */
+        get_sufficient_statistics(paths, J, D);
+        
+        /* RECORD STATS (POST-BURN-IN) */
+        for (size_t i = 0; i < 8; i++) {
+          J_batch[i][mcmc_itr] = J[i];
+          D_batch[i][mcmc_itr] = D[i];
         }
       }
       
@@ -254,7 +253,7 @@ int main(int argc, const char **argv) {
         D_mean[i] = std::accumulate(D_batch[i].begin(), D_batch[i].end(), 0.0)
         / D_batch[i].size();
       }
-      
+
       /* PARAMETER ESTIMATION */
       if (!OPTBRANCH)
         compute_estimates_for_rates_only(false, param_tol,
@@ -268,7 +267,7 @@ int main(int argc, const char **argv) {
       estimate_root_distribution(paths, the_model);
       
       if (VERBOSE)
-        cerr << itr << "\t" << the_model.T[0][0] << "\t"
+        cerr << itr+1 << "\t" << the_model.T[0][0] << "\t"
         << the_model.T[1][1] << "\t"
         << the_model.stationary_logbaseline[0][0] << "\t"
         << the_model.stationary_logbaseline[1][1] << "\t"
@@ -276,7 +275,7 @@ int main(int argc, const char **argv) {
         << the_tree << endl;
     }
   
-
+ 
     /* (6) OUTPUT */
     if (VERBOSE)
       cerr << "[WRITING PATHS]" << endl;
