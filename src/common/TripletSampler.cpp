@@ -117,64 +117,39 @@ TripletSampler::get_triplet_count(const size_t context) const {
 void
 TripletSampler::single_update(const size_t pos, size_t context,
                               const size_t to_context) {
-
-  size_t loc = idx_in_pat[pos];
-  if (context > to_context) {
-
-    size_t block_start = cum_pat_count[context];
-
-    // swap current location to beginning of block
-    iter_swap(pos_by_pat.begin() + block_start, pos_by_pat.begin() + loc);
-    iter_swap(idx_in_pat.begin() + pos_by_pat[block_start],
-              idx_in_pat.begin() + pos_by_pat[loc]);
-
-    // swap beginning elements of blocks
-    while (context > to_context + 1) {
-      ++cum_pat_count[context]; // expand block for preceding context
-      --context; // move to preceding context
-
-      /* swap last to first within block for preceding context */
-      const size_t preceding_block_start = cum_pat_count[context];
-      iter_swap(pos_by_pat.begin() + block_start,
-                pos_by_pat.begin() + preceding_block_start);
-      iter_swap(idx_in_pat.begin() + pos_by_pat[block_start],
-                idx_in_pat.begin() + pos_by_pat[preceding_block_start]);
-      block_start = preceding_block_start;
+    
+    
+    if (context > to_context) {
+        
+        size_t prev = idx_in_pat[pos];
+        
+        // swap beginning elements of blocks
+        while (context > to_context) {
+            const size_t curr = cum_pat_count[context]; // start of block
+            iter_swap(begin(idx_in_pat) + pos_by_pat[prev],
+                      begin(idx_in_pat) + pos_by_pat[curr]);
+            iter_swap(begin(pos_by_pat) + prev,
+                      begin(pos_by_pat) + curr);
+            prev = curr; // curr block will become prev
+            ++cum_pat_count[context--]; // expand prev block, shift context left
+        }
     }
-    ++cum_pat_count[context]; // no swap for last context (block boundary moves)
-  }
-  else {
-
-    /* (ADS) for this case, I originally coded it using a "context +
-       1" in most places, but then realized it would be the same if I
-       just incremented the context at the start: */
-    ++context;
-
-    size_t block_end = cum_pat_count[context] - 1; // last position in
-                                                   // current block
-
-    // swap current location to end of block
-    iter_swap(pos_by_pat.begin() + block_end, pos_by_pat.begin() + loc);
-    iter_swap(idx_in_pat.begin() + pos_by_pat[block_end],
-              idx_in_pat.begin() + pos_by_pat[loc]);
-
-    // swap ending elements of blocks
-    while (context < to_context) {
-      --cum_pat_count[context]; // grow new context by shifting boundary
-      ++context; // now move to next block
-
-      /* swap first-to-last within block for next context */
-      const size_t next_block_end = cum_pat_count[context] - 1;
-      iter_swap(pos_by_pat.begin() + block_end,
-                pos_by_pat.begin() + next_block_end);
-      // ADS: is it ok to swap below after having already modified
-      // pos_by_pat above?
-      iter_swap(idx_in_pat.begin() + pos_by_pat[block_end],
-                idx_in_pat.begin() + pos_by_pat[next_block_end]);
-      block_end = next_block_end;
+    else {
+        
+        size_t prev = idx_in_pat[pos];
+        
+        // swap ending elements of blocks
+        while (context < to_context) {
+            // shift context right, shrink prev block
+            --cum_pat_count[++context];
+            const size_t curr = cum_pat_count[context]; // start of curr block
+            iter_swap(begin(idx_in_pat) + pos_by_pat[prev],
+                      begin(idx_in_pat) + pos_by_pat[curr]);
+            iter_swap(begin(pos_by_pat) + prev,
+                      begin(pos_by_pat) + curr);
+            prev = curr; // curr block will become prev
+        }
     }
-    --cum_pat_count[context];
-  }
 }
 
 
