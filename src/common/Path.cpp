@@ -177,61 +177,6 @@ void get_seq_init(const vector<Path> &paths, vector<bool> &seq) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Environment::Environment(const Path &pa, const Path &pb) {
-  //if (pa.tot_time != pb.tot_time)
-  //  throw runtime_error("inconsistent times: " +
-  //                      to_string(pa.tot_time) + ", " +
-  //                      to_string(pb.tot_time));
-
-  //assert(pa.tot_time == pb.tot_time);
-  bool sa = pa.init_state;
-  bool sb = pb.init_state;
-  size_t i = 0;
-  size_t j = 0;
-  tot_time = pa.tot_time;
-  while (i < pa.jumps.size() || j < pb.jumps.size()) {
-    left.push_back(sa);
-    right.push_back(sb);
-    if (i < pa.jumps.size() && j < pb.jumps.size()) {
-      if (pa.jumps[i] < pb.jumps[j]) {
-        breaks.push_back(pa.jumps[i]);
-        ++i;
-        sa = !sa;
-      }
-      else if (pa.jumps[i] > pb.jumps[j]) {
-        breaks.push_back(pb.jumps[j]);
-        ++j;
-        sb = !sb;
-      }
-      else {
-        breaks.push_back(pb.jumps[j]);
-        ++j;
-        ++i;
-        sa = !sa;
-        sb = !sb;
-      }
-    }
-    else if (i < pa.jumps.size()) {
-      breaks.push_back(pa.jumps[i]);
-      ++i;
-      sa = !sa;
-    }
-    else {
-      breaks.push_back(pb.jumps[j]);
-      ++j;
-      sb = !sb;
-    }
-  }
-
-  if (breaks.size() == 0 || breaks.back() < tot_time) {
-    left.push_back(sa);
-    right.push_back(sb);
-    breaks.push_back(tot_time);
-  }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 struct TriplePath {
   std::vector<size_t> states; // triplet states, length k
   std::vector<double> breaks; // start is first jump, end is total_time, length k

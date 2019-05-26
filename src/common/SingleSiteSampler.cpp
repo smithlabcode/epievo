@@ -48,7 +48,63 @@ using std::placeholders::_1;
 using std::multiplies;
 using std::runtime_error;
 
-static const double param_tol = 1e-10;
+
+struct Environment {
+    std::vector<bool> left; // states on the left
+    std::vector<bool> right; // states on the right
+    // time pts. of envir state change, incl. tot_time
+    std::vector<double> breaks;
+    double tot_time;
+    
+    Environment(const Path &pa, const Path &pb);
+};
+
+Environment::Environment(const Path &pa, const Path &pb) {
+    bool sa = pa.init_state;
+    bool sb = pb.init_state;
+    size_t i = 0;
+    size_t j = 0;
+    tot_time = pa.tot_time;
+    while (i < pa.jumps.size() || j < pb.jumps.size()) {
+        left.push_back(sa);
+        right.push_back(sb);
+        if (i < pa.jumps.size() && j < pb.jumps.size()) {
+            if (pa.jumps[i] < pb.jumps[j]) {
+                breaks.push_back(pa.jumps[i]);
+                ++i;
+                sa = !sa;
+            }
+            else if (pa.jumps[i] > pb.jumps[j]) {
+                breaks.push_back(pb.jumps[j]);
+                ++j;
+                sb = !sb;
+            }
+            else {
+                breaks.push_back(pb.jumps[j]);
+                ++j;
+                ++i;
+                sa = !sa;
+                sb = !sb;
+            }
+        }
+        else if (i < pa.jumps.size()) {
+            breaks.push_back(pa.jumps[i]);
+            ++i;
+            sa = !sa;
+        }
+        else {
+            breaks.push_back(pb.jumps[j]);
+            ++j;
+            sb = !sb;
+        }
+    }
+    
+    if (breaks.size() == 0 || breaks.back() < tot_time) {
+        left.push_back(sa);
+        right.push_back(sb);
+        breaks.push_back(tot_time);
+    }
+}
 
 /* collect rates and interval lengths */
 static void

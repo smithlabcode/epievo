@@ -90,17 +90,6 @@ add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct Environment {
-  std::vector<bool> left; // states on the left
-  std::vector<bool> right; // states on the right
-  std::vector<double> breaks; // time pts. of envir state change, incl. tot_time
-  double tot_time;
-
-  Environment(const Path &pa, const Path &pb);
-};
-
-////////////////////////////////////////////////////////////////////////////////
-
 struct PathContextStat {
   std::vector<double> jumps_in_context;
   std::vector<double> time_in_context;
