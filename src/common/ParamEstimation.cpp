@@ -88,7 +88,7 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
 /* branches in likelihood and gradient ascent steps are scalers that
    should be multiplied to input branch lengths after the optimization
    is over */
-static void
+void
 get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<vector<double> > &J,
                           vector<vector<double> > &D) {
@@ -101,6 +101,22 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
   // iterate over nodes, starting at 1 to avoid root
   for (size_t i = 1; i < n_branches; ++i)
     add_sufficient_statistics(all_paths[i], J[i], D[i]);
+}
+
+void
+get_root_frequences(const vector<vector<Path> > &all_paths,
+                    vector<vector<double> > &counts) {
+
+  assert(all_paths.size() >= 2 && !all_paths[1].empty());
+
+  counts = vector<vector<double> >(2, vector<double>(2, 0.0));
+
+  size_t prev = all_paths[1].front().init_state;
+  for (size_t i = 1; i < all_paths[1].size(); ++i) {
+    const size_t curr = all_paths[1][i].init_state;
+    counts[prev][curr]++;
+    prev = curr;
+  }
 }
 
 
@@ -410,12 +426,23 @@ set_one_change_per_site_per_unit_time(vector<double> &rates,
 void
 compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
-                                 const vector<double> &J,
-                                 const vector<double> &D,
+                                 const vector<vector<double> > &J,
+                                 const vector<vector<double> > &D,
                                  EpiEvoModel &the_model) {
+  
+  static const size_t n_triplets = 8;
+  vector<double> J_collapsed = vector<double>(n_triplets, 0.0);
+  vector<double> D_collapsed = vector<double>(n_triplets, 0.0);
+  for (size_t i = 0; i < n_triplets; i++) {
+    for (size_t b = 1; b < J.size(); ++b) {
+      J_collapsed[i] += J[b][i];
+      D_collapsed[i] += D[b][i];
+    }
+  }
 
   vector<double> updated_rates;
-  estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
+  estimate_rates(param_tol, J_collapsed, D_collapsed,
+                 the_model.triplet_rates, updated_rates);
   
   the_model.rebuild_from_triplet_rates(updated_rates);
   /* Branch lengths and rates must be scaled at the same time.
@@ -432,13 +459,50 @@ compute_estimates_for_rates_only(const bool VERBOSE,
                                  EpiEvoModel &the_model) {
   if (VERBOSE)
     cerr << "[COMPUTING INITIAL SUFFICIENT STATISTICS]" << endl;
-  vector<double> J;
-  vector<double> D;
+  vector<vector<double> > J;
+  vector<vector<double> > D;
   get_sufficient_statistics(all_paths, J, D);
 
   if (VERBOSE)
     cerr << "[ESTIMATING PARAMETERS]" << endl;
   compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
+}
+
+
+void
+scale_jump_times(vector<vector<Path> > &all_paths, const TreeHelper &th) {
+  for (size_t b = 1; b < all_paths.size(); ++b) {
+    for (size_t i = 0; i < all_paths[b].size(); ++i) {
+      const double scale = th.branches[b] / all_paths[b][i].tot_time;
+      for (size_t j = 0; j < all_paths[b][i].jumps.size(); ++j) {
+        all_paths[b][i].jumps[j] *= scale;
+      }
+      all_paths[b][i].tot_time = th.branches[b];
+    }
+  }
+}
+
+
+void
+compute_estimates_rates_and_branches(const bool VERBOSE,
+                                     const double param_tol,
+                                     const vector<vector<double> > &J,
+                                     const vector<vector<double> > &D,
+                                     TreeHelper &th, EpiEvoModel &the_model) {
+
+  if (VERBOSE)
+    cerr << "[ESTIMATING PARAMETERS AND BRANCHES]" << endl;
+  
+  vector<double> updated_rates;
+  vector<double> updated_branches;
+  const double llk =
+  estimate_rates_and_branches(param_tol, J, D,
+                              the_model.triplet_rates, th.branches,
+                              updated_rates, updated_branches);
+  cerr << "log-likelihood: " << llk << endl;
+  set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
+  the_model.rebuild_from_triplet_rates(updated_rates);
+  th.branches = updated_branches;
 }
 
 
@@ -463,32 +527,21 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   vector<vector<double> > D;
   get_sufficient_statistics(all_paths, J, D);
 
-  if (VERBOSE)
-    cerr << "[ESTIMATING PARAMETERS AND BRANCHES]" << endl;
-
-  vector<double> updated_rates;
-  vector<double> updated_branches;
-  const double llk =
-  estimate_rates_and_branches(param_tol, J, D,
-                              the_model.triplet_rates, th.branches,
-                              updated_rates, updated_branches);
-  cerr << "log-likelihood: " << llk << endl;
-  set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
-  the_model.rebuild_from_triplet_rates(updated_rates);
-  th.branches = updated_branches;
-
-  // scale jump times
-  for (size_t b = 1; b < all_paths.size(); ++b) {
-    for (size_t i = 0; i < all_paths[b].size(); ++i) {
-      const double scale = th.branches[b] / all_paths[b][i].tot_time;
-      for (size_t j = 0; j < all_paths[b][i].jumps.size(); ++j) {
-        all_paths[b][i].jumps[j] *= scale;
-      }
-      all_paths[b][i].tot_time = th.branches[b];
-    }
-  }
+  compute_estimates_rates_and_branches(VERBOSE, param_tol, J, D,
+                                       th, the_model);
 }
 
+
+void
+estimate_root_distribution(const vector<vector<double> > &counts,
+                           EpiEvoModel &the_model) {
+  
+  the_model.init_T[0][0] = counts[0][0] / (counts[0][0] + counts[0][1]);
+  the_model.init_T[0][1] = 1 - the_model.init_T[0][0];
+  
+  the_model.init_T[1][1] = counts[1][1] / (counts[1][1] + counts[1][0]);
+  the_model.init_T[1][0] = 1 - the_model.init_T[1][1];
+}
 
 void
 estimate_root_distribution(const vector<vector<Path> > &all_paths,
@@ -496,16 +549,7 @@ estimate_root_distribution(const vector<vector<Path> > &all_paths,
 
   assert(all_paths.size() >= 2 && !all_paths[1].empty());
 
-  size_t prev = all_paths[1].front().init_state;
-  for (size_t i = 1; i < all_paths[1].size(); ++i) {
-    const size_t curr = all_paths[1][i].init_state;
-    the_model.init_T[prev][curr]++;
-    prev = curr;
-  }
-  double tot = the_model.init_T[0][0] + the_model.init_T[0][1];
-  the_model.init_T[0][0] /= tot;
-  the_model.init_T[0][1] /= tot;
-  tot = the_model.init_T[1][0] + the_model.init_T[1][1];
-  the_model.init_T[1][0] /= tot;
-  the_model.init_T[1][1] /= tot;
+  vector<vector<double> > counts;
+  get_root_frequences(all_paths, counts);
+  estimate_root_distribution(counts, the_model);
 }

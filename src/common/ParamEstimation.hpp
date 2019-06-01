@@ -32,8 +32,8 @@
 void
 compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
-                                 const std::vector<double> &J,
-                                 const std::vector<double> &D,
+                                 const std::vector<std::vector<double> > &J,
+                                 const std::vector<std::vector<double> > &D,
                                  EpiEvoModel &the_model);
 
 void
@@ -41,6 +41,15 @@ compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
                                  const std::vector<std::vector<Path> > &all_paths,
                                  EpiEvoModel &the_model);
+
+
+void
+compute_estimates_rates_and_branches(const bool VERBOSE,
+                                     const double param_tol,
+                                     const std::vector<std::vector<double> > &J,
+                                     const std::vector<std::vector<double> > &D,
+                                     TreeHelper &th,
+                                     EpiEvoModel &the_model);
 
 void
 compute_estimates_rates_and_branches(const bool VERBOSE,
@@ -50,13 +59,33 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
                                      EpiEvoModel &the_model);
 
 void
+estimate_root_distribution(const std::vector<std::vector<double> > &counts,
+                           EpiEvoModel &the_model);
+
+void
 estimate_root_distribution(const std::vector<std::vector<Path> > &all_paths,
                            EpiEvoModel &the_model);
 
 
+// get sufficient statistics from the whole tree
 void
 get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,
                           std::vector<double> &J, std::vector<double> &D);
 
-    
+// get sufficient statistics from each branch
+void
+get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,
+                          std::vector<std::vector<double> > &J,
+                          std::vector<std::vector<double> > &D);
+
+// count duplet frequences from root sequence
+void
+get_root_frequences(const std::vector<std::vector<Path> > &all_paths,
+                    std::vector<std::vector<double> > &counts);
+
+// scale jump times according to updated branch lengths
+void
+scale_jump_times(std::vector<std::vector<Path> > &all_paths,
+                 const TreeHelper &th);
+
 #endif
