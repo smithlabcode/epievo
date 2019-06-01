@@ -117,39 +117,38 @@ TripletSampler::get_triplet_count(const size_t context) const {
 void
 TripletSampler::single_update(const size_t pos, size_t context,
                               const size_t to_context) {
-    
-    
-    if (context > to_context) {
-        
-        size_t prev = idx_in_pat[pos];
-        
-        // swap beginning elements of blocks
-        while (context > to_context) {
-            const size_t curr = cum_pat_count[context]; // start of block
-            iter_swap(begin(idx_in_pat) + pos_by_pat[prev],
-                      begin(idx_in_pat) + pos_by_pat[curr]);
-            iter_swap(begin(pos_by_pat) + prev,
-                      begin(pos_by_pat) + curr);
-            prev = curr; // curr block will become prev
-            ++cum_pat_count[context--]; // expand prev block, shift context left
-        }
+
+  if (context > to_context) {
+
+    size_t prev = idx_in_pat[pos];
+
+    // swap beginning elements of blocks
+    while (context > to_context) {
+      const size_t curr = cum_pat_count[context]; // start of block
+      iter_swap(begin(idx_in_pat) + pos_by_pat[prev],
+                begin(idx_in_pat) + pos_by_pat[curr]);
+      iter_swap(begin(pos_by_pat) + prev,
+                begin(pos_by_pat) + curr);
+      prev = curr; // curr block will become prev
+      ++cum_pat_count[context--]; // expand prev block, shift context left
     }
-    else {
-        
-        size_t prev = idx_in_pat[pos];
-        
-        // swap ending elements of blocks
-        while (context < to_context) {
-            // shift context right, shrink prev block
-            --cum_pat_count[++context];
-            const size_t curr = cum_pat_count[context]; // start of curr block
-            iter_swap(begin(idx_in_pat) + pos_by_pat[prev],
-                      begin(idx_in_pat) + pos_by_pat[curr]);
-            iter_swap(begin(pos_by_pat) + prev,
-                      begin(pos_by_pat) + curr);
-            prev = curr; // curr block will become prev
-        }
+  }
+  else {
+
+    size_t prev = idx_in_pat[pos];
+
+    // swap ending elements of blocks
+    while (context < to_context) {
+      // shift context right, shrink prev block
+      --cum_pat_count[++context];
+      const size_t curr = cum_pat_count[context]; // start of curr block
+      iter_swap(begin(idx_in_pat) + pos_by_pat[prev],
+                begin(idx_in_pat) + pos_by_pat[curr]);
+      iter_swap(begin(pos_by_pat) + prev,
+                begin(pos_by_pat) + curr);
+      prev = curr; // curr block will become prev
     }
+  }
 }
 
 
