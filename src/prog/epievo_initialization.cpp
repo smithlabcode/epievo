@@ -386,6 +386,7 @@ int main(int argc, const char **argv) {
     else {
       compute_estimates_rates_and_branches(false, param_tol, sampled_paths,
                                            th, the_model);
+      scale_jump_times(sampled_paths, th);
       the_tree.set_branch_lengths(th.branches);
     }
 

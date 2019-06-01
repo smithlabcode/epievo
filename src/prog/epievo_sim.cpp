@@ -299,8 +299,10 @@ int main(int argc, const char **argv) {
     if (SCALE)
       the_model.scale_triplet_rates();
 
-    if (VERBOSE)
+    if (VERBOSE) {
       cerr << the_model << endl;
+      cerr << the_model.format_for_param_file() << endl;
+    }
 
     size_t n_nodes = 0;
     TreeHelper th;

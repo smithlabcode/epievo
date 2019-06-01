@@ -96,6 +96,7 @@ int main(int argc, const char **argv) {
     size_t iteration = 10;           // MCMC-EM iterations
     size_t batch = 10;              // MCMC iterations
     size_t burnin = 10;           // burn-in MCMC iterations
+    double increment_k = 0.0;           // batch increment controller
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
@@ -111,6 +112,9 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("batch", 'B',
                       "number of MCMC iteration (default: 10)",
                       false, batch);
+    opt_parse.add_opt("increment", 'k',
+                      "batch increment controller (default: no increment 0.0)",
+                      false, increment_k);
     opt_parse.add_opt("burnin", 'L',
                       "MCMC burn-in length (default: 10)",
                       false, burnin);
@@ -190,8 +194,9 @@ int main(int argc, const char **argv) {
     /* (5) MCMC */
   
     /* MCMC PARAMETERS AND DATA*/
-    vector<double> J;
-    vector<double> D;
+    vector<vector<double> > J;
+    vector<vector<double> > D;
+    vector<vector<double> > root_frequences;
     vector<Path> proposed_path;
     
     ////////////////////////////////////////////////////////////////////////////
@@ -222,9 +227,11 @@ int main(int argc, const char **argv) {
       }
       
       // MCMC samples
-      current_batch += (itr+1) / 5;
-      vector<vector<double> > J_batch(8, vector<double> (current_batch, 0.0));
-      vector<vector<double> > D_batch(8, vector<double> (current_batch, 0.0));
+      current_batch += (itr+1) * increment_k;
+      vector<vector<double> > J_accum(th.n_nodes, vector<double> (8, 0.0));
+      vector<vector<double> > D_accum(th.n_nodes, vector<double> (8, 0.0));
+      vector<vector<double> > root_accum(2, vector<double> (2, 0.0));
+
       for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
           Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
@@ -232,39 +239,47 @@ int main(int argc, const char **argv) {
         
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
+        get_root_frequences(paths, root_frequences);
         
         /* RECORD STATS (POST-BURN-IN) */
-        for (size_t i = 0; i < 8; i++) {
-          J_batch[i][mcmc_itr] = J[i];
-          D_batch[i][mcmc_itr] = D[i];
+        for (size_t b = 1; b < J.size(); b++) {
+          for (size_t i = 0; i < 8; i++) {
+            J_accum[b][i] += J[b][i];
+            D_accum[b][i] += D[b][i];
+          }
         }
+        root_accum[0][0] += root_frequences[0][0];
+        root_accum[0][1] += root_frequences[0][1];
+        root_accum[1][0] += root_frequences[1][0];
+        root_accum[1][1] += root_frequences[1][1];
       }
       
       //////////////////////////////////////////////////////////////////////////
       ///////////               POST-MCMC PROCESSING                 ///////////
       //////////////////////////////////////////////////////////////////////////
-      /* CALCULATE/OUTPUT BATCH AVERAGE/VAR */
-      vector<double> J_mean(8, 0.0);
-      vector<double> D_mean(8, 0.0);
-      
-      for (size_t i = 0; i < 8; i++) {
-        J_mean[i] = std::accumulate(J_batch[i].begin(), J_batch[i].end(), 0.0)
-        / J_batch[i].size();
-        D_mean[i] = std::accumulate(D_batch[i].begin(), D_batch[i].end(), 0.0)
-        / D_batch[i].size();
+      /* CALCULATE/OUTPUT BATCH AVERAGE */
+      for (size_t b = 1; b < J.size(); b++) {
+        for (size_t i = 0; i < 8; i++) {
+          J_accum[b][i] /= current_batch;
+          D_accum[b][i] /= current_batch;
+        }
       }
-
+      root_accum[0][0] /= current_batch;
+      root_accum[0][1] /= current_batch;
+      root_accum[1][0] /= current_batch;
+      root_accum[1][1] /= current_batch;
+      
       /* PARAMETER ESTIMATION */
       if (!OPTBRANCH)
         compute_estimates_for_rates_only(false, param_tol,
-                                         J_mean, D_mean, the_model);
+                                         J_accum, D_accum, the_model);
       else {
-        compute_estimates_rates_and_branches(false, param_tol, paths,
+        compute_estimates_rates_and_branches(false, param_tol, J_accum, D_accum,
                                              th, the_model);
+        scale_jump_times(paths, th);
         the_tree.set_branch_lengths(th.branches);
       }
-      
-      estimate_root_distribution(paths, the_model);
+      estimate_root_distribution(root_accum, the_model);
       
       if (VERBOSE)
         cerr << itr+1 << "\t" << the_model.T[0][0] << "\t"
