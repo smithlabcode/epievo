@@ -62,8 +62,9 @@ static const double NUMERICAL_TOLERANCE = 1e-10;
 /////// ##         #######  ####  ######   ######   #######  ##    ##
 
 double
-expected_num_jumps(const CTMarkovModel &the_model, const size_t start_state,
-                   const size_t end_state, const double T) {
+expected_num_jumps(const TwoStatesCTMarkovModel &the_model,
+                   const size_t start_state, const size_t end_state,
+                   const double T) {
   
   const double r0 = the_model.rate0;
   const double r1 = the_model.rate1;
@@ -109,8 +110,9 @@ num_Poisson_trans(const double rate, const double T, const size_t state_a,
 
 
 void
-end_cond_sample_Poisson(const CTMarkovModel &the_model, const size_t start_state,
-                        const size_t end_state, const double T, std::mt19937 &gen,
+end_cond_sample_Poisson(const TwoStatesCTMarkovModel &the_model,
+                        const size_t start_state, const size_t end_state,
+                        const double T, std::mt19937 &gen,
                         vector<double> &jump_times, const double start_time) {
   
   const double rate = expected_num_jumps(the_model, start_state, end_state, T)/T;
@@ -613,14 +615,15 @@ end_cond_sampling_Nielsen(const size_t max_sample_count,
 
 /* Poisson proposal probability density. */
 double
-end_cond_sample_Poisson_prob(const CTMarkovModel &the_model,
+end_cond_sample_Poisson_prob(const TwoStatesCTMarkovModel &the_model,
                              const vector<double> &jumps,
                              const size_t start_state, const size_t end_state,
                              const double start_time, const double end_time,
                              const size_t start_jump, const size_t end_jump) {
   
   const double T = end_time - start_time;
-  const double rate = expected_num_jumps(the_model, start_state, end_state, T)/T;
+  const double rate = expected_num_jumps(the_model,
+                                         start_state, end_state, T)/T;
   
   double n = end_jump - start_jump;
   

@@ -257,17 +257,14 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
   const size_t n_intervals = seg_info.size();
   for (size_t i = 0; i < n_intervals; ++i) {
 
-    vector<vector<double> > P;
-    continuous_time_trans_prob_mat(seg_info[i].rate0,
-                                   seg_info[i].rate1, seg_info[i].len, P);
+    const TwoStatesCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
+    const double PT0 = ctmm.get_trans_prob(seg_info[i].len, prev_state, 0);
 
     const double p0 =
-      P[prev_state][0]*((i == n_intervals - 1) ?
-                        fh.q[0] : fh.p[i + 1][0])/fh.p[i][prev_state];
+      PT0*((i == n_intervals - 1) ?
+           fh.q[0] : fh.p[i + 1][0])/fh.p[i][prev_state];
 
     const size_t sampled_state = (unif(gen) > p0);
-
-    const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
 
     end_cond_sample_Poisson(ctmm, prev_state, sampled_state,
                             seg_info[i].len, gen, sampled_path.jumps,
@@ -351,22 +348,20 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
       end_state = complement_state(end_state);
 
     // calculate the probability for the end-conditioned path
-    const CTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
+    const TwoStatesCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     
     const double interval_prob =
     end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
                                  start_time, end_time,
                                  start_jump, end_jump);
     log_prob += interval_prob;
-    // assert(std::isfinite(log_prob));
 
-    vector<vector<double> > P;
-    ctmm.get_trans_prob_mat(seg_info[i].len, P);
+    const double PT0 = ctmm.get_trans_prob(seg_info[i].len, start_state, 0);
 
     // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
     const double p0 =
-      P[start_state][0]/fh.p[i][start_state]*((i == n_intervals-1) ?
-                                              fh.q[0] : fh.p[i+1][0]);
+      PT0/fh.p[i][start_state]*((i == n_intervals-1) ?
+                                fh.q[0] : fh.p[i+1][0]);
 
     log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
     // assert(std::isfinite(log_prob));
