@@ -29,21 +29,21 @@
 
 #include <vector>
 
-void
+double
 compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
                                  const std::vector<std::vector<double> > &J,
                                  const std::vector<std::vector<double> > &D,
                                  EpiEvoModel &the_model);
 
-void
+double
 compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
                                  const std::vector<std::vector<Path> > &all_paths,
                                  EpiEvoModel &the_model);
 
 
-void
+double
 compute_estimates_rates_and_branches(const bool VERBOSE,
                                      const double param_tol,
                                      const std::vector<std::vector<double> > &J,
@@ -51,7 +51,7 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
                                      TreeHelper &th,
                                      EpiEvoModel &the_model);
 
-void
+double
 compute_estimates_rates_and_branches(const bool VERBOSE,
                                      const double param_tol,
                                      std::vector<std::vector<Path> > &all_paths,

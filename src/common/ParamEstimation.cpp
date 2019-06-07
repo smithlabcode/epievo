@@ -249,23 +249,23 @@ get_starting_step_size(const vector<double> &gradient) {
 static bool
 gradient_ascent(const double param_tol,
                 const vector<double> &J, const vector<double> &D,
-                const double llk, const vector<double> &rates,
-                double &updated_llk, vector<double> &updated_rates) {
+                const double llh, const vector<double> &rates,
+                double &updated_llh, vector<double> &updated_rates) {
 
-  assert(llk == log_likelihood(J, D, rates));
+  assert(llh == log_likelihood(J, D, rates));
 
-  /* compute llk and gradient */
+  /* compute llh and gradient */
   vector<double> gradient;
   get_gradient(J, D, rates, gradient);
 
   double step_size = get_starting_step_size(gradient);
-  updated_llk = std::numeric_limits<double>::lowest();
-  while (updated_llk < llk && step_size > param_tol) {
+  updated_llh = std::numeric_limits<double>::lowest();
+  while (updated_llh < llh && step_size > param_tol) {
     candidate_rates(step_size, gradient, rates, updated_rates);
-    updated_llk = log_likelihood(J, D, updated_rates);
+    updated_llh = log_likelihood(J, D, updated_rates);
     step_size *= 0.5;
   }
-  return (updated_llk > llk);
+  return (updated_llh > llh);
 }
 
 
@@ -275,16 +275,16 @@ estimate_rates(const double param_tol,
                const vector<double> &input_rates,
                vector<double> &rates) {
 
-  double llk = log_likelihood(J, D, input_rates);
+  double llh = log_likelihood(J, D, input_rates);
   rates = input_rates;
 
   vector<double> tmp_rates(rates);
-  double tmp_llk = llk;
-  while (gradient_ascent(param_tol, J, D, llk, rates, tmp_llk, tmp_rates)) {
-    llk = tmp_llk;
+  double tmp_llh = llh;
+  while (gradient_ascent(param_tol, J, D, llh, rates, tmp_llh, tmp_rates)) {
+    llh = tmp_llh;
     rates.swap(tmp_rates);
   }
-  return llk;
+  return llh;
 }
 
 
@@ -297,7 +297,7 @@ estimate_rates(const double param_tol,
   
   vector<double> J_collapsed(J.back().size(), 0.0);
   vector<double> D_collapsed(J.back().size(), 0.0);
-  
+
   for (size_t b = 1; b < J.size(); b++) {
     for (size_t j = 0; j < J.back().size(); j++) {
       J_collapsed[j] += J[b][j];
@@ -329,36 +329,27 @@ set_one_change_per_site_per_unit_time(vector<double> &rates,
 }
 
 
-void
+double
 compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
                                  const vector<vector<double> > &J,
                                  const vector<vector<double> > &D,
                                  EpiEvoModel &the_model) {
   
-  static const size_t n_triplets = 8;
-  vector<double> J_collapsed = vector<double>(n_triplets, 0.0);
-  vector<double> D_collapsed = vector<double>(n_triplets, 0.0);
-  for (size_t i = 0; i < n_triplets; i++) {
-    for (size_t b = 1; b < J.size(); ++b) {
-      J_collapsed[i] += J[b][i];
-      D_collapsed[i] += D[b][i];
-    }
-  }
+  if (VERBOSE)
+    cerr << "[ESTIMATING PARAMETERS]" << endl;
 
   vector<double> updated_rates;
-  estimate_rates(param_tol, J_collapsed, D_collapsed,
-                 the_model.triplet_rates, updated_rates);
+  const double llh = estimate_rates(param_tol, J, D, the_model.triplet_rates,
+                                    updated_rates);
   
   the_model.rebuild_from_triplet_rates(updated_rates);
-  /* Branch lengths and rates must be scaled at the same time.
-   * We cannot scale one without scaling the other.
-   * If the tree topology is fixed, we will not try to scale rates.
-   */ 
+
+  return llh;
 }
 
 
-void
+double
 compute_estimates_for_rates_only(const bool VERBOSE,
                                  const double param_tol,
                                  const vector<vector<Path> > &all_paths,
@@ -369,9 +360,7 @@ compute_estimates_for_rates_only(const bool VERBOSE,
   vector<vector<double> > D;
   get_sufficient_statistics(all_paths, J, D);
 
-  if (VERBOSE)
-    cerr << "[ESTIMATING PARAMETERS]" << endl;
-  compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
+  return compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
 }
 
 
@@ -389,7 +378,7 @@ scale_jump_times(vector<vector<Path> > &all_paths, const TreeHelper &th) {
 }
 
 
-void
+double
 compute_estimates_rates_and_branches(const bool VERBOSE,
                                      const double param_tol,
                                      const vector<vector<double> > &J,
@@ -413,11 +402,26 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
+
+  // update branch lenths
   th.branches = updated_branches;
+  
+  // calculate new llh
+  static const size_t n_triplets = 8;
+  vector<double> J_collapsed(n_triplets, 0.0);
+  vector<double> D_collapsed(n_triplets, 0.0);
+
+  for (size_t b = 1; b < th.n_nodes; b++)
+    for (size_t i = 0; i < D[b].size(); i++) {
+      J_collapsed[i] += J[b][i];
+      D_collapsed[i] += branch_scale[b] * D[b][i];
+    }
+  
+  return log_likelihood(J_collapsed, D_collapsed, updated_rates);
 }
 
 
-void
+double
 compute_estimates_rates_and_branches(const bool VERBOSE,
                                      const double param_tol,
                                      vector<vector<Path> > &all_paths,
@@ -438,8 +442,8 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   vector<vector<double> > D;
   get_sufficient_statistics(all_paths, J, D);
 
-  compute_estimates_rates_and_branches(VERBOSE, param_tol, J, D,
-                                       th, the_model);
+  return compute_estimates_rates_and_branches(VERBOSE, param_tol, J, D,
+                                              th, the_model);
 }
 
 

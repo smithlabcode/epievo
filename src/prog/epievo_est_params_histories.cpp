@@ -187,9 +187,6 @@ int main(int argc, const char **argv) {
       rng_seed = rd();
     }
     std::mt19937 gen(rng_seed);
-    if (VERBOSE)
-      cerr << "[INITIALIZED RNG (seed=" << rng_seed << ")]\n"
-      << "itr\tstationary\tbaseline\tinit\ttree" << endl;
     
     /* (5) MCMC */
   
@@ -207,15 +204,16 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[RUNNING MCMC-EM (seed=" << rng_seed << ")]\n"
+      << "itr\tstationary\tbaseline\tinit\ttree\tacc_rate\tllh\n"
       << "0\t" << the_model.T[0][0] << "\t"
       << the_model.T[1][1] << "\t"
       << the_model.stationary_logbaseline[0][0] << "\t"
       << the_model.stationary_logbaseline[1][1] << "\t"
       << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
-      << the_tree << endl;
+      << the_tree << "\tNA\tNA" << endl;
     
     size_t current_batch = batch;
-    
+
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {
       // Burning
@@ -228,14 +226,17 @@ int main(int argc, const char **argv) {
       
       // MCMC samples
       current_batch += (itr+1) * increment_k;
+      size_t n_accepted = 0;
       vector<vector<double> > J_accum(th.n_nodes, vector<double> (8, 0.0));
       vector<vector<double> > D_accum(th.n_nodes, vector<double> (8, 0.0));
       vector<vector<double> > root_accum(2, vector<double> (2, 0.0));
 
       for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
-        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-          Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                   proposed_path);
+        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+          n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths,
+                                                 gen, proposed_path);
+        }
+
         
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
@@ -270,12 +271,13 @@ int main(int argc, const char **argv) {
       root_accum[1][1] /= current_batch;
       
       /* PARAMETER ESTIMATION */
+      double llh = 0.0;
       if (!OPTBRANCH)
-        compute_estimates_for_rates_only(false, param_tol,
-                                         J_accum, D_accum, the_model);
+        llh = compute_estimates_for_rates_only(false, param_tol,
+                                               J_accum, D_accum, the_model);
       else {
-        compute_estimates_rates_and_branches(false, param_tol, J_accum, D_accum,
-                                             th, the_model);
+        llh = compute_estimates_rates_and_branches(false, param_tol, J_accum,
+                                                   D_accum, th, the_model);
         scale_jump_times(paths, th);
         the_tree.set_branch_lengths(th.branches);
       }
@@ -287,7 +289,9 @@ int main(int argc, const char **argv) {
         << the_model.stationary_logbaseline[0][0] << "\t"
         << the_model.stationary_logbaseline[1][1] << "\t"
         << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
-        << the_tree << endl;
+        << the_tree << "\t"
+        << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
+        << "\t" << llh << endl;
     }
   
  
