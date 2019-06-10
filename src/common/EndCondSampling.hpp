@@ -43,7 +43,7 @@ end_cond_sample_forward_rejection(const size_t max_sample_count,
 
 
 void
-end_cond_sample_Poisson(const TwoStatesCTMarkovModel &the_model,
+end_cond_sample_Poisson(const TwoStateCTMarkovModel &the_model,
                         const size_t start_state, const size_t end_state,
                         const double time_interval,
                         std::mt19937 &gen, std::vector<double> &jump_times,
@@ -67,7 +67,7 @@ end_cond_sample_prob(const CTMarkovModel &the_model,
 
 
 double
-end_cond_sample_Poisson_prob(const TwoStatesCTMarkovModel &the_model,
+end_cond_sample_Poisson_prob(const TwoStateCTMarkovModel &the_model,
                              const std::vector<double> &jump_times,
                              const size_t start_state, const size_t end_state,
                              const double start_time, const double end_time,
@@ -75,9 +75,9 @@ end_cond_sample_Poisson_prob(const TwoStatesCTMarkovModel &the_model,
 
 double
 forward_sample_prob(const CTMarkovModel &the_model,
-                     const std::vector<double> &jump_times,
-                     const size_t start_state, const size_t end_state,
-                     const double start_time, const double end_time,
-                     size_t start_jump, const size_t end_jump);
+                    const std::vector<double> &jump_times,
+                    const size_t start_state, const size_t end_state,
+                    const double start_time, const double end_time,
+                    size_t start_jump, const size_t end_jump);
 
 #endif

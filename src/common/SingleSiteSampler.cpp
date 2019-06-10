@@ -50,60 +50,60 @@ using std::runtime_error;
 
 
 struct Environment {
-    std::vector<bool> left; // states on the left
-    std::vector<bool> right; // states on the right
-    // time pts. of envir state change, incl. tot_time
-    std::vector<double> breaks;
-    double tot_time;
-    
-    Environment(const Path &pa, const Path &pb);
+  std::vector<bool> left; // states on the left
+  std::vector<bool> right; // states on the right
+  // time pts. of envir state change, incl. tot_time
+  std::vector<double> breaks;
+  double tot_time;
+
+  Environment(const Path &pa, const Path &pb);
 };
 
 Environment::Environment(const Path &pa, const Path &pb) {
-    bool sa = pa.init_state;
-    bool sb = pb.init_state;
-    size_t i = 0;
-    size_t j = 0;
-    tot_time = pa.tot_time;
-    while (i < pa.jumps.size() || j < pb.jumps.size()) {
-        left.push_back(sa);
-        right.push_back(sb);
-        if (i < pa.jumps.size() && j < pb.jumps.size()) {
-            if (pa.jumps[i] < pb.jumps[j]) {
-                breaks.push_back(pa.jumps[i]);
-                ++i;
-                sa = !sa;
-            }
-            else if (pa.jumps[i] > pb.jumps[j]) {
-                breaks.push_back(pb.jumps[j]);
-                ++j;
-                sb = !sb;
-            }
-            else {
-                breaks.push_back(pb.jumps[j]);
-                ++j;
-                ++i;
-                sa = !sa;
-                sb = !sb;
-            }
-        }
-        else if (i < pa.jumps.size()) {
-            breaks.push_back(pa.jumps[i]);
-            ++i;
-            sa = !sa;
-        }
-        else {
-            breaks.push_back(pb.jumps[j]);
-            ++j;
-            sb = !sb;
-        }
+  bool sa = pa.init_state;
+  bool sb = pb.init_state;
+  size_t i = 0;
+  size_t j = 0;
+  tot_time = pa.tot_time;
+  while (i < pa.jumps.size() || j < pb.jumps.size()) {
+    left.push_back(sa);
+    right.push_back(sb);
+    if (i < pa.jumps.size() && j < pb.jumps.size()) {
+      if (pa.jumps[i] < pb.jumps[j]) {
+        breaks.push_back(pa.jumps[i]);
+        ++i;
+        sa = !sa;
+      }
+      else if (pa.jumps[i] > pb.jumps[j]) {
+        breaks.push_back(pb.jumps[j]);
+        ++j;
+        sb = !sb;
+      }
+      else {
+        breaks.push_back(pb.jumps[j]);
+        ++j;
+        ++i;
+        sa = !sa;
+        sb = !sb;
+      }
     }
-    
-    if (breaks.size() == 0 || breaks.back() < tot_time) {
-        left.push_back(sa);
-        right.push_back(sb);
-        breaks.push_back(tot_time);
+    else if (i < pa.jumps.size()) {
+      breaks.push_back(pa.jumps[i]);
+      ++i;
+      sa = !sa;
     }
+    else {
+      breaks.push_back(pb.jumps[j]);
+      ++j;
+      sb = !sb;
+    }
+  }
+
+  if (breaks.size() == 0 || breaks.back() < tot_time) {
+    left.push_back(sa);
+    right.push_back(sb);
+    breaks.push_back(tot_time);
+  }
 }
 
 /* collect rates and interval lengths */
@@ -257,7 +257,7 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
   const size_t n_intervals = seg_info.size();
   for (size_t i = 0; i < n_intervals; ++i) {
 
-    const TwoStatesCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
+    const TwoStateCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
     const double PT0 = ctmm.get_trans_prob(seg_info[i].len, prev_state, 0);
 
     const double p0 =
@@ -296,7 +296,7 @@ downward_sampling(const TreeHelper &th,
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
   proposed_path = vector<Path>(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  
+
   proposed_path.front() = Path(paths[1][site_id].init_state, 0.0); // copy root
   if (!FIX_ROOT)
     proposed_path.front() = Path(unif(gen) > root_p0, 0.0); // update root
@@ -317,7 +317,7 @@ downward_sampling(const TreeHelper &th,
 static double
 root_prior_lh(const size_t l, const size_t m, const size_t r,
               const vector<vector<double> > &horiz_tr_prob) {
-  
+
   const double p = horiz_tr_prob[l][m]*horiz_tr_prob[m][r];
   return p;
 }
@@ -348,20 +348,20 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
       end_state = complement_state(end_state);
 
     // calculate the probability for the end-conditioned path
-    const TwoStatesCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
-    
+    const TwoStateCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
+
     const double interval_prob =
-    end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
-                                 start_time, end_time,
-                                 start_jump, end_jump);
+                      end_cond_sample_Poisson_prob(ctmm, path.jumps, start_state, end_state,
+                                                   start_time, end_time,
+                                                   start_jump, end_jump);
     log_prob += interval_prob;
 
     const double PT0 = ctmm.get_trans_prob(seg_info[i].len, start_state, 0);
 
     // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
     const double p0 =
-      PT0/fh.p[i][start_state]*((i == n_intervals-1) ?
-                                fh.q[0] : fh.p[i+1][0]);
+                      PT0/fh.p[i][start_state]*((i == n_intervals-1) ?
+                                                fh.q[0] : fh.p[i+1][0]);
 
     log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
     // assert(std::isfinite(log_prob));
@@ -389,9 +389,9 @@ proposal_prob(const vector<double> &triplet_rates,
   // compute posterior probability of state 0 at root node
   const double root_p0 =
     root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
-  
+
   double log_prob = the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
-  
+
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
 
@@ -448,7 +448,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const size_t rt_orig = paths[1][site_id].init_state;
   const size_t rt_prop = proposed_path[1].init_state;
   llr += (log(root_prior_lh(rt_l, rt_prop, rt_r, mod.init_T)) -
-  log(root_prior_lh(rt_l, rt_orig, rt_r, mod.init_T)));
+          log(root_prior_lh(rt_l, rt_orig, rt_r, mod.init_T)));
 
   /* calculate likelihood involving internal intervals */
   vector<double> D_orig(n_triples), J_orig(n_triples);
@@ -474,7 +474,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     add_sufficient_statistics(*(opth - 1), *ppth, *(opth + 1), J_prop, D_prop);
     if (site_id < paths[i].size() - 2)
       add_sufficient_statistics(*ppth, *(opth + 1), *(opth + 2), J_prop, D_prop);
-    
+
     // add difference in log-likelihood for the proposed vs. original
     // to the Hastings ratio
     llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
@@ -512,8 +512,8 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   const double u = unif(gen) ;
   const double log_acc_rate =
-  log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
-  
+    log_accept_rate(the_model, th, site_id, paths, fh, seg_info, proposed_path);
+
   bool accepted = false;
   if (log_acc_rate >= 0 || u < exp(log_acc_rate))
     accepted = true;

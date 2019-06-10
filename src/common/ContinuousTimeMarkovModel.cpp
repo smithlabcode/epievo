@@ -112,23 +112,25 @@ operator<<(std::ostream &os, const CTMarkovModel &ctmm) {
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////
+//// SPECIALIZED CLASS "TwoStateCTMarkovModel" BELOW HERE
+
 double
-TwoStatesCTMarkovModel::get_trans_prob(const double time_interval,
-                                       const size_t start_state,
-                                       const size_t end_state) const {
-    
+TwoStateCTMarkovModel::get_trans_prob(const double time_interval,
+                                      const size_t start_state,
+                                      const size_t end_state) const {
+
   assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
-  
+
   const double h = 1.0 / std::exp(time_interval * (rate0 + rate1));
   const double denominator = rate0 + rate1;
   double prob = 0.0;
-  
+
   if (start_state)
     prob = (rate0 + rate1*h)/denominator;
   else
     prob = (rate0*h + rate1)/denominator;
-  
+
   if (end_state != start_state)
     prob = 1.0 - prob;
 

@@ -52,10 +52,8 @@ struct CTMarkovModel {
 std::ostream &
 operator<<(std::ostream &os, const CTMarkovModel &ctmm);
 
-////////////////////////////////////////////////////////////////////////////////
-
-struct TwoStatesCTMarkovModel {
-  TwoStatesCTMarkovModel(const double r0, const double r1) :
+struct TwoStateCTMarkovModel {
+  TwoStateCTMarkovModel(const double r0, const double r1) :
     rate0(r0), rate1(r1) {}
   double get_trans_prob(const double time_interval, const size_t start_state,
                         const size_t end_state) const;
