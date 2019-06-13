@@ -34,7 +34,7 @@ struct FelsHelper {
 };
 
 void
-expectation_sufficient_statistics(const std::vector<double> rates,
+expectation_sufficient_statistics(const std::vector<double> &rates,
                                   const std::vector<double> &init_pi,
                                   const TreeHelper &th,
                                   const std::vector<std::vector<Path> > &paths,
@@ -44,8 +44,8 @@ expectation_sufficient_statistics(const std::vector<double> rates,
 
 
 void
-sample_paths(const std::vector<double> rates, const std::vector<double> init_pi,
-             const TreeHelper &th,
+sample_paths(const std::vector<double> &rates,
+             const std::vector<double> &init_pi, const TreeHelper &th,
              const std::vector<std::vector<Path> > &paths,
              std::mt19937 &gen,
              std::vector<std::vector<Path> > &sampled_paths);

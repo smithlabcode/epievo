@@ -46,7 +46,7 @@ using std::string;
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-expectation_J(const vector<double> rates, const double T,
+expectation_J(const vector<double> &rates, const double T,
               vector< vector<double>> &J0, vector< vector<double>> &J1) {
   const double r0 = rates[0];
   const double r1 = rates[1];
@@ -75,7 +75,7 @@ expectation_J(const vector<double> rates, const double T,
 
 
 static void
-expectation_D(const vector<double> rates, const double T,
+expectation_D(const vector<double> &rates, const double T,
               vector< vector<double>> &D0, vector< vector<double>> &D1) {
   const double r0 = rates[0];
   const double r1 = rates[1];
@@ -157,7 +157,7 @@ pruning_upward(const TreeHelper &th, const size_t site_id,
 
 
 static double
-root_post_prob0(const size_t site_id, const vector<double> init_pi,
+root_post_prob0(const size_t site_id, const vector<double> &init_pi,
                 const vector<double> &q) {
 
   const double p0 = init_pi[0]*q[0];
@@ -189,7 +189,7 @@ joint_post(const double p0_u, const FelsHelper &fh,
 
 static void
 weighted_J_D_branch(const vector<double> &rates, const double T,
-                    const FelsHelper fh,
+                    const FelsHelper &fh,
                     const double p0_parent, double &p0_child,
                     vector<double> &J, vector<double> &D) {
 
@@ -252,7 +252,7 @@ pruning_downward(const TreeHelper &th, const size_t site_id,
 static void
 sampling_downward(const TreeHelper &th, const size_t site_id,
                   const vector<vector<Path> > &paths,
-                  const vector<double> init_pi, const vector<double> &rates,
+                  const vector<double> &init_pi, const vector<double> &rates,
                   const vector<FelsHelper> &fh,
                   std::mt19937 &gen, vector<Path> &sampled_path) {
 
@@ -292,7 +292,7 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
 
 /* Obtain conditional means of sufficient statistics */
 void
-expectation_sufficient_statistics(const vector<double> rates,
+expectation_sufficient_statistics(const vector<double> &rates,
                                   const vector<double> &init_pi,
                                   const TreeHelper &th,
                                   const vector<vector<Path> > &paths,
@@ -321,7 +321,7 @@ expectation_sufficient_statistics(const vector<double> rates,
 
 /* Sample new evolution history */
 void
-sample_paths(const vector<double> rates, const vector<double> init_pi,
+sample_paths(const vector<double> &rates, const vector<double> &init_pi,
              const TreeHelper &th,
              const vector<vector<Path> > &paths,
              std::mt19937 &gen, vector<vector<Path> > &sampled_paths) {
