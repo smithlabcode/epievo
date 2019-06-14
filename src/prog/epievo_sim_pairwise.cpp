@@ -23,6 +23,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <bitset>
 #include <random>
@@ -49,57 +50,134 @@ using std::cout;
 using std::string;
 using std::runtime_error;
 using std::numeric_limits;
+using std::to_string;
 
 ///////////////////////////////////////////////////////////////////////////
-
-/* generate initial paths by heuristics */
 template <class T>
+size_t
+read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
+                 TreeHelper &th) {
+  
+  std::ifstream in(statesfile.c_str());
+  if (!in)
+    throw std::runtime_error("bad states file: " + statesfile);
+  
+  // first line is the list of node names
+  string buffer;
+  if (!getline(in, buffer))
+    throw std::runtime_error("cannot read nodes line in: " + statesfile);
+  
+  std::istringstream nodes_iss(buffer);
+  vector<string> node_names;
+  
+  string tmp_node_name;
+  while (nodes_iss >> tmp_node_name)
+    node_names.push_back(tmp_node_name);
+  
+  if (node_names.size() != 2)
+    throw std::runtime_error("more or fewer than 2 nodes in: " + statesfile);
+  
+  if (node_names.front()[0] == '#') {
+    if (node_names.front().length() == 1)
+      node_names = vector<string>(node_names.begin() + 1, node_names.end());
+    else node_names.front() = node_names.front().substr(1);
+  }
+  
+  th.node_names = node_names;
+  
+  // read states
+  const size_t n_nodes = node_names.size();
+  size_t site_count = 0;
+  
+  state_sequences.resize(th.n_nodes);
+  
+  while (getline(in, buffer)) {
+    std::istringstream iss;
+    iss.str(std::move(buffer));
+    
+    size_t site_index = 0;
+    iss >> site_index; // not important info but must be removed
+    
+    // now read the states for the current site
+    size_t node_idx = 0;
+    T tmp_state_val;
+    while (node_idx < n_nodes && iss >> tmp_state_val)
+        state_sequences[node_idx++].push_back(tmp_state_val);
+    
+    if (node_idx < n_nodes)
+      throw std::runtime_error("inconsistent number of states: " +
+                               to_string(node_idx) + "/" + to_string(n_nodes));
+    ++site_count;
+  }
+  
+  if (site_count == 0)
+    throw std::runtime_error("no sites read from states file: " + statesfile);
+
+  return site_count;
+}
+
+
+
+/* generate initial paths */
 static void
-initialize_paths(std::mt19937 &gen, const TreeHelper &th,
-                 vector<vector<T> > &state_sequences,
-                 vector<vector<Path> > &paths) {
-  
+initialize_paths_indep(std::mt19937 &gen,
+                       const vector<vector<size_t> > &state_sequences,
+                       vector<vector<Path> > &paths,
+                       const EpiEvoModel &the_model, const double tot_time) {
+
   const size_t n_sites = state_sequences.front().size();
+  paths.resize(2);
+  paths.front().resize(n_sites);
+  paths.back().resize(n_sites);
   
-  paths.resize(th.n_nodes);
-  
-  auto unif =
-  bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
-  
-  vector<T> child_states = {0, 0}; // two child states
-  
-  for (size_t i = th.n_nodes; i > 0; --i) {
+  for (size_t site_id = 0; site_id < n_sites; ++site_id) {
+    const size_t start_state = state_sequences.front()[site_id];
+    const size_t end_state = state_sequences.front()[site_id];
     
-    const size_t node_id = i - 1;
-    paths[node_id].resize(n_sites);
+    paths.back()[site_id].init_state = start_state;
+    paths.back()[site_id].tot_time = tot_time;
+
+    const size_t pattern0 = triple2idx(state_sequences.front()[site_id-1],
+                                       false,
+                                       state_sequences.front()[site_id+1]);
+    const size_t pattern1 = triple2idx(state_sequences.front()[site_id-1],
+                                       true,
+                                       state_sequences.front()[site_id+1]);
     
-    for (size_t site_id = 0; site_id < n_sites; ++site_id) {
-      
-      if (!th.is_leaf(node_id)) {
-        // get child states
-        size_t n_ch = 0;
-        for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c)
-          child_states[n_ch++] = state_sequences[*c][site_id];
-        
-        // sample parent state
-        state_sequences[node_id][site_id] =
-        child_states[std::floor(unif()*n_ch)];
-        
-        // assign site-specific paths above two child nodes
-        for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c) {
-          
-          const double len = th.branches[*c];
-          paths[*c][site_id].tot_time = len;
-          paths[*c][site_id].init_state = state_sequences[node_id][site_id];
-          
-          if (state_sequences[*c][site_id] != paths[*c][site_id].init_state)
-            paths[*c][site_id].jumps.push_back(unif() * len);
-        }
-      }
+    CTMarkovModel ctmm(the_model.triplet_rates[pattern0],
+                       the_model.triplet_rates[pattern1]);
+    
+    end_cond_sample_direct(ctmm, start_state, end_state, tot_time, gen,
+                           paths.back()[site_id].jumps, 0.0);
+  }
+}
+
+
+static void
+add_paths(const vector<vector<Path> > &paths,
+          vector<vector<double> > &average_paths) {
+  const size_t n_points = average_paths.size();
+  for (size_t site_id = 0; site_id < paths.back().size(); site_id++) {
+    size_t prev_state = paths[1][site_id].init_state;
+    const double bin = paths[1][site_id].tot_time / (n_points - 1);
+    size_t tp = 0;
+    average_paths[site_id][tp++] += prev_state;
+    double curr_time = bin;
+
+    for (size_t i = 1; i < average_paths[site_id].size(); i++) {
+        average_paths[site_id][tp++] +=
+      paths[1][site_id].state_at_time(curr_time);
+        curr_time += bin;
     }
   }
 }
 
+
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////           SAMPLING END POINTS STATES                        ///////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 
 static void
 write_root_to_pathfile_local(const string &outfile, const string &root_name) {
@@ -139,10 +217,12 @@ int main(int argc, const char **argv) {
 
     string outfile;               // sampled local path
     
-    size_t iteration = 100;       // MCMC sample size
+    size_t n_paths = 100;         // number of paths to simulate
     size_t burnin = 10;           // burn-in MCMC iterations
-
-    double evolutionary_time = numeric_limits<double>::lowest();
+    // number of time points to output (including two ending points)
+    size_t n_points = 100;
+    
+    double evolutionary_time = 1;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
@@ -151,9 +231,12 @@ int main(int argc, const char **argv) {
     OptionParser opt_parse(strip_path(argv[0]),
                            "Simulate paths between a pair of sequences",
                            "<param> <states>");
-    opt_parse.add_opt("iteration", 'i',
-                      "number of MCMC-EM iteration (default: 100)",
-                      false, iteration);
+    opt_parse.add_opt("number", 'i',
+                      "number of paths to simulate (default: 100)",
+                      false, n_paths);
+    opt_parse.add_opt("points", 'n',
+                      "number of time points to output (default: 100)",
+                      false, n_points);
     opt_parse.add_opt("burnin", 'L',
                       "MCMC burn-in length (default: 10)",
                       false, burnin);
@@ -199,10 +282,11 @@ int main(int argc, const char **argv) {
     /* (2) GET THE ROOT SEQUENCE */
     if (VERBOSE)
       cerr << "[OBTAINING ROOT/LEAF SEQUENCE]" << endl;
-    TreeHelper th;
-    vector<vector<bool> > state_sequences;
+    TreeHelper th(evolutionary_time);
+    vector<vector<size_t> > state_sequences; // double if data is continuous
     read_states_file(states_file, state_sequences, th);
-     
+    const size_t n_sites = state_sequences.front().size();
+    
     /* (3) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
@@ -210,40 +294,43 @@ int main(int argc, const char **argv) {
     }
     std::mt19937 gen(rng_seed);
     
-    /* (4) INITIALIZING THE PATH */
+    vector<vector<double> > average_paths =
+    vector<vector<double> > (n_points, vector<double> (n_sites, 0.0));
     vector<vector<Path> > paths;
-    initialize_paths(gen, th, state_sequences, paths);
-    size_t n_sites = paths.back().size();
 
-    
-    /* (5) MCMC */
-    /* MCMC DATA*/
-    vector<Path> proposed_path;
-    // Smooth paths segmented in equally spaced intervals
-    vector<double> average_path;
-
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    /////// STARTING MCMC
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-
-    /* METROPOLIS-HASTINGS ALGORITHM */
-    // Burning
-    for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
-      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-        Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                 proposed_path);
+    for(size_t sample_id = 0; sample_id < n_paths; sample_id++) {
+      /* SAMPLING END POINTS */
+      // Andrew will insert the codes to sample discrete states
+      // from continuous data
+      // sample_end_states(state_sequences, paths);
+      
+      
+      /* INITIALIZING THE PATH */
+      initialize_paths_indep(gen, state_sequences, paths, the_model,
+                             evolutionary_time);
+      size_t n_sites = paths.back().size();
+      
+      /* SAMPLING THE PATH */
+      
+      /* MCMC DATA*/
+      vector<Path> proposed_path;
+      // Smooth paths segmented in equally spaced intervals
+      
+      //////////////////////////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
+      /////// STARTING MCMC
+      //////////////////////////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
+      
+      /* METROPOLIS-HASTINGS ALGORITHM */
+      // Burning
+      for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
+        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+          Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
+                                   proposed_path);
+        }
       }
-    }
-    
-    // MCMC samples
-    for(size_t mcmc_itr = 0; mcmc_itr < iteration; mcmc_itr++) {
-      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-        Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                 proposed_path);
-        update_average_path(average_path, paths);
-      }
+      add_paths(paths, average_paths);
     }
     
     /* (6) OUTPUT */
