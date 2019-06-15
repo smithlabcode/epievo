@@ -130,25 +130,23 @@ initialize_paths_indep(std::mt19937 &gen,
   paths.front().resize(n_sites);
   paths.back().resize(n_sites);
   
+  const vector<double> triplet_rates = the_model.triplet_rates;
+  const double rate0 = (triplet_rates[0]+triplet_rates[1]+triplet_rates[4]+
+                        triplet_rates[5]) / 4;
+  const double rate1 = (triplet_rates[2]+triplet_rates[3]+triplet_rates[6]+
+                        triplet_rates[7]) / 4;
+  const CTMarkovModel ctmm(rate0, rate1);
+
   for (size_t site_id = 0; site_id < n_sites; ++site_id) {
     const size_t start_state = state_sequences.front()[site_id];
-    const size_t end_state = state_sequences.front()[site_id];
+    const size_t end_state = state_sequences.back()[site_id];
     
     paths.back()[site_id].init_state = start_state;
     paths.back()[site_id].tot_time = tot_time;
-
-    const size_t pattern0 = triple2idx(state_sequences.front()[site_id-1],
-                                       false,
-                                       state_sequences.front()[site_id+1]);
-    const size_t pattern1 = triple2idx(state_sequences.front()[site_id-1],
-                                       true,
-                                       state_sequences.front()[site_id+1]);
     
-    CTMarkovModel ctmm(the_model.triplet_rates[pattern0],
-                       the_model.triplet_rates[pattern1]);
-    
-    end_cond_sample_direct(ctmm, start_state, end_state, tot_time, gen,
-                           paths.back()[site_id].jumps, 0.0);
+    end_cond_sample_forward_rejection(10000, ctmm, start_state, end_state,
+                                      tot_time, gen,
+                                      paths.back()[site_id].jumps, 0.0);
   }
 }
 
@@ -156,7 +154,7 @@ initialize_paths_indep(std::mt19937 &gen,
 static void
 add_paths(const vector<vector<Path> > &paths,
           vector<vector<double> > &average_paths) {
-  const size_t n_points = average_paths.size();
+  const size_t n_points = average_paths.front().size();
   for (size_t site_id = 0; site_id < paths.back().size(); site_id++) {
     size_t prev_state = paths[1][site_id].init_state;
     const double bin = paths[1][site_id].tot_time / (n_points - 1);
@@ -173,36 +171,23 @@ add_paths(const vector<vector<Path> > &paths,
 }
 
 
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////           SAMPLING END POINTS STATES                        ///////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-
 static void
-write_root_to_pathfile_local(const string &outfile, const string &root_name) {
+write_output(const string &outfile, const vector<vector<double> >  &states) {
   std::ofstream of;
   if (!outfile.empty()) of.open(outfile.c_str());
-  std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-  if (!outpath)
+  std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!out)
     throw std::runtime_error("bad output file: " + outfile);
   
-  outpath << "NODE:" << root_name << endl;
-}
-
-
-static void
-append_to_pathfile_local(const string &pathfile, const string &node_name,
-                         const vector<Path> &path_by_site) {
-  std::ofstream of;
-  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
-  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-  if (!outpath)
-    throw std::runtime_error("bad output file: " + pathfile);
+  const size_t n_sites = states.size();
   
-  outpath << "NODE:" << node_name << endl;
-  for (size_t i = 0; i < path_by_site.size(); ++i)
-    outpath << i << '\t' << path_by_site[i] << '\n';
+  for (size_t site_id = 0; site_id < n_sites; site_id++) {
+    out << states[site_id].front();
+    for (size_t t = 1; t < states[site_id].size(); t++)
+      out << "\t" << states[site_id][t];
+    out << endl;
+  }
+
 }
 
 
@@ -217,23 +202,22 @@ int main(int argc, const char **argv) {
 
     string outfile;               // sampled local path
     
-    size_t n_paths = 100;         // number of paths to simulate
+    size_t n_samples = 100;         // number of paths to simulate
     size_t burnin = 10;           // burn-in MCMC iterations
     // number of time points to output (including two ending points)
     size_t n_points = 100;
     
-    double evolutionary_time = 1;
+    double evolutionary_time = 1.0;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
-    static const double param_tol = 1e-10;
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
                            "Simulate paths between a pair of sequences",
                            "<param> <states>");
     opt_parse.add_opt("number", 'i',
                       "number of paths to simulate (default: 100)",
-                      false, n_paths);
+                      false, n_samples);
     opt_parse.add_opt("points", 'n',
                       "number of time points to output (default: 100)",
                       false, n_points);
@@ -295,10 +279,13 @@ int main(int argc, const char **argv) {
     std::mt19937 gen(rng_seed);
     
     vector<vector<double> > average_paths =
-    vector<vector<double> > (n_points, vector<double> (n_sites, 0.0));
-    vector<vector<Path> > paths;
+    vector<vector<double> > (n_sites, vector<double> (n_points, 0.0));
 
-    for(size_t sample_id = 0; sample_id < n_paths; sample_id++) {
+    if (VERBOSE)
+      cerr << "[SIMULATING]" << endl;
+    for(size_t sample_id = 0; sample_id < n_samples; sample_id++) {
+      if (VERBOSE)
+        cerr << "sample: " << sample_id << endl;
       /* SAMPLING END POINTS */
       // Andrew will insert the codes to sample discrete states
       // from continuous data
@@ -306,16 +293,10 @@ int main(int argc, const char **argv) {
       
       
       /* INITIALIZING THE PATH */
+      vector<vector<Path> > paths;
       initialize_paths_indep(gen, state_sequences, paths, the_model,
                              evolutionary_time);
       size_t n_sites = paths.back().size();
-      
-      /* SAMPLING THE PATH */
-      
-      /* MCMC DATA*/
-      vector<Path> proposed_path;
-      // Smooth paths segmented in equally spaced intervals
-      
       //////////////////////////////////////////////////////////////////////////
       //////////////////////////////////////////////////////////////////////////
       /////// STARTING MCMC
@@ -326,19 +307,29 @@ int main(int argc, const char **argv) {
       // Burning
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+          vector<Path> proposed_path;
+          //for(size_t i = 1; i < paths[1][site_id-1].jumps.size(); ++i)
+          //  assert(paths[1][site_id-1].jumps[i] > paths[1][site_id-1].jumps[i-1]);
+          //for(size_t i = 1; i < paths[1][site_id+1].jumps.size(); ++i)
+          //  assert(paths[1][site_id+1].jumps[i] > paths[1][site_id+1].jumps[i-1]);
           Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                   proposed_path);
+                                   proposed_path, true);
+
         }
       }
       add_paths(paths, average_paths);
     }
+    /* AVERAGING PATHS */
+    for (size_t site_id = 0; site_id < average_paths.size(); site_id++)
+      transform(average_paths[site_id].begin(), average_paths[site_id].end(),
+                average_paths[site_id].begin(),
+                std::bind(std::divides<double>(), std::placeholders::_1,
+                          n_samples));
     
     /* (6) OUTPUT */
     if (VERBOSE)
-      cerr << "[WRITING PATHS]" << endl;
-    write_root_to_pathfile_local(outfile, th.node_names.front());
-    for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-      append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
+      cerr << "[WRITING OUTPUT]" << endl;
+    write_output(outfile, average_paths);
   }
 
   catch (const std::exception &e) {
