@@ -19,11 +19,11 @@
 # 02110-1301 USA
 
 PROGS = epievo_sim global_jumps_to_paths \
-	extract_state_sequences epievo_est_complete \
+	extract_state_sequences epievo_est_complete epievo_sim_pairwise \
 	epievo_est_params_histories epievo_initialization scale_tree \
 
 CXX = g++
-CXXFLAGS = -Wall -std=c++11
+CXXFLAGS = -pg -Wall -std=c++11
 OPTFLAGS = -O3
 DEBUGFLAGS = -g
 LIBS = -lgsl -lgslcblas
@@ -64,7 +64,7 @@ epievo_initialization: \
   GlobalJump.o IndepSite.o EpiEvoModel.o EndCondSampling.o \
   ContinuousTimeMarkovModel.o ParamEstimation.o)
 
-epievo_est_params_histories: \
+epievo_est_params_histories epievo_sim_pairwise: \
 	$(addprefix $(COMMON_DIR)/, \
 	TripletSampler.o StateSeq.o SingleSiteSampler.o EndCondSampling.o \
 	ContinuousTimeMarkovModel.o \
