@@ -176,10 +176,6 @@ propose_h_interval(const vector<vector<Path> > &paths,
                           start_time);
   size_t end_jump_update = proposed_path.jumps.size();
   
-  // copy rest jumps to proposed path
-  while (end_jump < paths[node_id][site_id].jumps.size())
-    proposed_path.jumps.push_back(paths[node_id][site_id].jumps[end_jump++]);
-  
   // calculate proposal probabilities
   orig_proposal =
   end_cond_sample_Poisson_prob(ctmm, paths[node_id][site_id].jumps,
@@ -189,6 +185,13 @@ propose_h_interval(const vector<vector<Path> > &paths,
   end_cond_sample_Poisson_prob(ctmm, proposed_path.jumps, start_state, end_state,
                                start_time, end_time,
                                start_jump, end_jump_update);
+  
+  // copy rest jumps to proposed path
+  while (end_jump < paths[node_id][site_id].jumps.size())
+    proposed_path.jumps.push_back(paths[node_id][site_id].jumps[end_jump++]);
+  
+  assert(proposed_path.init_state == paths[node_id][site_id].init_state);
+  assert(proposed_path.end_state() == paths[node_id][site_id].end_state());
 }
 
 
@@ -281,7 +284,6 @@ Metropolis_Hastings_interval(const EpiEvoModel &the_model, const TreeHelper &th,
   std::discrete_distribution<size_t> node_sampler(th.branches.begin(),
                                                   th.branches.end());
   const size_t node_to_update = node_sampler(gen);
-
   vector<SegmentInfo> seg_info;
   collect_segment_info(the_model.triplet_rates,
                        paths[node_to_update][site_id - 1],
