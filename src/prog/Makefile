@@ -64,11 +64,17 @@ epievo_initialization: \
   GlobalJump.o IndepSite.o EpiEvoModel.o EndCondSampling.o \
   ContinuousTimeMarkovModel.o ParamEstimation.o)
 
-epievo_est_params_histories epievo_sim_pairwise: \
+epievo_est_params_histories: \
 	$(addprefix $(COMMON_DIR)/, \
 	TripletSampler.o StateSeq.o SingleSiteSampler.o EndCondSampling.o \
 	ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
+
+epievo_sim_pairwise: \
+    $(addprefix $(COMMON_DIR)/, \
+    TripletSampler.o StateSeq.o IntervalSampler.o EndCondSampling.o \
+    ContinuousTimeMarkovModel.o \
+    EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
 global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)
 

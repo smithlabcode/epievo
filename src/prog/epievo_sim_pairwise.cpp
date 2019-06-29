@@ -33,12 +33,13 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "Path.hpp"
+#include "StateSeq.hpp"
 #include "EpiEvoModel.hpp"
 #include "StateSeq.hpp"
 #include "EndCondSampling.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
 #include "TreeHelper.hpp"
-#include "SingleSiteSampler.hpp"
+#include "IntervalSampler.hpp"
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
 #include "ParamEstimation.hpp"
@@ -127,26 +128,45 @@ initialize_paths_indep(std::mt19937 &gen,
 
   const size_t n_sites = state_sequences.front().size();
   paths.resize(2);
-  paths.front().resize(n_sites);
-  paths.back().resize(n_sites);
+  paths[0].resize(n_sites);
+  paths[1].resize(n_sites);
   
   const vector<double> triplet_rates = the_model.triplet_rates;
-  const double rate0 = (triplet_rates[0]+triplet_rates[1]+triplet_rates[4]+
-                        triplet_rates[5]) / 4;
-  const double rate1 = (triplet_rates[2]+triplet_rates[3]+triplet_rates[6]+
-                        triplet_rates[7]) / 4;
-  const CTMarkovModel ctmm(rate0, rate1);
 
-  for (size_t site_id = 0; site_id < n_sites; ++site_id) {
-    const size_t start_state = state_sequences.front()[site_id];
-    const size_t end_state = state_sequences.back()[site_id];
+  std::uniform_real_distribution<double> unif(0.0, tot_time);
+  paths[0][0].init_state = state_sequences[0][0];
+  paths[1][0].init_state = state_sequences[0][0];
+  paths[1][0].tot_time = tot_time;
+  paths[0][n_sites-1].init_state = state_sequences[0][n_sites-1];
+  paths[1][n_sites-1].init_state = state_sequences[0][n_sites-1];
+  paths[1][n_sites-1].tot_time = tot_time;
+  if (paths[1][0].end_state() != state_sequences[1][0])
+    paths[1][0].jumps.push_back(unif(gen));
+  if (paths[1][n_sites-1].end_state() != state_sequences[1][n_sites-1])
+    paths[1][n_sites-1].jumps.push_back(unif(gen));
+  
+  for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+    const size_t pattern0 = triple2idx(state_sequences[0][site_id-1], false,
+                                        state_sequences[0][site_id+1]);
+    const size_t pattern1 = triple2idx(state_sequences[0][site_id-1], true,
+                                        state_sequences[0][site_id+1]);
+    const size_t start_state = state_sequences[0][site_id];
+    const size_t end_state = state_sequences[1][site_id];
+    // cerr << triplet_rates[pattern0] << ", " << triplet_rates[pattern1] << endl; 
+    const TwoStateCTMarkovModel ctmm(triplet_rates[pattern0], triplet_rates[pattern1]);
     
-    paths.back()[site_id].init_state = start_state;
-    paths.back()[site_id].tot_time = tot_time;
+    paths[0][site_id].init_state = start_state;
+    paths[1][site_id].init_state = start_state;
+    paths[1][site_id].tot_time = tot_time;
     
-    end_cond_sample_forward_rejection(10000, ctmm, start_state, end_state,
-                                      tot_time, gen,
-                                      paths.back()[site_id].jumps, 0.0);
+    //if (paths[1][site_id].end_state() != end_state) {
+      //std::uniform_real_distribution<double> unif(0.0, tot_time);
+      //const double u = unif(gen);
+    //  paths[1][site_id].jumps.push_back(tot_time/2);
+    //}
+    end_cond_sample_Poisson(ctmm, start_state, end_state,
+                            tot_time, gen, paths[1][site_id].jumps, 0.0);
+    assert(paths[1][site_id].end_state() == end_state);
   }
 }
 
@@ -155,15 +175,13 @@ static void
 add_paths(const vector<vector<Path> > &paths,
           vector<vector<double> > &average_paths) {
   const size_t n_points = average_paths.front().size();
+  const double bin = paths[1][0].tot_time / (n_points - 1);
   for (size_t site_id = 0; site_id < paths.back().size(); site_id++) {
     size_t prev_state = paths[1][site_id].init_state;
-    const double bin = paths[1][site_id].tot_time / (n_points - 1);
-    size_t tp = 0;
-    average_paths[site_id][tp++] += prev_state;
+    average_paths[site_id][0] += prev_state;
     double curr_time = bin;
-
     for (size_t i = 1; i < average_paths[site_id].size(); i++) {
-        average_paths[site_id][tp++] +=
+        average_paths[site_id][i] +=
       paths[1][site_id].state_at_time(curr_time);
         curr_time += bin;
     }
@@ -171,27 +189,45 @@ add_paths(const vector<vector<Path> > &paths,
 }
 
 
+template<class T>
+double vector_distance(vector<T> v1, vector<T> v2) {
+  double ret = 0.0;
+  for(size_t i = 0; i < v1.size(); i++) {
+    const double dist = (v1[i] - v2[i]);
+    ret += dist * dist;
+  }
+  return ret > 0.0 ? sqrt(ret) : 0.0;
+}
+
+      
+///////////////////////////////////////////////////////////////////////////
+
 static void
-write_output(const string &outfile, const vector<vector<double> >  &states) {
+write_root_to_pathfile_local(const string &outfile, const string &root_name) {
   std::ofstream of;
   if (!outfile.empty()) of.open(outfile.c_str());
-  std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-  if (!out)
+  std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
     throw std::runtime_error("bad output file: " + outfile);
   
-  const size_t n_sites = states.size();
-  
-  for (size_t site_id = 0; site_id < n_sites; site_id++) {
-    out << states[site_id].front();
-    for (size_t t = 1; t < states[site_id].size(); t++)
-      out << "\t" << states[site_id][t];
-    out << endl;
-  }
-
+  outpath << "NODE:" << root_name << endl;
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
+static void
+append_to_pathfile_local(const string &pathfile, const string &node_name,
+                         const vector<Path> &path_by_site) {
+  std::ofstream of;
+  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
+  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + pathfile);
+  
+  outpath << "NODE:" << node_name << endl;
+  for (size_t i = 0; i < path_by_site.size(); ++i)
+    outpath << i << '\t' << path_by_site[i] << '\n';
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -201,6 +237,7 @@ int main(int argc, const char **argv) {
     bool VERBOSE = false;
 
     string outfile;               // sampled local path
+    string pathfile;               // initial local path
     
     size_t n_samples = 100;         // number of paths to simulate
     size_t burnin = 10;           // burn-in MCMC iterations
@@ -230,6 +267,8 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("outfile", 'o',
                       "output file of local paths (default: stdout)",
                       false, outfile);
+    opt_parse.add_opt("pathfile", 'p',
+                      "input file of local paths", false, pathfile);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
 
@@ -260,6 +299,8 @@ int main(int argc, const char **argv) {
       cerr << "[READING PARAMETERS: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
+    the_model.scale_triplet_rates();
+
     if (VERBOSE)
       cerr << the_model << endl;
 
@@ -281,30 +322,37 @@ int main(int argc, const char **argv) {
     vector<vector<double> > average_paths =
     vector<vector<double> > (n_sites, vector<double> (n_points, 0.0));
 
+    vector<vector<Path> > init_paths;
+    vector<string> node_names;
+    if (!pathfile.empty())
+      read_paths(pathfile, node_names, init_paths);
+    else 
+      initialize_paths_indep(gen, state_sequences, init_paths, the_model,
+                             evolutionary_time);
+
     if (VERBOSE)
       cerr << "[SIMULATING]" << endl;
+    if (n_samples == 0) {
+      vector<vector<Path> > paths = init_paths;
+      add_paths(paths, average_paths);
+    }
+
     for(size_t sample_id = 0; sample_id < n_samples; sample_id++) {
       if (VERBOSE)
-        cerr << "sample: " << sample_id << endl;
-      /* SAMPLING END POINTS */
-      // Andrew will insert the codes to sample discrete states
-      // from continuous data
-      // sample_end_states(state_sequences, paths);
-      
+        cout << "sample: " << sample_id;
       
       /* INITIALIZING THE PATH */
-      vector<vector<Path> > paths;
-      initialize_paths_indep(gen, state_sequences, paths, the_model,
-                             evolutionary_time);
+      vector<vector<Path> > paths = init_paths;
       size_t n_sites = paths.back().size();
       //////////////////////////////////////////////////////////////////////////
       //////////////////////////////////////////////////////////////////////////
       /////// STARTING MCMC
       //////////////////////////////////////////////////////////////////////////
       //////////////////////////////////////////////////////////////////////////
-      
+
       /* METROPOLIS-HASTINGS ALGORITHM */
       // Burning
+      double n_acc = 0;
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           vector<Path> proposed_path;
@@ -312,24 +360,39 @@ int main(int argc, const char **argv) {
           //  assert(paths[1][site_id-1].jumps[i] > paths[1][site_id-1].jumps[i-1]);
           //for(size_t i = 1; i < paths[1][site_id+1].jumps.size(); ++i)
           //  assert(paths[1][site_id+1].jumps[i] > paths[1][site_id+1].jumps[i-1]);
-          Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                   proposed_path, true);
-
+          n_acc += Metropolis_Hastings_interval(the_model, th, site_id, paths,
+                                                gen);
+          assert(paths[1][site_id].init_state == state_sequences[0][site_id]);
+          assert(paths[1][site_id].end_state() == state_sequences[1][site_id]);
         }
+        //vector<double> J_new, D_new;
+        //get_sufficient_statistics(paths, J_new, D_new);
+        //const double dist = vector_distance(J_new, J);
+        // cerr << "ITR: " << burnin_itr << ", J distance dev: " << dist << endl;
+        //J = J_new;
+        //D = D_new;
       }
+      if (VERBOSE)
+        cout << ", acc rate: " << n_acc / ((n_sites-2)*burnin) << endl;
       add_paths(paths, average_paths);
+      write_root_to_pathfile_local(outfile, th.node_names.front());
+      for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+        append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
     }
     /* AVERAGING PATHS */
-    for (size_t site_id = 0; site_id < average_paths.size(); site_id++)
-      transform(average_paths[site_id].begin(), average_paths[site_id].end(),
-                average_paths[site_id].begin(),
-                std::bind(std::divides<double>(), std::placeholders::_1,
-                          n_samples));
+    if (n_samples > 0)
+      for (size_t site_id = 0; site_id < average_paths.size(); site_id++)
+        transform(average_paths[site_id].begin(), average_paths[site_id].end(),
+                  average_paths[site_id].begin(),
+                  std::bind(std::divides<double>(), std::placeholders::_1,
+                            n_samples));
     
     /* (6) OUTPUT */
     if (VERBOSE)
       cerr << "[WRITING OUTPUT]" << endl;
-    write_output(outfile, average_paths);
+    // write_output(outfile, average_paths);
+        
+
   }
 
   catch (const std::exception &e) {
