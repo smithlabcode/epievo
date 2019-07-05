@@ -277,9 +277,8 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
     P[start_state][0] * fh[node_id].q[0] / fh[node_id].p[start_state];
     const size_t sampled_state = (unif(gen) > p0);
 
-    const CTMarkovModel ctmm(rates[0], rates[1]);
-    assert(end_cond_sample_forward_rejection(10000000, ctmm,
-                                             start_state, sampled_state,
+    const TwoStateCTMarkovModel ctmm(rates[0], rates[1]);
+    assert(end_cond_sample_forward_rejection(ctmm, start_state, sampled_state,
                                              T, gen,
                                              sampled_path[node_id].jumps, 0));
   }

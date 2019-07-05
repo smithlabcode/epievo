@@ -497,9 +497,6 @@ end_cond_sample_direct(const CTMarkovModel &the_model,
 /////// ##       ######  ##    ##  ### ###  ##    ## ##    ## #######
 ////////
 //////// Hobolth & Stone (2009)
-//////// Liz: Forward sampling is not completely finished and tested.
-////////      Don't use it for now.
-
 
 size_t
 forward_sampling(vector<function<double()> > &the_distrs,
@@ -516,42 +513,47 @@ forward_sampling(vector<function<double()> > &the_distrs,
 
 
 bool
-end_cond_sample_forward_rejection(const size_t max_sample_count,
-                                  const CTMarkovModel &the_model,
+end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
                                   const size_t start_state,
                                   const size_t end_state,
                                   const double T,
                                   std::mt19937 &gen,
                                   vector<double> &jump_times,
-                                  const double start_time) {
+                                  const double start_time,
+                                  const size_t max_sample_count) {
 
   typedef exponential_distribution<double> exp_distr;
   vector<function<double()> > the_distrs = {
-                                            function<double()>(bind(exp_distr(the_model.get_rate(0ul)), ref(gen))),
-                                            function<double()>(bind(exp_distr(the_model.get_rate(1ul)), ref(gen)))
+                                            function<double()>(bind(exp_distr(the_model.rate0), ref(gen))),
+                                            function<double()>(bind(exp_distr(the_model.rate1), ref(gen)))
   };
 
   size_t sample_count = 0;
   vector<double> proposal;
   while (forward_sampling(the_distrs, start_state, T, proposal) != end_state &&
-         sample_count < max_sample_count)
+         sample_count < max_sample_count) {
     ++sample_count;
+  }
 
   if (sample_count < max_sample_count)
     transform(begin(proposal), end(proposal), std::back_inserter(jump_times),
               bind(std::plus<double>(), _1, start_time));
+  
+  // cerr << proposal.size() << ", " << start_state << ", " << end_state << endl;
+  assert((proposal.size() % 2) == static_cast<size_t>(start_state != end_state));
+  
   return (sample_count < max_sample_count);
 }
 
 
 /* Used for inverse transform sampling, from Nielsen (2001), eqn (A2)
- */
+
 static double
 sample_trunc_exp(function<double()> &U, const double lambda, const double T) {
   return -log(1.0 - U()*(1.0 - exp(-lambda*T)))/lambda;
 }
-
-
+*/
+/*
 bool
 end_cond_sampling_Nielsen(const size_t max_sample_count,
                           const CTMarkovModel &the_model,
@@ -601,7 +603,7 @@ end_cond_sampling_Nielsen(const size_t max_sample_count,
 
   return valid_path;
 }
-
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -700,14 +702,16 @@ end_cond_sample_prob(const CTMarkovModel &the_model,
 }
 
 
-/* Forward proposal probability density. */
+/* Forward proposal (log) probability density. */
 double
-forward_sample_prob(const CTMarkovModel &the_model,
-                    const vector<double> &jump_times,
-                    const size_t start_state, const size_t end_state,
-                    const double start_time, const double end_time,
-                    const size_t start_jump,
-                    const size_t end_jump) {
+end_cond_sample_forward_rejection_prob(const TwoStateCTMarkovModel &the_model,
+                                       const vector<double> &jump_times,
+                                       const size_t start_state,
+                                       const size_t end_state,
+                                       const double start_time,
+                                       const double end_time,
+                                       const size_t start_jump,
+                                       const size_t end_jump) {
 
   // start_jump must specify the first jump after the start time
   assert(start_jump == 0 || jump_times[start_jump - 1] < start_time);
@@ -721,31 +725,32 @@ forward_sample_prob(const CTMarkovModel &the_model,
   // inside the interval
   assert((end_jump - start_jump) % 2 == static_cast<size_t>(start_state != end_state));
 
-  vector<vector<double> > PT;
-
-  double p = 1.0;
+  double log_p = 0.0;
 
   double curr_time = start_time;
-
+  
   // if start_jump == end_jump then no jump exists within the
   // specified time interval; otherwise start_jump must specify a time
   // inside the interval
   size_t a = start_state;
+  const vector<double> rates = {the_model.rate0, the_model.rate1};
+  const vector<double> log_rates = {log(the_model.rate0), log(the_model.rate1)};
+
   for (size_t i = start_jump; i < end_jump; ++i) {
 
     const double tau = jump_times[i] - curr_time;
-    const double rate = the_model.get_rate(a);
-    const double jump_prob = rate * exp(- rate * tau);
-    //cerr << "Forward sampling: jump_prob=" << jump_prob << endl;
-    p *= jump_prob;
+    const double jump_log_prob = log_rates[a] - rates[a] * tau;
+    log_p += jump_log_prob;
 
-    assert(std::isfinite(p));
+    assert(std::isfinite(log_p));
     a = complement_state(a);
     curr_time = jump_times[i];
   }
 
-  the_model.get_trans_prob_mat(end_time - curr_time, PT);
+  // calculate last interval
+  const double tau = end_time - curr_time;
   assert(a == end_state);
-  const double pr_no_jump = prob_no_jump(the_model, PT, end_time - curr_time, a);
-  return p*pr_no_jump;
+  //const double pr_no_jump = - rates[a] * tau - log(the_model.get_trans_prob(tau, a, a));
+  const double pr_no_jump = - rates[a] * tau;
+  return log_p + pr_no_jump;
 }
