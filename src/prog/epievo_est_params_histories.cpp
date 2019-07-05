@@ -167,7 +167,7 @@ int main(int argc, const char **argv) {
 
     /* (2) READING PARAMETERS FROM FILE */
     if (VERBOSE)
-      cerr << "[READING PARAMETERS: " << param_file << endl;
+      cerr << "[READING PARAMETERS: " << param_file << "]" << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     if (VERBOSE)
@@ -297,13 +297,14 @@ int main(int argc, const char **argv) {
  
     /* (6) OUTPUT */
     if (VERBOSE)
-      cerr << "[WRITING PATHS]" << endl;
+      cerr << "[WRITING PATHS: " << outfile << "]" << endl;
     write_root_to_pathfile_local(outfile, th.node_names.front());
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
       append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
     
     if (VERBOSE)
-      cerr << "[WRITING PARAMETERS]\n" <<  the_model << endl;
+      cerr << "[WRITING PARAMETERS: " << param_file_updated << "]\n"
+      <<  the_model << endl;
     std::ofstream of_param;
     if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
     std::ostream out_param(param_file_updated.empty() ?
