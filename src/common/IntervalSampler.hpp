@@ -25,15 +25,7 @@
 #include "EpiEvoModel.hpp"
 #include "TreeHelper.hpp"
 #include "EndCondSampling.hpp"
-
-struct SegmentInfo {
-    SegmentInfo() {}
-    SegmentInfo(const double r0, const double r1, const double l) :
-    rate0(r0), rate1(r1), len(l) {}
-    double rate0;
-    double rate1;
-    double len;
-};
+#include "Segment.hpp"
 
 bool
 Metropolis_Hastings_interval(const EpiEvoModel &the_model, const TreeHelper &th,
