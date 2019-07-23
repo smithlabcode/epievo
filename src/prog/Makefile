@@ -21,6 +21,7 @@
 PROGS = epievo_sim global_jumps_to_paths \
 	extract_state_sequences epievo_est_complete epievo_sim_pairwise \
 	epievo_est_params_histories epievo_initialization scale_tree \
+	epievo_sim_pairwise_indep \
 
 CXX = g++
 CXXFLAGS = -Wall -std=c++11
@@ -75,6 +76,12 @@ epievo_sim_pairwise: \
     TripletSampler.o StateSeq.o IntervalSampler.o EndCondSampling.o \
     ContinuousTimeMarkovModel.o \
     EpiEvoModel.o GlobalJump.o ParamEstimation.o)
+
+epievo_sim_pairwise_indep: \
+	$(addprefix $(COMMON_DIR)/, \
+	TripletSampler.o StateSeq.o IndepSite.o \
+	EndCondSampling.o ContinuousTimeMarkovModel.o \
+	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
 global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)
 

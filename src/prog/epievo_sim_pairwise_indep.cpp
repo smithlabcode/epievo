@@ -23,6 +23,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <bitset>
 #include <random>
@@ -49,36 +50,9 @@ using std::cout;
 using std::string;
 using std::runtime_error;
 using std::numeric_limits;
+using std::to_string;
 
-using std::function;
-using std::exponential_distribution;
-using std::placeholders::_1;
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-template <class T>
-static void
-print_vec(vector<T> vec) {
-  for (size_t i = 0; i < vec.size(); i++)
-    cerr << vec[i] << ", ";
-  cerr << endl;
-}
-
-static void
-collect_init_sequences(const vector<Path> paths, vector<bool> &sequences) {
-  sequences.clear();
-  for (size_t site_id = 0; site_id < paths.size(); site_id++)
-    sequences.push_back(paths[site_id].init_state == 1);
-}
-
-static void
-collect_end_sequences(const vector<Path> paths, vector<bool> &sequences) {
-  sequences.clear();
-  for (size_t site_id = 0; site_id < paths.size(); site_id++)
-    sequences.push_back(paths[site_id].end_state() == 1);
-}
-
+///////////////////////////////////////////////////////////////////////////
 static void
 get_indep_params(const EpiEvoModel &the_model, vector<double> &rates,
                  double &pi_0) {
@@ -93,142 +67,77 @@ get_indep_params(const EpiEvoModel &the_model, vector<double> &rates,
   pi_0 = the_model.init_T[0][0] / (the_model.init_T[0][0] + the_model.init_T[1][1]);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-static void
-sample_root(const double pi_0, const size_t n_sites,
-            vector<bool> &seq, std::mt19937 &gen) {
 
-  seq.resize(n_sites, false);
-  std::uniform_real_distribution<double> unif(0.0, 1.0);
+template <class T>
+size_t
+read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
+                 TreeHelper &th) {
   
-  for (size_t i = 0; i < n_sites; i++)
-    seq[i] = (unif(gen) > pi_0);
-}
-
-
-
-static size_t
-forward_sampling(vector<function<double()> > &the_distrs,
-                 size_t a, const double T,
-                 vector<double> &jump_times) {
-  jump_times.clear();
-  double tau = 0.0;
-  while ((tau += the_distrs[a]()) < T) {
-    a = complement_state(a);
-    jump_times.push_back(tau);
+  std::ifstream in(statesfile.c_str());
+  if (!in)
+    throw std::runtime_error("bad states file: " + statesfile);
+  
+  // first line is the list of node names
+  string buffer;
+  if (!getline(in, buffer))
+    throw std::runtime_error("cannot read nodes line in: " + statesfile);
+  
+  std::istringstream nodes_iss(buffer);
+  vector<string> node_names;
+  
+  string tmp_node_name;
+  while (nodes_iss >> tmp_node_name)
+    node_names.push_back(tmp_node_name);
+  
+  if (node_names.size() != 2)
+    throw std::runtime_error("more or fewer than 2 nodes in: " + statesfile);
+  
+  if (node_names.front()[0] == '#') {
+    if (node_names.front().length() == 1)
+      node_names = vector<string>(node_names.begin() + 1, node_names.end());
+    else node_names.front() = node_names.front().substr(1);
   }
-  return a;
-}
-
-
-static bool
-check_leaf_seq(const vector<bool> seq, const vector<Path> &by_site) {
-
-  bool pass = true;
-  size_t site_id = 0;
-  while(pass && site_id < by_site.size()) {
-    pass = (by_site[site_id].end_state() == seq[site_id]) ? true : false;
-    site_id++;
-  }
-  return pass;
-}
-
-
-static void
-forward_simulation(const TwoStateCTMarkovModel &ctmm, const double pi_0,
-                   const TreeHelper &th,
-                   const size_t n_sites, vector<vector<Path> > &paths,
-                   std::mt19937 &gen) {
   
-  const size_t n_nodes = th.n_nodes;
-  paths.resize(n_nodes);
-
-  vector<bool> root_seq;
-  sample_root(pi_0, n_sites, root_seq, gen);
-
-  typedef exponential_distribution<double> exp_distr;
-  vector<function<double()> > the_distrs = {
-    function<double()>(bind(exp_distr(ctmm.rate0), ref(gen))),
-    function<double()>(bind(exp_distr(ctmm.rate1), ref(gen)))
-  };
+  th.node_names = node_names;
   
-  for (size_t site_id = 0; site_id < n_sites; site_id++)
-    paths[0].push_back(Path(root_seq[site_id], 0.0));
+  // read states
+  const size_t n_nodes = node_names.size();
+  size_t site_count = 0;
   
-  for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
-    vector<Path> path_by_site(n_sites);
-    const double curr_branch_len = th.branches[node_id];
-
-    for (size_t site_id = 0; site_id < n_sites; site_id++) {
-      const size_t start_state = paths[th.parent_ids[node_id]][site_id].end_state();
-      path_by_site[site_id].init_state = start_state;
-      path_by_site[site_id].tot_time = curr_branch_len;
-
-      forward_sampling(the_distrs, start_state, curr_branch_len,
-                       path_by_site[site_id].jumps);
-    }
-    paths[node_id] = path_by_site;
-  }
-}
-
-
-static bool
-end_cond_forward_simulation(const TwoStateCTMarkovModel &ctmm,
-                            const double pi_0, const TreeHelper &th,
-                            const vector<vector<bool>> end_sequences,
-                            vector<vector<Path> > &paths, std::mt19937 &gen,
-                            const bool FIX_ROOT) {
+  state_sequences.resize(th.n_nodes);
   
-  const size_t n_nodes = end_sequences.size();
-  const size_t n_sites = end_sequences[0].size();
-  
-  vector<bool> root_seq(end_sequences[0]);
-  if (!FIX_ROOT)
-    sample_root(pi_0, n_sites, root_seq, gen);
-
-  for (size_t site_id = 0; site_id < n_sites; site_id++)
-    paths[0].push_back(Path(root_seq[site_id], 0.0));
-  
-  typedef exponential_distribution<double> exp_distr;
-  vector<function<double()> > the_distrs = {
-    function<double()>(bind(exp_distr(ctmm.rate0), ref(gen))),
-    function<double()>(bind(exp_distr(ctmm.rate1), ref(gen)))
-  };
-
-  bool pass = true;
-  for (size_t node_id = 1; pass && (node_id < n_nodes); ++node_id) {
-    // start new branch
-    const double curr_branch_len = th.branches[node_id];
-    vector<Path> path_by_site(n_sites);
+  while (getline(in, buffer)) {
+    std::istringstream iss;
+    iss.str(std::move(buffer));
     
-    for (size_t site_id = 0; site_id < n_sites; site_id++) {
-      const size_t start_state = paths[th.parent_ids[node_id]][site_id].end_state();
-      path_by_site[site_id].init_state = start_state;
-      path_by_site[site_id].tot_time = curr_branch_len;
-
-      forward_sampling(the_distrs, start_state, curr_branch_len,
-                       path_by_site[site_id].jumps);
-    }
-
-    paths[node_id] = path_by_site;
+    size_t site_index = 0;
+    iss >> site_index; // not important info but must be removed
     
-    // leaf sequence agree?
-    pass = th.is_leaf(node_id) ?
-    check_leaf_seq(end_sequences[node_id], paths[node_id]) : true;
+    // now read the states for the current site
+    size_t node_idx = 0;
+    T tmp_state_val;
+    while (node_idx < n_nodes && iss >> tmp_state_val)
+        state_sequences[node_idx++].push_back(tmp_state_val);
+    
+    if (node_idx < n_nodes)
+      throw std::runtime_error("inconsistent number of states: " +
+                               to_string(node_idx) + "/" + to_string(n_nodes));
+    ++site_count;
   }
-  return pass;
+  
+  if (site_count == 0)
+    throw std::runtime_error("no sites read from states file: " + statesfile);
+
+  return site_count;
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
 
 /* generate initial paths by heuristics */
 static void
-initialize_paths(std::mt19937 &gen, const TreeHelper &th,
-                 vector<vector<bool> > &end_sequences,
-                 vector<vector<Path> > &paths, const bool FIX_ROOT) {
+initialize_paths_indep(std::mt19937 &gen, const TreeHelper &th,
+                       vector<vector<size_t> > &end_sequences,
+                       vector<vector<Path> > &paths, const bool FIX_ROOT) {
   
   const size_t n_sites = end_sequences.front().size();
   
@@ -272,10 +181,11 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
   }
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-///////////////////               PRUNING              /////////////////////////
+///////////////////                 MCMC               /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Iterates over all nodes, in reverse pre-order, and for each it sets
@@ -373,7 +283,7 @@ sampling_downward(const TwoStateCTMarkovModel &ctmm, const double &root_p0,
 
 static double
 indep_log_likelihood(const vector<double> &rates,
-               const vector<double> &J, const vector<double> &D) {
+                     const vector<double> &J, const vector<double> &D) {
   double r = 0.0;
   for (size_t i = 0; i < rates.size(); ++i) {
     r += J[i]*log(rates[i]) - D[i]*rates[i];
@@ -408,7 +318,7 @@ get_suff_stats(const vector<Path> &paths, vector<double> &J, vector<double> &D) 
 
 
 /* compute acceptance rate */
-double
+static double
 log_accept_rate(const vector<double> rates, const size_t site_id,
                 const vector<vector<Path> > &paths,
                 const vector<Path> &proposed_path,
@@ -418,7 +328,7 @@ log_accept_rate(const vector<double> rates, const size_t site_id,
   vector<Path> original(paths.size());
   for (size_t i = 1; i < paths.size(); ++i)
     original[i] = paths[i][site_id];
-
+  
   double llr = orig_proposal - update_proposal;
   
   vector<double> J_orig, D_orig, J_prop, D_prop;
@@ -436,12 +346,12 @@ log_accept_rate(const vector<double> rates, const size_t site_id,
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Metropolis-Hastings sampling at single site */
-bool
+static bool
 MCMC_indep_site(const TwoStateCTMarkovModel &ctmm, const double &pi_0,
                 const TreeHelper &th,
                 const size_t site_id, vector<vector<Path> > &paths,
                 std::mt19937 &gen, vector<Path> &proposed_path) {
-
+  
   vector<FelsHelper> fh;
   double orig_proposal, update_proposal;
   
@@ -469,68 +379,67 @@ MCMC_indep_site(const TwoStateCTMarkovModel &ctmm, const double &pi_0,
 }
 
 
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 
 static void
-write_statistics_header(const string outfile) {
-  std::ofstream out(outfile.c_str());
-  out << "ITR\tSAMPLE\tJ_0\tJ_1\tD_0\tD_1" << endl;
+write_root_to_pathfile_local(const string &outfile, const string &root_name) {
+  std::ofstream of;
+  if (!outfile.empty()) of.open(outfile.c_str());
+  std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + outfile);
+  
+  outpath << "NODE:" << root_name << endl;
 }
 
 
 static void
-write_statistics(const string outfile, const size_t itr, const size_t sample,
-                 const vector<double> &J, const vector<double> &D) {
-  std::ofstream out(outfile.c_str(), std::ofstream::app);
-  out << itr << "\t" << sample << "\t";
-  for (size_t i = 0; i < 2; i++)
-    out << J[i] << "\t";
-  for (size_t i = 0; i < 1; i++)
-    out << D[i] << "\t";
-  out << D.back() << endl;
+append_to_pathfile_local(const string &pathfile, const string &node_name,
+                         const vector<Path> &path_by_site) {
+  std::ofstream of;
+  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
+  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+  if (!outpath)
+    throw std::runtime_error("bad output file: " + pathfile);
+  
+  outpath << "NODE:" << node_name << endl;
+  for (size_t i = 0; i < path_by_site.size(); ++i)
+    outpath << i << '\t' << path_by_site[i] << '\n';
 }
 
-
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, const char **argv) {
   try {
     bool VERBOSE = false;
-    //bool FIX_ROOT = false;
+
+    string outfile;               // sampled local path
+    string pathfile;               // initial local path
     
-    string outfile;
-    string tree_file;
-    
-    size_t n_sites = 5;
-    size_t batch = 100;
-    size_t n_mcmc_batches = 100;
+    size_t burnin = 10;           // burn-in MCMC iterations
+    double evolutionary_time = 1.0;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
-    
-    double evolutionary_time = numeric_limits<double>::lowest();
-    
+
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
-                           "test MCMC against forward-simulation summary stats",
-                           "site-independent <param>");
-    opt_parse.add_opt("n_sites", 'n', "number of sites", false, n_sites);
-    opt_parse.add_opt("mcmc_itr", 'i', "number of MCMC iterations",
-                      false, n_mcmc_batches);
-    opt_parse.add_opt("batch", 'B', "batch size",
-                      false, batch);
-    opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
+                           "Simulate paths between a pair of sequences",
+                           "<param> <states>");
+    opt_parse.add_opt("burnin", 'L',
+                      "MCMC burn-in length (default: 10)",
+                      false, burnin);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
                       evolutionary_time);
+    opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
+    opt_parse.add_opt("outfile", 'o',
+                      "output file of local paths (default: stdout)",
+                      false, outfile);
+    opt_parse.add_opt("pathfile", 'p',
+                      "input file of local paths", false, pathfile);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
-    opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);;
-    opt_parse.add_opt("outfile", 'o', "outfile (prefix)",
-                      false, outfile);
-    //opt_parse.add_opt("fixroot", 'R', "fix root states",
-    //                  false, FIX_ROOT);
 
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -547,16 +456,16 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() < 1) {
+    if (leftover_args.size() < 2) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
     const string param_file(leftover_args[0]);
+    const string states_file(leftover_args[1]);
     ///////////////////////////////////////////////////////////////////////////
-
     /* (1) READING PARAMETERS FROM FILE */
     if (VERBOSE)
-      cerr << "[READING PARAMETERS: " << param_file << "]" << endl;
+      cerr << "[READING PARAMETERS: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     the_model.scale_triplet_rates();
@@ -567,121 +476,62 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "[R0: " << rates[0] << ", R1: " << rates[1]
       << ", PI0: " << pi_0 << "]" << endl;
-    
-    if (VERBOSE)
-      cerr << the_model << endl;
 
-    /* (2) LOADING TREE */
-    size_t n_nodes = 0;
-    TreeHelper th;
-    if (!tree_file.empty()) {
-      if (VERBOSE)
-        cerr << "[READING TREE: " << tree_file << "]" << endl;
-      PhyloTreePreorder the_tree; // tree topology and branch lengths
-      std::ifstream tree_in(tree_file.c_str());
-      if (!tree_in || !(tree_in >> the_tree))
-        throw std::runtime_error("bad tree file: " + tree_file);
-      n_nodes = the_tree.get_size();
-      th = TreeHelper(the_tree);
-    }
-    else {
-      if (VERBOSE)
-        cerr << "[INITIALIZING TWO-NODE TREE WITH TIME: "
-        << evolutionary_time << "]" << endl;
-      n_nodes = 2;
-      th = TreeHelper(evolutionary_time);
-    }
-     
+    /* (2) GET THE ROOT SEQUENCE */
+    if (VERBOSE)
+      cerr << "[OBTAINING ROOT/LEAF SEQUENCE]" << endl;
+    TreeHelper th(evolutionary_time);
+    vector<vector<size_t> > state_sequences; // double if data is continuous
+    read_states_file(states_file, state_sequences, th);
+    const size_t n_sites = state_sequences.front().size();
+    
     /* (3) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
       rng_seed = rd();
     }
     std::mt19937 gen(rng_seed);
+
+    vector<vector<Path> > init_paths;
+    vector<string> node_names;
+    if (!pathfile.empty())
+      read_paths(pathfile, node_names, init_paths);
+    else 
+      initialize_paths_indep(gen, th, state_sequences, init_paths, true);
+
+
     if (VERBOSE)
-      cerr << "[INITIALIZED RNG (seed=" << rng_seed << ")]" << endl;
-
-    /* ********************************************************************** */
-    /* (4) GENERATE ONE PATH */
-    if (VERBOSE)
-      cerr << "[GENERATE A SAMPLE PATH]" << endl;
-    vector<vector<Path> > paths; // along multiple branches
-    forward_simulation(ctmm, pi_0, th, n_sites, paths, gen);
-  
-    // collect sequences
-    vector<bool> root_seq;
-    collect_init_sequences(paths[1], root_seq);
-    vector<vector<bool>> end_sequences (n_nodes, root_seq);
-    for (size_t node_id = 1; node_id < n_nodes; node_id++) {
-      collect_end_sequences(paths[node_id], end_sequences[node_id]);
-    }
-    /* ********************************************************************** */
-    /* (5) FORWARD SIMULATION */
-    if (VERBOSE)
-      cerr << "[FORWARD SIMULATION]" << endl;
-
-    // forward-simulation output files
-    vector<string> statfiles_forward(n_nodes);
-    for (size_t node_id = 1; node_id < n_nodes; node_id++) {
-      const string fstat = outfile + "." + th.node_names[node_id] + ".forward";
-      statfiles_forward[node_id] = fstat;
-      write_statistics_header(fstat);
-    }
-
-    // sampling
-    size_t n_forward_samples_collected = 0;
-    while (n_forward_samples_collected < batch) {
-      vector<vector<Path> > sampled_paths (n_nodes);
-
-      const bool success = end_cond_forward_simulation(ctmm, pi_0, th,
-                                                       end_sequences,
-                                                       sampled_paths, gen,
-                                                       true);
-      if (success) {
-        vector<vector<double> > J, D;
-        compute_sufficient_statistics(sampled_paths, J, D);
-        for (size_t node_id = 1; node_id < n_nodes; node_id++)
-          write_statistics(statfiles_forward[node_id],
-                           0, n_forward_samples_collected,
-                           J[node_id], D[node_id]);
-        n_forward_samples_collected++;
+      cerr << "[SIMULATING]" << endl;
+    
+    
+    /* INITIALIZING THE PATH */
+    vector<vector<Path> > paths = init_paths;
+    //////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    /////// STARTING MCMC
+    //////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    
+    /* METROPOLIS-HASTINGS ALGORITHM */
+    // Burning
+    double n_acc = 0;
+    for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
+      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+        vector<Path> proposed_path;
+        n_acc += MCMC_indep_site(ctmm, pi_0, th, site_id, paths, gen,
+                                 proposed_path);
+        assert(paths[1][site_id].init_state == state_sequences[0][site_id]);
+        assert(paths[1][site_id].end_state() == state_sequences[1][site_id]);
       }
     }
 
-    /* ********************************************************************** */
-    /* (6) MCMC */
-
-    // mcmc output files
-    vector<string> statfiles_mcmc(n_nodes);
-    for (size_t node_id = 1; node_id < n_nodes; node_id++) {
-      const string fstat = outfile + "." + th.node_names[node_id] + ".mcmc";
-      statfiles_mcmc[node_id] = fstat;
-      write_statistics_header(fstat);
-    }
-    
-    // distort/randomize paths
-    vector<vector<Path> > mcmc_paths(paths);
-    initialize_paths(gen, th, end_sequences, mcmc_paths, true);
-
-    vector<Path> proposed_path;
-    for(size_t batch_id = 0; batch_id < n_mcmc_batches; batch_id++) {
-      for (size_t sample_id = 0; sample_id < batch; sample_id++) {
-        for (size_t site_id = 0; site_id < n_sites; ++site_id) {
-          MCMC_indep_site(ctmm, pi_0, th, site_id, mcmc_paths, gen,
-                          proposed_path);
-          assert(mcmc_paths[1][site_id].end_state() == paths[1][site_id].end_state());
-        }
-        
-        // write stats
-        vector<vector<double> > J, D;
-        compute_sufficient_statistics(mcmc_paths, J, D);
-        for (size_t node_id = 1; node_id < n_nodes; node_id++)
-          write_statistics(statfiles_mcmc[node_id],
-                           batch_id, sample_id, J[node_id], D[node_id]);
-      }
-    }
-    
+    if (VERBOSE)
+      cout << ", acc rate: " << n_acc / ((n_sites-2)*burnin) << endl;
+    write_root_to_pathfile_local(outfile, th.node_names.front());
+    for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+      append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
   }
+
   catch (const std::exception &e) {
     cerr << e.what() << endl;
     return EXIT_FAILURE;
