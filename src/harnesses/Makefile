@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = MCMC_test \
+PROGS = MCMC_test MCMC_indep_site \
 
 CXX = g++
 CXXFLAGS = -Wall -std=c++11
@@ -50,9 +50,15 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TreeHelper.o Path.o Segment.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-MCMC_test: \
+MCMC_test MCMC_indep_site: \
 	$(addprefix $(COMMON_DIR)/, \
 	TripletSampler.o StateSeq.o SingleSiteSampler.o IntervalSampler.o \
+	EndCondSampling.o ContinuousTimeMarkovModel.o \
+	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
+
+MCMC_indep_site: \
+	$(addprefix $(COMMON_DIR)/, \
+	TripletSampler.o StateSeq.o IndepSite.o \
 	EndCondSampling.o ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
