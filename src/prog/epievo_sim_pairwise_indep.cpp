@@ -135,49 +135,24 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
 
 /* generate initial paths by heuristics */
 static void
-initialize_paths_indep(std::mt19937 &gen, const TreeHelper &th,
-                       vector<vector<size_t> > &end_sequences,
-                       vector<vector<Path> > &paths, const bool FIX_ROOT) {
+initialize_paths_indep(std::mt19937 &gen, vector<vector<size_t> > &end_sequences,
+                       vector<vector<Path> > &paths, const double tot_time) {
   
   const size_t n_sites = end_sequences.front().size();
   
-  paths.resize(th.n_nodes);
-  
-  auto unif =
-  bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
-  
-  vector<size_t> child_states = {0, 0}; // two child states
-  
-  for (size_t i = th.n_nodes; i > 0; --i) {
+  paths.resize(2); 
+  paths[0].resize(n_sites);
+  paths[1].resize(n_sites);
     
-    const size_t node_id = i - 1;
-    paths[node_id].resize(n_sites);
+  std::uniform_real_distribution<double> unif(0.0, tot_time);
+
+  for (size_t site_id = 0; site_id < n_sites; ++site_id) {
+    paths[0][site_id].init_state = end_sequences[0][site_id];
+    paths[1][site_id].init_state = end_sequences[0][site_id];
+    paths[1][site_id].tot_time = tot_time;
     
-    for (size_t site_id = 0; site_id < n_sites; ++site_id) {
-      
-      if (!th.is_leaf(node_id)) {
-        // get child states
-        size_t n_ch = 0;
-        for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c)
-          child_states[n_ch++] = end_sequences[*c][site_id];
-        
-        // sample parent state
-        if (th.parent_ids[node_id] > 0 || !FIX_ROOT)
-          end_sequences[node_id][site_id] = child_states[std::floor(unif()*n_ch)];
-        
-        // assign site-specific paths above two child nodes
-        for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c) {
-          
-          const double len = th.branches[*c];
-          paths[*c][site_id].tot_time = len;
-          paths[*c][site_id].init_state = end_sequences[node_id][site_id];
-          
-          const bool parent_state = end_sequences[node_id][site_id];
-          if (parent_state != paths[*c][site_id].init_state)
-            paths[*c][site_id].jumps.push_back(unif() * len);
-        }
-      }
-    }
+    if (end_sequences[0][site_id] != end_sequences[1][site_id])
+      paths[1][site_id].jumps.push_back(unif(gen));
   }
 }
 
@@ -497,7 +472,7 @@ int main(int argc, const char **argv) {
     if (!pathfile.empty())
       read_paths(pathfile, node_names, init_paths);
     else 
-      initialize_paths_indep(gen, th, state_sequences, init_paths, true);
+      initialize_paths_indep(gen, state_sequences, init_paths, evolutionary_time);
 
 
     if (VERBOSE)
@@ -506,6 +481,11 @@ int main(int argc, const char **argv) {
     
     /* INITIALIZING THE PATH */
     vector<vector<Path> > paths = init_paths;
+
+    for (size_t site_id = 0; site_id < n_sites; ++site_id) {
+        assert(paths[1][site_id].init_state == state_sequences[0][site_id]);
+        assert(paths[1][site_id].end_state() == state_sequences[1][site_id]);
+    }
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
     /////// STARTING MCMC
@@ -516,7 +496,7 @@ int main(int argc, const char **argv) {
     // Burning
     double n_acc = 0;
     for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
-      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+      for (size_t site_id = 0; site_id < n_sites; ++site_id) {
         vector<Path> proposed_path;
         n_acc += MCMC_indep_site(ctmm, pi_0, th, site_id, paths, gen,
                                  proposed_path);
