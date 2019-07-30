@@ -61,8 +61,8 @@ TripletSampler::TripletSampler(const vector<char> &seq) {
   cum_pat_count.push_back(seq_len - 2); // total number of triples
 
   // remember the start and end state; these will never change
-  start_state = seq[0];
-  end_state = seq.back();
+  start_state = (seq[0] == '1');
+  end_state = (seq.back() == '1');
 }
 
 
@@ -95,8 +95,8 @@ TripletSampler::TripletSampler(const StateSeq &s) {
   cum_pat_count.push_back(seq_len - 2); // total number of triples
 
   // remember the start and end state; these will never change
-  start_state = s.seq[0];
-  end_state = s.seq.back();
+  start_state = (s.seq[0] == '1');
+  end_state = (s.seq.back() == '1');
 }
 
 
@@ -220,7 +220,6 @@ TripletSampler::random_mutate(const size_t context, std::mt19937 &gen) {
 void
 TripletSampler::get_sequence(std::vector<char> &seq) const {
   static const size_t n_triplets = 8;
-
   seq.resize(idx_in_pat.size(), true);
 
   size_t idx = 0; // start at 0 because indexing within pos_by_pat,
@@ -229,13 +228,13 @@ TripletSampler::get_sequence(std::vector<char> &seq) const {
   for (size_t pat = 0; pat < n_triplets; ++pat) {
     const bool state = get_mid_bit(pat);
     while (idx < cum_pat_count[pat + 1]) {
-      seq[pos_by_pat[idx]] = state;
+      seq[pos_by_pat[idx]] = '0' + state;
       ++idx;
     }
   }
 
-  seq[0] = start_state;
-  seq.back() = end_state;
+  seq[0] = '0' + start_state;
+  seq.back() = '0' + end_state;
 }
 
 // same as above, but for the StateSeq object
