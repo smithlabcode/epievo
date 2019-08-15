@@ -500,10 +500,10 @@ end_cond_sample_direct(const CTMarkovModel &the_model,
 
 size_t
 forward_sampling(vector<function<double()> > &the_distrs,
-                 size_t a, const double T,
+                 size_t a, const double T, const double start_time,
                  vector<double> &jump_times) {
   jump_times.clear();
-  double tau = 0.0;
+  double tau = start_time;
   while ((tau += the_distrs[a]()) < T) {
     a = complement_state(a);
     jump_times.push_back(tau);
@@ -530,7 +530,8 @@ end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
 
   size_t sample_count = 0;
   vector<double> proposal;
-  while (forward_sampling(the_distrs, start_state, T, proposal) != end_state &&
+  while (forward_sampling(the_distrs, start_state, T, 0.0,
+                          proposal) != end_state &&
          sample_count < max_sample_count) {
     ++sample_count;
   }

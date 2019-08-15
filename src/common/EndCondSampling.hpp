@@ -84,4 +84,9 @@ end_cond_sample_forward_rejection_prob(const TwoStateCTMarkovModel &the_model,
                                        const size_t start_jump,
                                        const size_t end_jump);
 
+size_t
+forward_sampling(std::vector<std::function<double()> > &the_distrs,
+                 size_t a, const double T, const double start_time,
+                 std::vector<double> &jump_times);
+
 #endif
