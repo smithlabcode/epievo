@@ -107,21 +107,6 @@ sample_root(const double pi_0, const size_t n_sites,
 }
 
 
-
-static size_t
-forward_sampling(vector<function<double()> > &the_distrs,
-                 size_t a, const double T,
-                 vector<double> &jump_times) {
-  jump_times.clear();
-  double tau = 0.0;
-  while ((tau += the_distrs[a]()) < T) {
-    a = complement_state(a);
-    jump_times.push_back(tau);
-  }
-  return a;
-}
-
-
 static bool
 check_leaf_seq(const vector<bool> seq, const vector<Path> &by_site) {
 
@@ -146,7 +131,8 @@ forward_simulation(const TwoStateCTMarkovModel &ctmm, const double pi_0,
 
   vector<bool> root_seq;
   sample_root(pi_0, n_sites, root_seq, gen);
-
+  root_seq = {false, false, false};
+  
   typedef exponential_distribution<double> exp_distr;
   vector<function<double()> > the_distrs = {
     function<double()>(bind(exp_distr(ctmm.rate0), ref(gen))),
@@ -164,9 +150,10 @@ forward_simulation(const TwoStateCTMarkovModel &ctmm, const double pi_0,
       const size_t start_state = paths[th.parent_ids[node_id]][site_id].end_state();
       path_by_site[site_id].init_state = start_state;
       path_by_site[site_id].tot_time = curr_branch_len;
-
-      forward_sampling(the_distrs, start_state, curr_branch_len,
-                       path_by_site[site_id].jumps);
+      
+      if (site_id > 0 && site_id < (n_sites - 1))
+        forward_sampling(the_distrs, start_state, curr_branch_len, 0.0,
+                         path_by_site[site_id].jumps);
     }
     paths[node_id] = path_by_site;
   }
@@ -202,12 +189,12 @@ end_cond_forward_simulation(const TwoStateCTMarkovModel &ctmm,
     const double curr_branch_len = th.branches[node_id];
     vector<Path> path_by_site(n_sites);
     
-    for (size_t site_id = 0; site_id < n_sites; site_id++) {
+    for (size_t site_id = 1; site_id < n_sites-1; site_id++) {
       const size_t start_state = paths[th.parent_ids[node_id]][site_id].end_state();
       path_by_site[site_id].init_state = start_state;
       path_by_site[site_id].tot_time = curr_branch_len;
 
-      forward_sampling(the_distrs, start_state, curr_branch_len,
+      forward_sampling(the_distrs, start_state, curr_branch_len, 0.0,
                        path_by_site[site_id].jumps);
     }
 
@@ -342,7 +329,7 @@ sampling_downward(const TwoStateCTMarkovModel &ctmm, const double &root_p0,
   log(1.0 - root_p0) : log(root_p0);
   orig_proposal = paths[1][site_id].init_state ?
   log(1.0 - root_p0) : log(root_p0);
-  
+
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
     const double T = paths[node_id][site_id].tot_time;
@@ -357,10 +344,14 @@ sampling_downward(const TwoStateCTMarkovModel &ctmm, const double &root_p0,
     const size_t sampled_state = (unif(gen) > p0);
     end_cond_sample_Poisson(ctmm, start_state, sampled_state,
                             T, gen, proposed_path[node_id].jumps, 0.0);
-    orig_proposal +=
+    
+    const double interval_prob =
     end_cond_sample_Poisson_prob(ctmm, paths[node_id][site_id].jumps,
                                  start_state, paths[node_id][site_id].end_state(),
                                  0, T, 0, paths[node_id][site_id].jumps.size());
+    orig_proposal += interval_prob;
+    //cerr << "interval_prob: " << interval_prob << endl;
+    //cerr << "orig_proposal: " << orig_proposal << endl;
     update_proposal +=
     end_cond_sample_Poisson_prob(ctmm, proposed_path[node_id].jumps,
                                  start_state, sampled_state,
@@ -418,7 +409,10 @@ log_accept_rate(const vector<double> rates, const size_t site_id,
   vector<Path> original(paths.size());
   for (size_t i = 1; i < paths.size(); ++i)
     original[i] = paths[i][site_id];
-
+  cerr << "orig_jumps: " << paths[1][site_id].jumps.size()
+  << ", update_jumps: " << proposed_path[1].jumps.size() << endl;
+  cerr << "orig_prop: " << orig_proposal
+  << ", update_prop: " << update_proposal << endl;
   double llr = orig_proposal - update_proposal;
   
   vector<double> J_orig, D_orig, J_prop, D_prop;
@@ -427,7 +421,7 @@ log_accept_rate(const vector<double> rates, const size_t site_id,
   
   llr += (indep_log_likelihood(rates, J_prop, D_prop) -
           indep_log_likelihood(rates, J_orig, D_orig));
-  
+  cerr << "llr: " << llr << endl;
   return llr;
 }
 
@@ -476,7 +470,8 @@ MCMC_indep_site(const TwoStateCTMarkovModel &ctmm, const double &pi_0,
 static void
 write_statistics_header(const string outfile) {
   std::ofstream out(outfile.c_str());
-  out << "ITR\tSAMPLE\tJ_0\tJ_1\tD_0\tD_1" << endl;
+  out << "ITR\tSAMPLE\tJ_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
+  << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111" << endl;
 }
 
 
@@ -485,11 +480,25 @@ write_statistics(const string outfile, const size_t itr, const size_t sample,
                  const vector<double> &J, const vector<double> &D) {
   std::ofstream out(outfile.c_str(), std::ofstream::app);
   out << itr << "\t" << sample << "\t";
-  for (size_t i = 0; i < 2; i++)
+  for (size_t i = 0; i < 8; i++)
     out << J[i] << "\t";
-  for (size_t i = 0; i < 1; i++)
+  for (size_t i = 0; i < 7; i++)
     out << D[i] << "\t";
-  out << D.back() << endl;
+  out << D[7] << endl;
+}
+
+static void
+print_init_sequences(const vector<Path> paths) {
+  for (size_t site_id = 0; site_id < paths.size(); site_id++)
+    cout << paths[site_id].init_state;
+  cout << endl;
+}
+
+static void
+print_end_sequences(const vector<Path> paths) {
+  for (size_t site_id = 0; site_id < paths.size(); site_id++)
+    cout << paths[site_id].end_state();
+  cout << endl;
 }
 
 
@@ -608,6 +617,13 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > paths; // along multiple branches
     forward_simulation(ctmm, pi_0, th, n_sites, paths, gen);
   
+    if (VERBOSE) {
+      cout << "ROOT SEQ: ";
+      print_init_sequences(paths[1]);
+      cout << "END SEQ: ";
+      print_end_sequences(paths[1]);
+    }
+    
     // collect sequences
     vector<bool> root_seq;
     collect_init_sequences(paths[1], root_seq);
@@ -617,9 +633,6 @@ int main(int argc, const char **argv) {
     }
     /* ********************************************************************** */
     /* (5) FORWARD SIMULATION */
-    if (VERBOSE)
-      cerr << "[FORWARD SIMULATION]" << endl;
-
     // forward-simulation output files
     vector<string> statfiles_forward(n_nodes);
     for (size_t node_id = 1; node_id < n_nodes; node_id++) {
@@ -628,6 +641,9 @@ int main(int argc, const char **argv) {
       write_statistics_header(fstat);
     }
 
+    if (VERBOSE)
+      cerr << "[FORWARD SIMULATION]" << endl;
+    
     // sampling
     size_t n_forward_samples_collected = 0;
     while (n_forward_samples_collected < batch) {
@@ -639,7 +655,7 @@ int main(int argc, const char **argv) {
                                                        true);
       if (success) {
         vector<vector<double> > J, D;
-        compute_sufficient_statistics(sampled_paths, J, D);
+        get_sufficient_statistics(sampled_paths, J, D);
         for (size_t node_id = 1; node_id < n_nodes; node_id++)
           write_statistics(statfiles_forward[node_id],
                            0, n_forward_samples_collected,
@@ -658,7 +674,7 @@ int main(int argc, const char **argv) {
       statfiles_mcmc[node_id] = fstat;
       write_statistics_header(fstat);
     }
-    
+
     // distort/randomize paths
     vector<vector<Path> > mcmc_paths(paths);
     initialize_paths(gen, th, end_sequences, mcmc_paths, true);
@@ -666,7 +682,7 @@ int main(int argc, const char **argv) {
     vector<Path> proposed_path;
     for(size_t batch_id = 0; batch_id < n_mcmc_batches; batch_id++) {
       for (size_t sample_id = 0; sample_id < batch; sample_id++) {
-        for (size_t site_id = 0; site_id < n_sites; ++site_id) {
+        for (size_t site_id = 1; site_id < n_sites-1; ++site_id) {
           MCMC_indep_site(ctmm, pi_0, th, site_id, mcmc_paths, gen,
                           proposed_path);
           assert(mcmc_paths[1][site_id].end_state() == paths[1][site_id].end_state());
@@ -674,7 +690,7 @@ int main(int argc, const char **argv) {
         
         // write stats
         vector<vector<double> > J, D;
-        compute_sufficient_statistics(mcmc_paths, J, D);
+        get_sufficient_statistics(mcmc_paths, J, D);
         for (size_t node_id = 1; node_id < n_nodes; node_id++)
           write_statistics(statfiles_mcmc[node_id],
                            batch_id, sample_id, J[node_id], D[node_id]);
