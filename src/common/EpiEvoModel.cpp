@@ -286,12 +286,11 @@ sample_state_sequence(const size_t n_sites, const two_by_two &trans_prob,
     (1.0 - trans_prob[0][0])/(2.0 - trans_prob[1][1] - trans_prob[0][0]);
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  sequence[0] = (unif(gen) < pi1);
-
+  sequence[0] = '0' + (unif(gen) < pi1);
   for (size_t i = 1; i < n_sites; ++i) {
     const double r = unif(gen);
-    const double p = sequence[i - 1] ? trans_prob[1][1] : trans_prob[0][0];
-    sequence[i] = ((r <= p) ? sequence[i - 1] : !sequence[i - 1]);
+    const double p = (sequence[i - 1] == '1')? trans_prob[1][1] : trans_prob[0][0];
+    sequence[i] = ((r <= p) ? sequence[i - 1] : ('0' + (sequence[i - 1] == '0')));
   }
 }
 
@@ -389,6 +388,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
     (rates[2] * rates[4] * rates[4]);
     
     m.rebuild_from_triplet_rates(rates);
+    m.init_T = m.T;
   }
 
 }
