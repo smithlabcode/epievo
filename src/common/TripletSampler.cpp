@@ -40,7 +40,7 @@ TripletSampler::TripletSampler(const vector<char> &seq) {
   // get the cumulative counts of each binary triplet
   cum_pat_count.resize(8, 0ul);
   for (size_t i = 1; i < seq_len - 1; ++i)
-    ++cum_pat_count[triple2idx(seq[i-1], seq[i], seq[i+1])];
+    ++cum_pat_count[triple2idx(seq[i-1]=='1', seq[i]=='1', seq[i+1]=='1')];
   std::partial_sum(cum_pat_count.begin(), cum_pat_count.end(),
                    cum_pat_count.begin());
 
@@ -50,7 +50,7 @@ TripletSampler::TripletSampler(const vector<char> &seq) {
   // place each sequence position into the appropriate part of the
   // vector; this is just one pass of counting-sort
   for (size_t i = 1; i < seq_len - 1; ++i) {
-    const size_t idx = triple2idx(seq[i-1], seq[i], seq[i+1]);
+    const size_t idx = triple2idx(seq[i-1]=='1', seq[i]=='1', seq[i+1]=='1');
     --cum_pat_count[idx];
     const size_t x = cum_pat_count[idx];
     pos_by_pat[x] = i;
@@ -74,7 +74,7 @@ TripletSampler::TripletSampler(const StateSeq &s) {
   // get the cumulative counts of each binary triplet
   cum_pat_count.resize(8, 0ul);
   for (size_t i = 1; i < seq_len - 1; ++i)
-    ++cum_pat_count[triple2idx(s.seq[i-1], s.seq[i], s.seq[i+1])];
+    ++cum_pat_count[triple2idx(s.seq[i-1]=='1', s.seq[i]=='1', s.seq[i+1]=='1')];
   std::partial_sum(cum_pat_count.begin(), cum_pat_count.end(),
                    cum_pat_count.begin());
 
@@ -84,7 +84,7 @@ TripletSampler::TripletSampler(const StateSeq &s) {
   // place each sequence position into the appropriate part of the
   // vector; this is just one pass of counting-sort
   for (size_t i = 1; i < seq_len - 1; ++i) {
-    const size_t idx = triple2idx(s.seq[i-1], s.seq[i], s.seq[i+1]);
+    const size_t idx = triple2idx(s.seq[i-1]=='1', s.seq[i]=='1', s.seq[i+1]=='1');
     --cum_pat_count[idx];
     const size_t x = cum_pat_count[idx];
     pos_by_pat[x] = i;
