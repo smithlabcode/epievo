@@ -122,7 +122,7 @@ TwoStateCTMarkovModel::get_trans_prob(const double time_interval,
 
   assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
 
-  const double h = 1.0 / std::exp(time_interval * (rate0 + rate1));
+  const double h = exp(- time_interval * (rate0 + rate1));
   const double denominator = rate0 + rate1;
   double prob = 0.0;
 
