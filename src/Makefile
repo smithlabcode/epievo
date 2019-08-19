@@ -1,5 +1,5 @@
-all_subdirs=prog ${SMITHLAB_CPP} ${TREETOOL}
-app_subdirs=prog
+all_subdirs=prog ${SMITHLAB_CPP} ${TREETOOL} harnesses
+app_subdirs=prog harnesses
 
 all:
 	@for i in $(app_subdirs); do \
