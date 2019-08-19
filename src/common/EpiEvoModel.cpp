@@ -206,7 +206,7 @@ EpiEvoModel::tostring() const {
       << format_two_by_two(T) << '\n'
       << "[STATIONARY LOG BASELINE VALUES]\n"
       << format_two_by_two(stationary_logbaseline) << '\n'
-      << "[STATIONARY POTENTIALS]\n"
+      << "[STATIONARY POTENTIALS DENSITIES]\n"
       << format_two_by_two(Q) << '\n'
       << "[TRIPLE RATES]\n";
   oss << bitset<3>(0) << '\t' << triplet_rates[0];
