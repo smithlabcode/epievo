@@ -57,11 +57,6 @@ triple2idx(const bool i, const bool j, const bool k) {
 }
 
 inline size_t
-triple2idx(const char i, const char j, const char k) {
-    return (i=='1')*4 + (j=='1')*2 + (k=='1');
-}
-
-inline size_t
 pair2idx(const bool i, const bool j) {
   return i*2 + j;
 }
