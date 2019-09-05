@@ -57,8 +57,38 @@ struct TwoStateCTMarkovModel {
     rate0(r0), rate1(r1) {}
   double get_trans_prob(const double time_interval, const size_t start_state,
                         const size_t end_state) const;
+  std::string tostring() const;
+  
+  double get_rate(const bool the_state) const {
+    return the_state ? rate1 : rate0;
+  }
+  double get_rate(const size_t the_state) const {
+    return (the_state == 0ul) ? rate0 : rate1;
+  }
+
   double rate0;
   double rate1;
 };
+
+std::ostream &
+operator<<(std::ostream &os, const TwoStateCTMarkovModel &ctmm);
+
+
+void
+continuous_time_trans_prob_mat(const double rate0, const double rate1,
+                               const double time_interval,
+                               two_by_two &transition_matrix);
+
+////////////////////////////////////////////////////////////////////////////////
+///////////////////       CTMM-RELATED STATISTICS     //////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+void
+expectation_J(const double r0, const double r1, const double T,
+              two_by_two &J0, two_by_two &J1);
+
+void
+expectation_D(const double r0, const double r1, const double T,
+              two_by_two &D0, two_by_two &D1);
 
 #endif
