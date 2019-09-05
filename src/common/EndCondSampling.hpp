@@ -26,22 +26,39 @@
 #include "Path.hpp"
 #include <vector>
 
+/* "direct" */
 void
-end_cond_sample_direct(const CTMarkovModel &the_model,
+end_cond_sample_direct(const TwoStateCTMarkovModel &the_model,
                        const size_t start_state, const size_t end_state,
                        const double time_interval,
                        std::mt19937 &gen, std::vector<double> &jump_times,
                        const double start_time = 0.0);
 
+/* "forward" */
 bool
 end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
                                   const size_t start_state, const size_t end_state,
                                   const double time_interval,
                                   std::mt19937 &gen, std::vector<double> &jump_times,
-                                  const double start_time = 0.0,
-                                  const size_t max_sample_count = 100000);
+                                  const double start_time = 0.0);
 
+/* "nielsen" */
+bool
+end_cond_sampling_Nielsen(const TwoStateCTMarkovModel &the_model,
+                          const size_t start_state, const size_t end_state,
+                          const double time_interval,
+                          std::mt19937 &gen, std::vector<double> &jump_times,
+                          const double start_time = 0.0);
 
+/* "unif" */
+void
+end_cond_sample_unif(const TwoStateCTMarkovModel &the_model,
+                     const size_t start_state, const size_t end_state,
+                     const double time_interval,
+                     std::mt19937 &gen, std::vector<double> &jump_times,
+                     const double start_time = 0.0);
+
+/* "pois" */
 void
 end_cond_sample_Poisson(const TwoStateCTMarkovModel &the_model,
                         const size_t start_state, const size_t end_state,
@@ -49,44 +66,27 @@ end_cond_sample_Poisson(const TwoStateCTMarkovModel &the_model,
                         std::mt19937 &gen, std::vector<double> &jump_times,
                         const double start_time = 0.0);
 
-/*
-bool
-end_cond_sampling_Nielsen(const size_t max_sample_count = 100000,
-                          const CTMarkovModel &the_model,
-                          const size_t start_state, const size_t end_state,
-                          const double time_interval,
-                          std::mt19937 &gen, std::vector<double> &jump_times,
-                          const double start_time = 0.0);
-*/
-
-double
-end_cond_sample_prob(const CTMarkovModel &the_model,
-                     const std::vector<double> &jump_times,
-                     const size_t start_state, const size_t end_state,
-                     const double start_time, const double end_time,
-                     size_t start_jump, const size_t end_jump);
-
-
-double
-end_cond_sample_Poisson_prob(const TwoStateCTMarkovModel &the_model,
-                             const std::vector<double> &jump_times,
-                             const size_t start_state, const size_t end_state,
-                             const double start_time, const double end_time,
-                             const size_t start_jump, const size_t end_jump);
-
-double
-end_cond_sample_forward_rejection_prob(const TwoStateCTMarkovModel &the_model,
-                                       const std::vector<double> &jump_times,
-                                       const size_t start_state,
-                                       const size_t end_state,
-                                       const double start_time,
-                                       const double end_time,
-                                       const size_t start_jump,
-                                       const size_t end_jump);
-
 size_t
 forward_sampling(std::vector<std::function<double()> > &the_distrs,
                  size_t a, const double T, const double start_time,
                  std::vector<double> &jump_times);
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// #####  #####   ####  #####   ####   ###   #   ##     #####  #####   ####  #####
+// ##  ## ##  ## ##  ## ##  ## ##  ## #     ###  ##     ##  ## ##  ## ##  ## ##  ##
+// #####  #####  ##  ## #####  ##  ## #### #   # ##     #####  #####  ##  ## #####
+// ##     ## ##  ##  ## ##     ##  ##    # ##### ##     ##     ## ##  ##  ## ##  ##
+// ##     ##  ##  ####  ##      ####  ###  #   # #####  ##     ##  ##  ####  #####
+
+double
+end_cond_sample_prob(const TwoStateCTMarkovModel &the_model,
+                     const std::vector<double> &jump_times,
+                     const size_t start_state, const size_t end_state,
+                     const double start_time, const double end_time,
+                     size_t start_jump, const size_t end_jump);
 
 #endif

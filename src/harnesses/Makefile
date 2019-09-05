@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = MCMC_test MCMC_indep_site \
+PROGS = MCMC_test end_cond_sampling_test \
 
 CXX = g++
 CXXFLAGS = -Wall -std=c++11
@@ -61,6 +61,10 @@ MCMC_indep_site: \
 	TripletSampler.o StateSeq.o IndepSite.o \
 	EndCondSampling.o ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
+
+end_cond_sampling_test: \
+    $(addprefix $(COMMON_DIR)/, \
+    StateSeq.o EndCondSampling.o ContinuousTimeMarkovModel.o)
 
 
 install: all

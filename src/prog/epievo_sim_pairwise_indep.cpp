@@ -240,17 +240,17 @@ sampling_downward(const TwoStateCTMarkovModel &ctmm, const double &root_p0,
     const double p0 =
     P[start_state][0] * fh[node_id].q[0] / fh[node_id].p[start_state];
     const size_t sampled_state = (unif(gen) > p0);
-    end_cond_sample_Poisson(ctmm, start_state, sampled_state,
-                            T, gen, proposed_path[node_id].jumps, 0.0);
+    end_cond_sample_forward_rejection(ctmm, start_state, sampled_state,
+                                      T, gen, proposed_path[node_id].jumps,
+                                      0.0);
     orig_proposal +=
-    end_cond_sample_Poisson_prob(ctmm, paths[node_id][site_id].jumps,
-                                 start_state, paths[node_id][site_id].end_state(),
-                                 0, T, 0, paths[node_id][site_id].jumps.size());
+    end_cond_sample_prob(ctmm, paths[node_id][site_id].jumps,
+                         start_state, paths[node_id][site_id].end_state(),
+                         0, T, 0, paths[node_id][site_id].jumps.size());
     update_proposal +=
-    end_cond_sample_Poisson_prob(ctmm, proposed_path[node_id].jumps,
-                                 start_state, sampled_state,
-                                 0, T,
-                                 0, proposed_path[node_id].jumps.size());
+    end_cond_sample_prob(ctmm, proposed_path[node_id].jumps,
+                         start_state, sampled_state, 0, T,
+                         0, proposed_path[node_id].jumps.size());
     assert(paths[node_id][site_id].end_state()==proposed_path[node_id].end_state());
   }
 }

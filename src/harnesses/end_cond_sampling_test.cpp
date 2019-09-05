@@ -22,15 +22,12 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include <algorithm> /* max_element */
 #include <bitset>
 #include <random>
 #include <functional>
-
-#include <gsl/gsl_histogram.h>
-#include <gsl/gsl_randist.h> /* chi-squared test */
-#include <gsl/gsl_cdf.h>
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -46,229 +43,19 @@ using std::endl;
 using std::cerr;
 using std::cout;
 using std::string;
+using std::to_string;
 using std::runtime_error;
 
-
-static const double MINWAIT = 1e-8;
-
+typedef vector<vector<double> > two_by_two;
 
 static double
-integral_J_ij(const double lambda_i, const double lambda_j, const double T) {
-  return (lambda_i == lambda_j ?
-          T*exp(lambda_i*T) :
-          (exp(lambda_i*T) - exp(lambda_j*T))/(lambda_i - lambda_j));
+count_zero_jumps(const size_t start_state, const vector<double> &jump_times) {
+  const size_t n_jumps = jump_times.size();
+  if (n_jumps % 2 == 0)
+    return n_jumps/2;
+  else
+    return (start_state == 0) ? (n_jumps - 1)/2 + 1 : (n_jumps - 1)/2;
 }
-
-
-static void
-expected_time_in_state(const double rate0,
-                       const double rate1,
-                       const double T,
-                       vector<double> &ED) {
-
-  // here corresponding to the "a", "b" and "j"
-  static const double n_triplets = 8;
-
-  ED = vector<double>(n_triplets, 0.0);
-
-  const vector<double> rates = {rate0, rate1};
-
-  vector<double> lambda;
-  vector<vector<double> > U;
-  vector<vector<double> > Uinv;
-  decompose(rates, lambda, U, Uinv);
-
-  vector<vector<double> > P;
-  continuous_time_trans_prob_mat(rate0, rate1, T, P);
-
-  // compute integral_J_ij
-  vector<vector<double>> J = vector<vector<double>>(2, vector<double>(2, 0.0));
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      J[i][j] = integral_J_ij(lambda[i], lambda[j], T);
-
-      
-  for (size_t start_state = 0; start_state < 2; ++start_state) {
-    for (size_t end_state = 0; end_state < 2; ++end_state) {
-      for (size_t c = 0; c < 2; ++c) {
-        ED[triple2idx(start_state, end_state, c)] =
-          (U[start_state][0]*Uinv[0][c]*(U[c][0]*Uinv[0][end_state]*J[0][0] +
-                                         U[c][1]*Uinv[1][end_state]*J[0][1]) +
-           U[start_state][1]*Uinv[1][c]*(U[c][0]*Uinv[0][end_state]*J[1][0] +
-                                         U[c][1]*Uinv[1][end_state]*J[1][1]))/
-          P[start_state][end_state];
-      }
-    }
-  }
-}
-
-
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-
-
-
-static double
-evaluate_fit(const vector<double> &reference,
-             const vector<double> &to_evaluate) {
-
-  assert(reference.size() == to_evaluate.size());
-
-  double chi_squared_stat = 0.0;
-  for (size_t i = 0; i < reference.size(); ++i) {
-    chi_squared_stat +=
-      (to_evaluate[i] - reference[i])*
-      (to_evaluate[i] - reference[i])/reference[i];
-  }
-
-  const double degrees_of_freedom = reference.size() - 1;
-  return gsl_cdf_chisq_P(chi_squared_stat, degrees_of_freedom);
-}
-
-
-///////////////////////////////////////////////////////////////////////////
-
-struct SummarySet {
-  SummarySet(const vector<double> &jumps, const double tot_time,
-             const size_t n_bins);
-  size_t num_jumps;
-  double total_stay_time;
-  gsl_histogram * h_time;
-};
-
-SummarySet::SummarySet(const vector<double> &jumps, const double tot_time,
-                       const size_t n_bins) {
-  // initialize histogram
-  h_time = gsl_histogram_alloc(n_bins);
-  gsl_histogram_set_ranges_uniform(h_time, 0, tot_time+MINWAIT);
-
-  num_jumps = 0;   // number of jump-backs in init state
-  total_stay_time = 0;
-
-  // retrieve N-1 intervals/jumps in init state
-  double elapsed_time = 0;
-  for (size_t i = 1; i < jumps.size(); i += 2) {
-    ++num_jumps;
-    total_stay_time += (jumps[i-1] - elapsed_time);
-    gsl_histogram_increment(h_time, jumps[i-1] - elapsed_time);
-    elapsed_time = jumps[i];
-  }
-
-  // last interval
-  if (jumps.size() % 2 == 0) {
-    total_stay_time += (tot_time - elapsed_time);
-    gsl_histogram_increment(h_time, tot_time - elapsed_time);
-  }
-  else {
-    total_stay_time += (jumps.back() - elapsed_time);
-    gsl_histogram_increment(h_time, jumps.back() - elapsed_time);
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////
-//// "summary of summaries"
-
-struct SummaryStatsFreq {
-  SummaryStatsFreq(const vector<SummarySet> &summary);
-  string print_time() const;
-  string print_jumps() const;
-
-  size_t num_samples;
-  vector<double> time_freq; // proportion, not count
-  vector<double> jumps_freq; // proportion, not count
-};
-
-SummaryStatsFreq::SummaryStatsFreq(const vector<SummarySet> &summary) {
-  num_samples = summary.size();
-
-  if (num_samples > 0) {
-    // initialize time_freq
-    const size_t nbins_time = summary.back().h_time->n;
-    time_freq.resize(nbins_time, 0);
-
-    // initialize jumps_freq
-    auto it = max_element(summary.begin(), summary.end(),
-                          [] (SummarySet const& s1, SummarySet const& s2) {
-                            return s1.num_jumps < s2.num_jumps;
-                          });
-
-    jumps_freq.resize(it->num_jumps+1, 0);
-
-    // merge summaries
-    for (size_t i = 0; i < num_samples; i++) {
-      for (size_t j = 0; j < nbins_time; j++) {
-        time_freq[j] += summary[i].h_time->bin[j];
-      }
-      jumps_freq[summary[i].num_jumps]++;
-    }
-
-    // normalize to frequency
-    const double sum_time = accumulate(time_freq.begin(), time_freq.end(), 0.0);
-    const double sum_jumps = accumulate(jumps_freq.begin(), jumps_freq.end(),
-                                        0.0);
-
-    for (size_t i = 0; i < time_freq.size(); i++) {
-      time_freq[i] /= sum_time;
-    }
-    for (size_t i = 0; i < jumps_freq.size(); i++) {
-      jumps_freq[i] /= sum_jumps;
-    }
-  }
-}
-
-string
-SummaryStatsFreq::print_time() const {
-  string str;
-  if (time_freq.size() > 0)
-    str = std::to_string(time_freq[0]);
-  for(size_t i = 1; i < time_freq.size(); i++) {
-    str = str + "," + std::to_string(time_freq[i]);
-  }
-  return str;
-}
-
-
-string
-SummaryStatsFreq::print_jumps() const {
-  string str;
-  if (jumps_freq.size() > 0)
-    str = std::to_string(jumps_freq[0]);
-  for(size_t i = 1; i < jumps_freq.size(); i++) {
-    str = str + "," + std::to_string(jumps_freq[i]);
-  }
-  return str;
-}
-
-static void
-test_summary(SummaryStatsFreq &a, SummaryStatsFreq &b,
-             double &pval_time, double &pval_jumps) {
-  // rule out zero expected values
-  vector<double> time_exp, time_obs, jump_exp, jump_obs;
-  for(size_t i = 0; i < std::min(a.time_freq.size(), b.time_freq.size()); i++) {
-    if (a.time_freq[i] > 0) {
-      time_exp.push_back(a.time_freq[i]);
-      time_obs.push_back(b.time_freq[i]);
-    }
-  }
-  pval_time = evaluate_fit(time_exp, time_obs);
-
-  for(size_t i = 0; i < std::min(a.jumps_freq.size(), b.jumps_freq.size()); i++) {
-    if (a.jumps_freq[i] > 0) {
-      jump_exp.push_back(a.jumps_freq[i]);
-      jump_obs.push_back(b.jumps_freq[i]);
-    }
-  }
-  pval_jumps = evaluate_fit(jump_exp, jump_obs);
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
 
 static double
 get_time_in_zero(const size_t start_state, const double T,
@@ -292,47 +79,163 @@ get_time_in_zero(const size_t start_state, const double T,
   return time_in_zero;
 }
 
-static double
-mean_seg_pair_length(const double T,
-                     const vector<double> &jump_times) {
+struct summary_info {
 
-  if (jump_times.size() % 2 == 0)
-    return 0.0;
+  summary_info(const string &mn,
+               const bool s, const bool e, const double et) :
+  method_name(mn), start_state(s), end_state(e), evo_time(et) {}
+  
+  string method_name;
+  bool start_state;
+  bool end_state;
+  double evo_time;
 
-  double total_length = 0.0;
-  size_t count = 0;
-  double prev_time = 0.0;
-  for (size_t i = 1; i < jump_times.size(); i += 2) {
-    total_length += jump_times[i] - prev_time;
-    prev_time = jump_times[i];
-    ++count;
+  vector<double> jump_counts;
+  vector<double> time_in_zero;
+  vector<double> zero_jumps;
+  vector<double> zero_duration;
+  vector<double> time_in_one;
+  vector<double> one_jumps;
+  vector<double> one_duration;
+  vector<double> proposal_prob;
+  
+  vector<double> all_jumps;
+  static bool report_jumps;
+  static string summary_suffix;
+  static string jumps_suffix;
+  static string filename_prefix;
+
+  void update(const vector<double> &jump_times) {
+    jump_counts.push_back(jump_times.size());
+    time_in_zero.push_back(get_time_in_zero(start_state, evo_time, jump_times));
+    time_in_one.push_back(evo_time - time_in_zero.back());
+    zero_jumps.push_back(count_zero_jumps(start_state, jump_times));
+    one_jumps.push_back(jump_counts.back() - zero_jumps.back());
+    zero_duration.push_back(time_in_zero.back()/std::max(1.0, zero_jumps.back()));
+    one_duration.push_back(time_in_one.back()/std::max(1.0, one_jumps.back()));
+    if (report_jumps)
+      all_jumps.insert(end(all_jumps), begin(jump_times), end(jump_times));
   }
-  total_length += (T - prev_time);
-  ++count;
+  
+  void update(const vector<double> &jump_times, const double prob) {
+    update(jump_times);
+    proposal_prob.push_back(prob);
+  }
 
-  return total_length/count;
+  void report() const;
+  string tostring() const;
+};
+string summary_info::summary_suffix = "info";
+string summary_info::jumps_suffix = "jumps";
+string summary_info::filename_prefix = "";
+bool summary_info::report_jumps = false;
+
+
+template <typename T> double
+get_mean(const T &x) {
+  return accumulate(begin(x), end(x), 0.0)/x.size();
 }
 
 
-static double
-count_zero_segments(const size_t start_state, const vector<double> &jump_times) {
-  const size_t n_segs = jump_times.size() + 1;
-  if (n_segs % 2 == 0)
-    return n_segs/2;
-  else
-    return (start_state == 0) ? (n_segs - 1)/2 + 1 : (n_segs - 1)/2;
+void
+summary_info::report() const {
+  if (report_jumps) {
+    const string jumps_filename =
+    filename_prefix + method_name + "." + jumps_suffix;
+    std::ofstream j_out(jumps_filename);
+    if (!j_out)
+      throw runtime_error("cannot write to: " + jumps_filename);
+    j_out << "start" << '\t'
+    << "end" << '\t'
+    << "time" << '\t'
+    << "jumps" << endl;
+    const bool end_state = (all_jumps.size() % 2 == 0) ? start_state : !start_state;
+    j_out << start_state << '\t' << end_state << '\t' << evo_time;
+    for (auto &&i : all_jumps)
+      j_out << "\t" << i;
+    j_out << endl;
+  }
+  
+  const string info_filename =
+  filename_prefix + method_name + "." + summary_suffix;
+  std::ofstream out(info_filename);
+  if (!out)
+    throw runtime_error("cannot write to: " + info_filename);
+  out << tostring() << endl;
 }
+
+
+string
+summary_info::tostring() const {
+
+  const double mean_zero_time = get_mean(time_in_zero);
+  const double mean_one_time = get_mean(time_in_one);
+  const double mean_zero_duration = get_mean(zero_duration);
+  const double mean_one_duration = get_mean(one_duration);
+  const double mean_zero_jumps = get_mean(zero_jumps);
+  const double mean_one_jumps = get_mean(one_jumps);
+  const double mean_proposal_prob = get_mean(proposal_prob);
+
+  std::ostringstream oss;
+  oss.precision(3);
+
+  oss << method_name << '\t' << start_state << '\t' << end_state << '\t'
+  << mean_zero_jumps << '\t' << mean_one_jumps << '\t'
+  << mean_zero_time << '\t' << mean_one_time << '\t'
+  << mean_zero_duration << '\t' << mean_one_duration << '\t'
+  << mean_proposal_prob << endl;
+  
+  return oss.str();
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+static void
+append_to_file(const string &outfile, const T &x) {
+  std::ofstream out(outfile, std::ofstream::app);
+  out << x;
+}
+
+
+static string
+expected_stat_str(const bool start_state, const bool end_state,
+                  const two_by_two &J0, const two_by_two &J1,
+                  const two_by_two &D0, const two_by_two &D1) {
+  std::ostringstream oss;
+  oss.precision(3);
+  
+  oss << start_state << '\t' << end_state << '\t'
+  << J0[start_state][end_state] << '\t' << J1[start_state][end_state] << '\t'
+  << D0[start_state][end_state] << '\t' << D1[start_state][end_state] << '\t'
+  << "\\\t\\\t\\\t" << endl;
+  
+  return oss.str();
+}
+
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+
+
 
 int main(int argc, const char **argv) {
   try {
 
-    static const size_t max_sample_count = 10000;
-
     bool VERBOSE = false;
-    string outfile;
+    string statfile;
 
-    size_t n_paths_to_sample = 1000;
-    size_t n_hist_time_bins = 10;
+    size_t n_samples = 1000;
 
     double rate0 = 1.5;
     double rate1 = 0.5;
@@ -342,19 +245,21 @@ int main(int argc, const char **argv) {
 
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "test end-conditioned samplers",
-                           "");
-    opt_parse.add_opt("rate0", '\0', "holding rate for state 0", true, rate0);
-    opt_parse.add_opt("rate1", '\0', "holding rate for state 1", true, rate1);
-    opt_parse.add_opt("time", 't', "duration of time interval", true, evo_time);
-    opt_parse.add_opt("samples", 'n', "number of paths to sample",
-                      false, n_paths_to_sample);
-    opt_parse.add_opt("bins", 'b', "number of bins of holding time histogram",
-                      false, n_hist_time_bins);
+                           "<output>");
+    opt_parse.add_opt("rate0", '\0', "transition rate from state 0", false,
+                      rate0);
+    opt_parse.add_opt("rate1", '\0', "transition rate from state 1", false,
+                      rate1);
+    opt_parse.add_opt("time", 't', "duration of time interval", false, evo_time);
+    opt_parse.add_opt("jumps", 'j', "write the jump times",
+                      false, summary_info::report_jumps);
+    opt_parse.add_opt("n-samples", 'n', "number of samples to simulate", false,
+                      n_samples);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
-    opt_parse.add_opt("outfile", 'o', "outfile (sampling statistics)",
-                      true, outfile);
+    opt_parse.add_opt("statfile", 'S', "summary file", false, statfile);
+
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -370,13 +275,14 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
+    
+    const string outfile(leftover_args.front());
     ///////////////////////////////////////////////////////////////////////////
 
+    /* INITIALIZING PARAMETERS */
+    const TwoStateCTMarkovModel ctmm(rate0, rate1);
     if (VERBOSE)
-      cerr << "rate0: " << rate0 << endl
-           << "rate1: " << rate1 << endl
-           << "time to simulate: " << evo_time << endl
-           << "paths to simulate: " << n_paths_to_sample << endl;
+      cerr << ctmm << endl;
 
     /* standard mersenne_twister_engine seeded with rd() */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -384,177 +290,89 @@ int main(int argc, const char **argv) {
       rng_seed = rd();
     }
     if (VERBOSE)
-      cerr << "rng seed: " << rng_seed << endl;
+      cerr << "RNG seed: " << rng_seed << endl << endl;
     std::mt19937 gen(rng_seed);
 
-    const CTMarkovModel ctmm(rate0, rate1);
-
-    cout << ctmm << endl;
-
-    vector<double> ED;
-    expected_time_in_state(rate0, rate1, evo_time, ED);
-
-    // direct sampling
-    cout << "direct sampling:" << endl;
-    for (size_t start_state = 0; start_state < 2; ++start_state) {
-      for (size_t end_state = 0; end_state < 2; ++end_state) {
-
-        vector<double> seg_counts;
-        vector<double> time_in_zero;
-        vector<double> zero_segs;
-        vector<double> zero_duration;
-        vector<double> time_in_one;
-        vector<double> one_segs;
-        vector<double> one_duration;
-        vector<double> proposal_prob;
-        for (size_t k = 0; k < n_paths_to_sample; ++k) {
-          vector<double> jump_times;
-          vector<mixJump> mjumps;
-          //end_cond_sample_direct(ctmm, start_state, end_state, evo_time,
-          //                       gen, jump_times);
-          end_cond_sample_unif(ctmm, start_state, end_state, evo_time,
-                               gen, jump_times, mjumps);
-          seg_counts.push_back(jump_times.size() + 1);
-          time_in_zero.push_back(get_time_in_zero(start_state, evo_time, jump_times));
-          time_in_one.push_back(evo_time - time_in_zero.back());
-          zero_segs.push_back(count_zero_segments(start_state, jump_times));
-          one_segs.push_back(seg_counts.back() - zero_segs.back());
-          // if (zero_segs.back() > 0)
-          //   zero_duration.push_back(time_in_zero.back()/zero_segs.back());
-          // if (one_segs.back() > 0)
-          //   one_duration.push_back(time_in_one.back()/one_segs.back());
-          zero_duration.push_back(time_in_zero.back()/std::max(1.0, zero_segs.back()));
-          one_duration.push_back(time_in_one.back()/std::max(1.0, one_segs.back()));
-          proposal_prob.push_back(end_cond_sample_prob(ctmm, jump_times,
-                                                       start_state, end_state,
-                                                       0, evo_time,
-                                                       0, jump_times.size()));
-        }
-        const double mean_segs =
-          accumulate(begin(seg_counts), end(seg_counts), 0.0)/seg_counts.size();
-
-        const double mean_zero_time =
-          accumulate(begin(time_in_zero), end(time_in_zero), 0.0)/time_in_zero.size();
-        const double mean_one_time =
-          accumulate(begin(time_in_one), end(time_in_one), 0.0)/time_in_one.size();
-
-        const double mean_zero_duration =
-          accumulate(begin(zero_duration), end(zero_duration), 0.0)/zero_duration.size();
-        const double mean_one_duration =
-          accumulate(begin(one_duration), end(one_duration), 0.0)/one_duration.size();
-
-        const double mean_zero_segs =
-          accumulate(begin(zero_segs), end(zero_segs), 0.0)/zero_segs.size();
-        const double mean_one_segs =
-          accumulate(begin(one_segs), end(one_segs), 0.0)/one_segs.size();
-
-        const double mean_proposal_prob =
-        accumulate(begin(proposal_prob), end(proposal_prob), 0.0)/proposal_prob.size();
-        
-        cout << "X(0)=" << start_state << '\t'
-             << "X(T)=" << end_state << '\t'
-             << "Segs=" << mean_segs << '\t'
-             << "T(0)=" << mean_zero_time << '\t'
-             << "S(0)=" << mean_zero_segs << '\t'
-             << "D(0)=" << mean_zero_duration << '\t'
-             << "T(1)=" << mean_one_time << '\t'
-             << "S(1)=" << mean_one_segs << '\t'
-             << "D(1)=" << mean_one_duration << '\t'
-             << "Proposal prob=" << mean_proposal_prob << endl;
-      }
+    
+    const string statfile_header = "method\tstart\tend\tJ0\tJ1\tD0\tD1\ttau0\ttau1\tprob";
+    if (VERBOSE)
+      cerr << statfile_header << endl;
+    if (!statfile.empty()) {
+      std::ofstream outstat(statfile.c_str());
+      outstat << statfile_header << endl;
     }
 
-    cout << "naive forward sampling with rejection:" << endl;
-    // naive forward sampling with rejection
-    for (size_t start_state = 0; start_state < 2; ++start_state) {
-      for (size_t end_state = 0; end_state < 2; ++end_state) {
+    two_by_two expected_J0, expected_J1, expected_D0, expected_D1;
+    expectation_J(rate0, rate1, evo_time, expected_J0, expected_J1);
+    expectation_D(rate0, rate1, evo_time, expected_D0, expected_D1);
 
-        vector<double> seg_counts;
-        vector<double> time_in_zero;
-        vector<double> zero_segs;
-        vector<double> zero_duration;
-        vector<double> time_in_one;
-        vector<double> one_segs;
-        vector<double> one_duration;
-        vector<double> proposal_prob;
-        vector<double> mspl;
-        for (size_t k = 0; k < n_paths_to_sample; ++k) {
-          vector<double> jump_times;
-          assert(end_cond_sample_forward_rejection(max_sample_count, ctmm,
-                                                   start_state, end_state, evo_time,
-                                                   gen, jump_times));
-          seg_counts.push_back(jump_times.size() + 1);
-          time_in_zero.push_back(get_time_in_zero(start_state, evo_time, jump_times));
-          time_in_one.push_back(evo_time - time_in_zero.back());
-          zero_segs.push_back(count_zero_segments(start_state, jump_times));
-          one_segs.push_back(seg_counts.back() - zero_segs.back());
-          // if (zero_segs.back() > 0)
-          //   zero_duration.push_back(time_in_zero.back()/zero_segs.back());
-          // if (one_segs.back() > 0)
-          //   one_duration.push_back(time_in_one.back()/one_segs.back());
-          zero_duration.push_back(time_in_zero.back()/std::max(1.0, zero_segs.back()));
-          one_duration.push_back(time_in_one.back()/std::max(1.0, one_segs.back()));
-          if (jump_times.size() % 2 == 1)
-            mspl.push_back(mean_seg_pair_length(evo_time, jump_times));
-          proposal_prob.push_back(forward_sample_prob(ctmm, jump_times,
-                                                      start_state, end_state,
-                                                      0, evo_time,
-                                                      0, jump_times.size()));
-        }
-        const double mean_segs =
-          accumulate(begin(seg_counts), end(seg_counts), 0.0)/seg_counts.size();
+    vector<double> jump_times;
 
-        const double mean_zero_time =
-          accumulate(begin(time_in_zero), end(time_in_zero), 0.0)/time_in_zero.size();
-        const double mean_one_time =
-          accumulate(begin(time_in_one), end(time_in_one), 0.0)/time_in_one.size();
+    for (size_t start_state = 0; start_state <= 1; start_state++) {
+      for (size_t end_state = 0; end_state <= 1; end_state++) {
+        const string expstat = "*Expected     \t" +
+        expected_stat_str(start_state, end_state, expected_J0, expected_J1,
+                          expected_D0, expected_D1);
+        if (VERBOSE)
+          cerr << expstat;
+        if(!statfile.empty())
+          append_to_file(statfile, expstat);
 
-        const double mean_zero_duration =
-          accumulate(begin(zero_duration), end(zero_duration), 0.0)/zero_duration.size();
-        const double mean_one_duration =
-          accumulate(begin(one_duration), end(one_duration), 0.0)/one_duration.size();
-
-        const double mean_zero_segs =
-          accumulate(begin(zero_segs), end(zero_segs), 0.0)/zero_segs.size();
-        const double mean_one_segs =
-          accumulate(begin(one_segs), end(one_segs), 0.0)/one_segs.size();
-
-        const double mean_mspl =
-          accumulate(begin(mspl), end(mspl), 0.0)/mspl.size();
-
-        const double mean_proposal_prob =
-        accumulate(begin(proposal_prob), end(proposal_prob), 0.0)/proposal_prob.size();
+        summary_info si_direct("direct", start_state, end_state, evo_time);
+        summary_info si_forward("forward", start_state, end_state, evo_time);
+        summary_info si_nielsen("nielsen", start_state, end_state, evo_time);
+        summary_info si_unif("unif", start_state, end_state, evo_time);
+        summary_info si_pois("pois", start_state, end_state, evo_time);
         
-        cout << "X(0)=" << start_state << '\t'
-             << "X(T)=" << end_state << '\t'
-             << "Segs=" << mean_segs << '\t'
-             << "J=" << mean_segs - 1 << '\t'
-             << "T(0)=" << mean_zero_time << '\t'
-             << "S(0)=" << mean_zero_segs << '\t'
-             << "D(0)=" << mean_zero_duration << '\t'
-             << "T(1)=" << mean_one_time << '\t'
-             << "S(1)=" << mean_one_segs << '\t'
-             << "D(1)=" << mean_one_duration << '\t'
-             << "MSP=" << mean_mspl << '\t'
-             << "E[T(0)]=" << ED[triple2idx(start_state, end_state, 0ul)] << '\t'
-             << "Proposal prob=" << mean_proposal_prob << endl;
-
-        typedef std::poisson_distribution<size_t> pois_distr;
-        auto pois = bind(pois_distr(mean_zero_duration + mean_one_duration), ref(gen));
-        vector<double> jump_counts;
-        for (size_t k = 0; k < n_paths_to_sample; ++k) {
-          jump_counts.push_back(pois());
+        /* Direct sampling */
+        for (size_t i = 0; i < n_samples; i++) {
+          jump_times.clear();
+          end_cond_sample_direct(ctmm, start_state, end_state, evo_time, gen,
+                                 jump_times);
         }
-        cout << accumulate(begin(jump_counts),
-                           end(jump_counts), 0.0)/jump_counts.size() << endl;
+        si_direct.report();
+        if (VERBOSE)
+          cerr << si_direct.tostring();
 
-        auto pois2 = bind(pois_distr(evo_time*(1.0/rate0 + 1.0/rate1)), ref(gen));
-        jump_counts.clear();
-        for (size_t k = 0; k < n_paths_to_sample; ++k) {
-          jump_counts.push_back(pois2());
+        /* Forward + rejection sampling */
+        for (size_t i = 0; i < n_samples; i++) {
+          jump_times.clear();
+          end_cond_sample_forward_rejection(ctmm, start_state, end_state,
+                                            evo_time, gen, jump_times);
         }
-        cout << accumulate(begin(jump_counts),
-                           end(jump_counts), 0.0)/jump_counts.size() << endl;
+        si_forward.report();
+        if (VERBOSE)
+          cerr << si_forward.tostring();
+
+        /* Forward + rejection (Nielsen) sampling */
+        for (size_t i = 0; i < n_samples; i++) {
+          jump_times.clear();
+          end_cond_sampling_Nielsen(ctmm, start_state, end_state,
+                                    evo_time, gen, jump_times);
+        }
+        si_nielsen.report();
+        if (VERBOSE)
+          cerr << si_nielsen.tostring();
+        
+        /* Uniformization sampling */
+        for (size_t i = 0; i < n_samples; i++) {
+          jump_times.clear();
+          end_cond_sample_unif(ctmm, start_state, end_state, evo_time, gen,
+                               jump_times);
+        }
+        si_unif.report();
+        if (VERBOSE)
+          cerr << si_unif.tostring();
+
+        /* Poisson sampling */
+        for (size_t i = 0; i < n_samples; i++) {
+          jump_times.clear();
+          end_cond_sample_Poisson(ctmm, start_state, end_state, evo_time, gen,
+                                  jump_times);
+        }
+        si_pois.report();
+        if (VERBOSE)
+          cerr << si_pois.tostring();
       }
     }
   }

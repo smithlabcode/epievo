@@ -53,7 +53,7 @@ process_branch_above_node(const double report_interval,
   if (!out)
     throw runtime_error("cannot open output file: " + outfile);
 
-  TripletSampler ts(initial_states);
+  TripletSampler ts(initial_states.seq);
 
   double current_time = 0.0;
   double next_report_time = 0.0;
@@ -64,7 +64,7 @@ process_branch_above_node(const double report_interval,
 
     if (next_report_time < next_jump_time) {
       StateSeq s;
-      ts.get_sequence(s);
+      ts.get_sequence(s.seq);
       // in case there are no changes in some reporting interval
       while (next_report_time < next_jump_time) {
         cout << next_report_time << '\t' << current_time << '\t'

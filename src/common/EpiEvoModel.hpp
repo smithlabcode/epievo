@@ -62,9 +62,9 @@ struct EpiEvoModel {
   void get_stationary_triplet_proportions(std::vector<double> &props) const;
 
   void sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
-                                  std::vector<char> &sequence) const;
+                                  std::vector<bool> &sequence) const;
   void sample_state_sequence_stationary(const size_t n_sites, std::mt19937 &gen,
-                                        std::vector<char> &sequence) const;
+                                        std::vector<bool> &sequence) const;
 
   std::string tostring() const;
   std::string format_for_param_file() const;
@@ -92,11 +92,6 @@ scale_rates(const std::vector<double> &rates,
 double
 rate_scaling_factor(const std::vector<double> &triplet_rates);
 
-void
-continuous_time_trans_prob_mat(const double rate0, const double rate1,
-                               const double time_interval,
-                               std::vector<std::vector<double> >
-                               &transition_matrix);
 
 void
 decompose(const std::vector<double> &rates,

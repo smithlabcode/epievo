@@ -73,7 +73,7 @@ epievo_est_params_histories: \
 
 epievo_sim_pairwise: \
     $(addprefix $(COMMON_DIR)/, \
-    TripletSampler.o StateSeq.o IntervalSampler.o EndCondSampling.o \
+    TripletSampler.o StateSeq.o SingleSiteSampler.o EndCondSampling.o \
     ContinuousTimeMarkovModel.o \
     EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 

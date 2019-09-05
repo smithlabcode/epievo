@@ -30,9 +30,9 @@
 struct StateSeq {
 
   StateSeq() {}
-  StateSeq(const std::vector<char> &s) : seq(s) {}
+  StateSeq(const std::vector<bool> &s) : seq(s) {}
   void get_domain_sizes(std::vector<size_t> &domain_sizes) const;
-  std::vector<char> seq;
+  std::vector<bool> seq;
 
   void get_triplet_counts(std::vector<size_t> &triplet_counts) const;
   void get_triplet_proportions(std::vector<double> &triplet_proportions) const;
