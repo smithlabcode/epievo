@@ -203,8 +203,6 @@ log_accept_rate(const EpiEvoModel &mod,
   llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
           log_likelihood(mod.triplet_rates, J_orig, D_orig));
 
-  //cerr << "llr: " << llr << endl;
-  //cerr << endl << endl;
   return llr;
 }
 
