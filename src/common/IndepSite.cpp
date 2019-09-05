@@ -42,73 +42,6 @@ using std::string;
 
 
 ////////////////////////////////////////////////////////////////////////////////
-///////////////      SUFF-STATS CONDITIONAL MEANS     //////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-static void
-expectation_J(const vector<double> &rates, const double T,
-              vector< vector<double>> &J0, vector< vector<double>> &J1) {
-  const double r0 = rates[0];
-  const double r1 = rates[1];
-  const double s = r0 + r1;
-  const double p = r0 * r1;
-  const double d = r1 - r0;
-  const double e = exp(- s * T);
-
-  const double C1 = d * (1 - e) / s;
-  J0[0][0] = p * ( T * (r1 - r0*e) - C1 ) / (s * (r1 + r0*e));
-  J1[0][0] = J0[0][0];
-
-  J0[1][1] = p * ( T * (r0 - r1*e) + C1 ) / (s * (r0 + r1*e));
-  J1[1][1] = J0[1][1];
-
-  const double C2 = p * T * (1 + e) / (s * (1 - e));
-  const double C3 = (r0 * r0 + r1 * r1) / (s * s);
-  const double C4 = (2 * p) / (s * s);
-
-  J0[0][1] = C2 + C3;
-  J1[0][1] = C2 - C4;
-  J0[1][0] = J1[0][1];
-  J1[1][0] = J0[0][1];
-
-}
-
-
-static void
-expectation_D(const vector<double> &rates, const double T,
-              vector< vector<double>> &D0, vector< vector<double>> &D1) {
-  const double r0 = rates[0];
-  const double r1 = rates[1];
-  const double r00 = r0 * r0;
-  const double r11 = r1 * r1;
-  const double s = r0 + r1;
-  const double p = r0 * r1;
-  const double e = exp(- s * T);
-
-  const double C1 = 2 * p * (1 - e) / s;
-  /* C2 is not used; commenting out to avoid warnings */
-  // const double C2 = p * T * (1 + e);
-  D0[0][0] = ((r11 + r00 * e) * T + C1) / (s * (r1 + r0 * e));
-  D1[0][0] = T - D0[0][0];
-  // D1[0][0] = (C2 * T - C1) / (s * (r1 + r0 * e));
-
-  //D0[1][1] = (C2 * T - C1) / (s * (r0 + r1 * e));
-  D1[1][1] = ((r00 + r11 * e) * T + C1) / (s * (r0 + r1 * e));
-  D0[1][1] = T - D1[1][1];
-
-  const double C3 = (p - r00) * (1 - e) / s;
-  //D0[0][1] = ((p - r00 * e) * T - C3) / (s * (r0 - r0 * e));
-  D1[0][1] = ((r00 - p * e) * T + C3) / (s * (r0 - r0 * e));
-  D0[0][1] = T - D1[0][1];
-
-  const double C4 = (p - r11) * (1 - e) / s;
-  D0[1][0] = ((r11 - p * e) * T + C4) / (s * (r1 - r1 * e));
-  //D1[1][0] = ((p - r11 * e) * T - C4) / (s * (r1 - r1 * e));
-  D1[1][0] = T - D0[1][0];
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
 ///////////////////               PRUNING              /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -206,8 +139,8 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
   vector<vector<double> > J1(2, vector<double> (2, 0.0));
   vector<vector<double> > D0(2, vector<double> (2, 0.0));
   vector<vector<double> > D1(2, vector<double> (2, 0.0));
-  expectation_J(rates, T, J0, J1);
-  expectation_D(rates, T, D0, D1);
+  expectation_J(rates[0], rates[1], T, J0, J1);
+  expectation_D(rates[0], rates[1], T, D0, D1);
 
   for (size_t u = 0; u < 2; u++) {
     for (size_t v = 0; v < 2; v++) {

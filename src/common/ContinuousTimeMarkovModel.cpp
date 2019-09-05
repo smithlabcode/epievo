@@ -47,7 +47,7 @@ factor_rate_matrix(const double rate0, const double rate1,
   U = two_by_two(2, vector<double>(2, 0.0));
   U[0][0] = 1.0;
   U[0][1] = rate0;
-  U[1][0] = 1;
+  U[1][0] = 1.0;
   U[1][1] = -rate1;
 
   Uinv = two_by_two(2, vector<double>(2, 0.0));
@@ -112,8 +112,9 @@ operator<<(std::ostream &os, const CTMarkovModel &ctmm) {
 }
 
 
-//////////////////////////////////////////////////////////
-//// SPECIALIZED CLASS "TwoStateCTMarkovModel" BELOW HERE
+////////////////////////////////////////////////////////////////////////////////
+///////////    SPECIALIZED CLASS "TwoStateCTMarkovModel" BELOW HERE    /////////
+////////////////////////////////////////////////////////////////////////////////
 
 double
 TwoStateCTMarkovModel::get_trans_prob(const double time_interval,
@@ -135,4 +136,111 @@ TwoStateCTMarkovModel::get_trans_prob(const double time_interval,
     prob = 1.0 - prob;
 
   return prob;
+}
+
+string
+TwoStateCTMarkovModel::tostring() const {
+    std::ostringstream oss;
+    oss.precision(3);
+    oss << "rates  =[" << rate0 << '\t' << rate1 << ']' << endl;
+    return oss.str();
+}
+
+std::ostream &
+operator<<(std::ostream &os, const TwoStateCTMarkovModel &tsctmm) {
+    return os << tsctmm.tostring();
+}
+
+
+/* 2x2 rate matrix to transition prob. matrix */
+void
+continuous_time_trans_prob_mat(const double rate0, const double rate1,
+                               const double time_interval,
+                               two_by_two &transition_matrix) {
+    
+    assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
+    
+    const double h = 1.0/exp(time_interval*(rate0 + rate1));
+    
+    // ADS: this might be useful at some point here:
+    // assert(h > 0.0);
+    
+    transition_matrix = vector<vector<double> >(2, vector<double>(2, 0.0));
+    
+    const double denominator = rate0 + rate1;
+    transition_matrix[0][0] = (rate0*h + rate1)/denominator;
+    
+    transition_matrix[0][1] = 1.0 - transition_matrix[0][0];
+    
+    transition_matrix[1][1] = (rate0 + rate1*h)/denominator;
+    transition_matrix[1][0] = 1.0 - transition_matrix[1][1];
+}
+////////////////////////////////////////////////////////////////////////////////
+///////////////////       CTMM-RELATED STATISTICS     //////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+void
+expectation_J(const double r0, const double r1, const double T,
+              vector< vector<double>> &J0, vector< vector<double>> &J1) {
+    J0 = vector<vector <double>> (2, vector<double> (2, 0.0));
+    J1 = vector<vector <double>> (2, vector<double> (2, 0.0));
+
+    const double s = r0 + r1;
+    const double p = r0 * r1;
+    const double d = r1 - r0;
+    const double e = exp(- s * T);
+    
+    const double C1 = d * (1 - e) / s;
+    J0[0][0] = p * ( T * (r1 - r0*e) - C1 ) / (s * (r1 + r0*e));
+    J1[0][0] = J0[0][0];
+    assert(J0[0][0] >= 0);
+    
+    J0[1][1] = p * ( T * (r0 - r1*e) + C1 ) / (s * (r0 + r1*e));
+    J1[1][1] = J0[1][1];
+    assert(J0[1][1] >= 0);
+    
+    const double C2 = p * T * (1 + e) / (s * (1 - e));
+    const double C3 = (r0 * r0 + r1 * r1) / (s * s);
+    const double C4 = (2 * p) / (s * s);
+    
+    J0[0][1] = C2 + C3;
+    J1[0][1] = C2 - C4;
+    J0[1][0] = J1[0][1];
+    J1[1][0] = J0[0][1];
+    assert(J0[0][1] >= 0);
+    assert(J1[0][1] >= 0);
+}
+
+
+void
+expectation_D(const double r0, const double r1, const double T,
+              vector< vector<double>> &D0, vector< vector<double>> &D1) {
+    D0 = vector<vector <double>> (2, vector<double> (2, 0.0));
+    D1 = vector<vector <double>> (2, vector<double> (2, 0.0));
+
+    const double r00 = r0 * r0;
+    const double r11 = r1 * r1;
+    const double s = r0 + r1;
+    const double p = r0 * r1;
+    const double e = exp(- s * T);
+    
+    const double C1 = 2 * p * (1 - e) / s;
+    D0[0][0] = ((r11 + r00 * e) * T + C1) / (s * (r1 + r0 * e));
+    D1[0][0] = T - D0[0][0];
+    assert((D0[0][0] >= 0) && (D0[0][0] <= T));
+    
+    D1[1][1] = ((r00 + r11 * e) * T + C1) / (s * (r0 + r1 * e));
+    D0[1][1] = T - D1[1][1];
+    assert((D1[1][1] >= 0) && (D1[1][1] <= T));
+    
+    const double C2 = (p - r00) * (1 - e) / s;
+    D1[0][1] = ((r00 - p * e) * T + C2) / (s * (r0 - r0 * e));
+    D0[0][1] = T - D1[0][1];
+    assert((D1[0][1] >= 0) && (D1[0][1] <= T));
+
+    const double C3 = (p - r11) * (1 - e) / s;
+    D0[1][0] = ((r11 - p * e) * T + C3) / (s * (r1 - r1 * e));
+    D1[1][0] = T - D0[1][0];
+    assert((D0[1][0] >= 0) && (D0[1][0] <= T));
 }

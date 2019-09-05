@@ -114,20 +114,19 @@ propose_h_interval(const vector<vector<Path> > &paths,
   // end-conditioned sampling
   const TwoStateCTMarkovModel ctmm(seg_info[seg_id].rate0,
                                    seg_info[seg_id].rate1);
-  end_cond_sample_Poisson(ctmm, start_state, end_state,
-                          seg_info[seg_id].len, gen, proposed_path.jumps,
-                          start_time);
+  end_cond_sample_forward_rejection(ctmm, start_state, end_state,
+                                    seg_info[seg_id].len, gen,
+                                    proposed_path.jumps, start_time);
   size_t end_jump_update = proposed_path.jumps.size();
   
   // calculate proposal probabilities
   orig_proposal =
-  end_cond_sample_Poisson_prob(ctmm, paths[node_id][site_id].jumps,
-                               start_state, end_state,
-                               start_time, end_time, start_jump, end_jump);
+    end_cond_sample_prob(ctmm, paths[node_id][site_id].jumps,
+                         start_state, end_state, start_time, end_time,
+                         start_jump, end_jump);
   update_proposal =
-  end_cond_sample_Poisson_prob(ctmm, proposed_path.jumps, start_state, end_state,
-                               start_time, end_time,
-                               start_jump, end_jump_update);
+    end_cond_sample_prob(ctmm, proposed_path.jumps, start_state, end_state,
+                         start_time, end_time, start_jump, end_jump_update);
   
   // copy rest jumps to proposed path
   while (end_jump < paths[node_id][site_id].jumps.size())
@@ -166,12 +165,6 @@ log_accept_rate(const EpiEvoModel &mod,
   static const size_t n_triples = 8;
   
   double llr = orig_proposal - update_proposal;
-
-  //cerr << "orig_jumps: " << paths[node_id][site_id].jumps.size()
-  //<< ", update_jumps: " << proposed_path.jumps.size() << endl;
-  //cerr << "orig_prop: " << orig_proposal
-  //<< ", update_prop: " << update_proposal << endl;
-  //cerr << "(orig_proposal - update_proposal): " << llr << endl;
   
   vector<double> D_orig(n_triples), J_orig(n_triples);
   fill_n(begin(D_orig), n_triples, 0.0);
