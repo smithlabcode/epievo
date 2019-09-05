@@ -72,9 +72,14 @@ int main(int argc, const char **argv) {
   try {
 
     bool VERBOSE = false;
+    string treefile;
+    double evolutionary_time = std::numeric_limits<double>::max();
 
     OptionParser opt_parse(strip_path(argv[0]), "convert path file format",
-                           "<treefile> <statefile> <pathfile> <outfile>");
+                           "<statefile> <pathfile> <outfile>");
+    opt_parse.add_opt("tree", 't', "Newick format tree file", false, treefile);
+    opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
+                      evolutionary_time);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     vector<string> leftover_args;
@@ -92,24 +97,36 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() != 4) {
+    if (leftover_args.size() != 3) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string treefile(leftover_args[0]);
-    const string statesfile(leftover_args[1]);
-    const string pathsfile(leftover_args[2]);
-    const string outfile(leftover_args[3]);
+    const string statesfile(leftover_args[0]);
+    const string pathsfile(leftover_args[1]);
+    const string outfile(leftover_args[2]);
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
       cerr << "[READING TREE: " << treefile << "]" << endl;
-    PhyloTreePreorder the_tree; // tree topology and branch lengths
-    std::ifstream tree_in(treefile.c_str());
-    if (!tree_in || !(tree_in >> the_tree))
-      throw runtime_error("cannot read tree file: " + treefile);
-    const size_t n_nodes = the_tree.get_size();
-    const TreeHelper th(the_tree);
+    size_t n_nodes = 0;
+    TreeHelper th;
+    if (!treefile.empty()) {
+      if (VERBOSE)
+        cerr << "reading tree file: " << treefile << endl;
+      PhyloTreePreorder the_tree; // tree topology and branch lengths
+      std::ifstream tree_in(treefile.c_str());
+      if (!tree_in || !(tree_in >> the_tree))
+        throw std::runtime_error("bad tree file: " + treefile);
+      n_nodes = the_tree.get_size();
+      th = TreeHelper(the_tree);
+    }
+    else {
+      if (VERBOSE)
+        cerr << "initializing two node tree with time: "
+        << evolutionary_time << endl;
+      n_nodes = 2;
+      th = TreeHelper(evolutionary_time);
+    }
 
     if (VERBOSE)
       cerr << "[READING JUMPS: " << pathsfile << "]" << endl;
