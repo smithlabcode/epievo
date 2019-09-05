@@ -39,7 +39,7 @@
 #include "EndCondSampling.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
 #include "TreeHelper.hpp"
-#include "IntervalSampler.hpp"
+#include "SingleSiteSampler.hpp"
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
 #include "ParamEstimation.hpp"
@@ -356,21 +356,11 @@ int main(int argc, const char **argv) {
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           vector<Path> proposed_path;
-          //for(size_t i = 1; i < paths[1][site_id-1].jumps.size(); ++i)
-          //  assert(paths[1][site_id-1].jumps[i] > paths[1][site_id-1].jumps[i-1]);
-          //for(size_t i = 1; i < paths[1][site_id+1].jumps.size(); ++i)
-          //  assert(paths[1][site_id+1].jumps[i] > paths[1][site_id+1].jumps[i-1]);
-          n_acc += Metropolis_Hastings_interval(the_model, th, site_id, paths,
-                                                gen);
+          n_acc += Metropolis_Hastings_site(the_model, th, site_id, paths,
+                                            gen, proposed_path, true);
           assert(paths[1][site_id].init_state == state_sequences[0][site_id]);
           assert(paths[1][site_id].end_state() == state_sequences[1][site_id]);
         }
-        //vector<double> J_new, D_new;
-        //get_sufficient_statistics(paths, J_new, D_new);
-        //const double dist = vector_distance(J_new, J);
-        // cerr << "ITR: " << burnin_itr << ", J distance dev: " << dist << endl;
-        //J = J_new;
-        //D = D_new;
       }
       if (VERBOSE)
         cout << ", acc rate: " << n_acc / ((n_sites-2)*burnin) << endl;

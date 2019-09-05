@@ -337,7 +337,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "[OBTAINING ROOT SEQUENCE]" << endl;
 
-    vector<char> root_seq;
+    vector<bool> root_seq;
     if (root_states_file.empty()) {
       if (VERBOSE)
         cerr << "[SIMULATING: " << th.node_names[0] << " (ROOT)]" << endl;
@@ -349,7 +349,7 @@ int main(int argc, const char **argv) {
       if (VERBOSE)
         cerr << "[READING ROOT FILE: " << root_states_file << "]" << endl;
       vector<string> node_names;
-      vector<vector<char> > state_sequences;
+      vector<vector<bool> > state_sequences;
       read_states_file(root_states_file, node_names, state_sequences);
       root_seq = state_sequences.front();
       n_sites = root_seq.size();
@@ -382,7 +382,7 @@ int main(int argc, const char **argv) {
         cerr << "[SIMULATING: " << th.node_names[node_id]
              << " (" << curr_branch_len << ")]" << endl;
 
-      TripletSampler ts(sequences[th.parent_ids[node_id]]);
+      TripletSampler ts(sequences[th.parent_ids[node_id]].seq);
       double time_value = 0;
       vector<GlobalJump> the_path;
 
@@ -391,7 +391,7 @@ int main(int argc, const char **argv) {
         sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value);
 
       /* (5) EXTRACT THE SEQUENCE AT THE NODE */
-      ts.get_sequence(sequences[node_id]);
+      ts.get_sequence(sequences[node_id].seq);
 
       append_to_pathfile_global(pathfile, th.node_names[node_id], the_path);
 
