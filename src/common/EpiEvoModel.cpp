@@ -278,33 +278,33 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
 
 void
 sample_state_sequence(const size_t n_sites, const two_by_two &trans_prob,
-                      std::mt19937 &gen, vector<char> &sequence) {
+                      std::mt19937 &gen, vector<bool> &sequence) {
 
-  sequence = vector<char>(n_sites, true);
+  sequence = vector<bool>(n_sites, true);
 
   const double pi1 =
     (1.0 - trans_prob[0][0])/(2.0 - trans_prob[1][1] - trans_prob[0][0]);
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  sequence[0] = '0' + (unif(gen) < pi1);
+  sequence[0] = (unif(gen) < pi1);
   for (size_t i = 1; i < n_sites; ++i) {
     const double r = unif(gen);
-    const double p = (sequence[i - 1] == '1')? trans_prob[1][1] : trans_prob[0][0];
-    sequence[i] = ((r <= p) ? sequence[i - 1] : ('0' + (sequence[i - 1] == '0')));
+    const double p = sequence[i - 1] ? trans_prob[1][1] : trans_prob[0][0];
+    sequence[i] = ((r <= p) ? sequence[i - 1] : (!sequence[i - 1]));
   }
 }
 
 
 void
 EpiEvoModel::sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
-                                        vector<char> &sequence) const {
+                                        vector<bool> &sequence) const {
   sample_state_sequence(n_sites, init_T, gen, sequence);
 }
 
 void
 EpiEvoModel::sample_state_sequence_stationary(const size_t n_sites,
                                               std::mt19937 &gen,
-                                              vector<char> &sequence) const {
+                                              vector<bool> &sequence) const {
   sample_state_sequence(n_sites, T, gen, sequence);
 }
 
@@ -504,30 +504,6 @@ EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
   assert(stationary_logbaseline[0][1] == stationary_logbaseline[1][0]);
 }
 
-
-/* 2x2 rate matrix to transition prob. matrix */
-void
-continuous_time_trans_prob_mat(const double rate0, const double rate1,
-                               const double time_interval,
-                               vector<vector<double> > &transition_matrix) {
-
-  assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
-
-  const double h = 1.0/exp(time_interval*(rate0 + rate1));
-
-  // ADS: this might be useful at some point here:
-  // assert(h > 0.0);
-
-  transition_matrix = vector<vector<double> >(2, vector<double>(2, 0.0));
-
-  const double denominator = rate0 + rate1;
-  transition_matrix[0][0] = (rate0*h + rate1)/denominator;
-
-  transition_matrix[0][1] = 1.0 - transition_matrix[0][0];
-
-  transition_matrix[1][1] = (rate0 + rate1*h)/denominator;
-  transition_matrix[1][0] = 1.0 - transition_matrix[1][1];
-}
 
 void
 decompose(const vector<double> &rates, // rate0 and rate1
