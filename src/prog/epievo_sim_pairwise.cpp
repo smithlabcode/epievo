@@ -39,7 +39,7 @@
 #include "EndCondSampling.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
 #include "TreeHelper.hpp"
-#include "SingleSiteSampler.hpp"
+#include "IntervalSampler.hpp"
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
 #include "ParamEstimation.hpp"
@@ -286,9 +286,10 @@ int main(int argc, const char **argv) {
     // Burning
     for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-        vector<Path> proposed_path;
-        Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                 proposed_path, true);
+        //vector<Path> proposed_path;
+        //Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
+        //                         proposed_path, true);
+        Metropolis_Hastings_interval(the_model, th, site_id, paths, gen);
       }
     }
     write_root_to_pathfile_local(outfile, th.node_names.front());
