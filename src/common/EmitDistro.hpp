@@ -19,76 +19,23 @@
  * 02110-1301 USA
  */
 
-#ifndef CONTINUOUS_TIME_MARKOV_MODEL_HPP
-#define CONTINUOUS_TIME_MARKOV_MODEL_HPP
+#ifndef EMIT_DISTRO_HPP
+#define EMIT_DISTRO_HPP
 
 #include <vector>
-#include <string>
 
-typedef std::vector<std::vector<double> > two_by_two;
-
-struct CTMarkovModel {
-  CTMarkovModel(const std::vector<double> &rates);
-  CTMarkovModel(const std::pair<double, double> &rates);
-  CTMarkovModel(const double r0, const double r1);
-  void get_trans_prob_mat(const double time_interval,
-                          two_by_two &prob_mat) const;
-  std::string tostring() const;
-
-  double get_rate(const bool the_state) const {
-    return the_state ? rate1 : rate0;
-  }
-  double get_rate(const size_t the_state) const {
-    return (the_state == 0ul) ? rate0 : rate1;
-  }
-
-  double rate0;
-  double rate1;
-  two_by_two U;
-  two_by_two Uinv;
-  std::vector<double> eigen_values;
-};
-
-std::ostream &
-operator<<(std::ostream &os, const CTMarkovModel &ctmm);
-
-struct TwoStateCTMarkovModel {
-  TwoStateCTMarkovModel(const double r0, const double r1) :
-    rate0(r0), rate1(r1) {}
-  double get_trans_prob(const double time_interval, const size_t start_state,
-                        const size_t end_state) const;
-  std::string tostring() const;
+struct Bernoulli {
+  Bernoulli() : p(0.5) {}
+  Bernoulli(const double _p) : p(_p) {}
+  double operator()(const bool val) const;
+  void fit(const std::vector<bool> &vals);
   
-  double get_rate(const bool the_state) const {
-    return the_state ? rate1 : rate0;
-  }
-  double get_rate(const size_t the_state) const {
-    return (the_state == 0ul) ? rate0 : rate1;
-  }
-
-  double rate0;
-  double rate1;
+  double p;
 };
 
-std::ostream &
-operator<<(std::ostream &os, const TwoStateCTMarkovModel &ctmm);
-
-
-void
-continuous_time_trans_prob_mat(const double rate0, const double rate1,
-                               const double time_interval,
-                               two_by_two &transition_matrix);
-
-////////////////////////////////////////////////////////////////////////////////
-///////////////////       CTMM-RELATED STATISTICS     //////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-void
-expectation_J(const double r0, const double r1, const double T,
-              two_by_two &J0, two_by_two &J1);
-
-void
-expectation_D(const double r0, const double r1, const double T,
-              two_by_two &D0, two_by_two &D1);
+double
+Bernoulli::operator()(const bool val) const {
+  return val ? p : (1-p);
+}
 
 #endif
