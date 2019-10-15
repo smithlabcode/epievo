@@ -33,16 +33,6 @@
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
 #include "Path.hpp"
-#include "StateSeq.hpp"
-#include "EpiEvoModel.hpp"
-#include "StateSeq.hpp"
-#include "EndCondSampling.hpp"
-#include "ContinuousTimeMarkovModel.hpp"
-#include "TreeHelper.hpp"
-#include "SingleSiteSampler.hpp"
-#include "TripletSampler.hpp"
-#include "GlobalJump.hpp"
-#include "ParamEstimation.hpp"
 
 using std::vector;
 using std::endl;

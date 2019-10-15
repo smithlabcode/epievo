@@ -27,7 +27,6 @@
 #include "TreeHelper.hpp"
 #include "EndCondSampling.hpp"
 
-
 struct FelsHelper {
   FelsHelper() {}
   FelsHelper(const std::vector<std::vector<double> > &_p,
@@ -39,49 +38,24 @@ struct FelsHelper {
 void
 pruning(const TreeHelper &th, const size_t site_id,
         const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
+        const std::vector<std::vector<double> > &emit,
         const std::vector<std::vector<SegmentInfo> > &seg_info,
         std::vector<FelsHelper> &fh);
-
-/*
-XJ: We current turn off the interface of choosing Metropolis-Hastings proposal.
-    Poisson proposal is always used.
-
-void
-downward_sampling(const TreeHelper &th, const size_t site_id,
-                  const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                  const std::vector<std::vector<double> > &root_trans_prob,
-                  const std::vector<std::vector<SegmentInfo> > &seg_info,
-                  const std::vector<FelsHelper> &fh,
-                  std::mt19937 &gen,
-                  std::vector<Path> &new_path, const size_t proposal = 0,
-                  const bool FIX_ROOT = false);
-
-bool
-Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
-                         const size_t site_id,
-                         std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                         std::mt19937 &gen,
-                         std::vector<Path> &sampled_path,
-                         const size_t proposal = 0, const bool FIX_ROOT = false);
-*/
  
 void
-downward_sampling(const TreeHelper &th, const size_t site_id,
+downward_sampling(const EpiEvoModel &the_model, const TreeHelper &th,
+                  const size_t site_id,
                   const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                  const std::vector<std::vector<double> > &root_trans_prob,
                   const std::vector<std::vector<SegmentInfo> > &seg_info,
                   const std::vector<FelsHelper> &fh,
-                  std::mt19937 &gen,
-                  std::vector<Path> &new_path,
-                  const bool FIX_ROOT = false);
+                  std::mt19937 &gen, std::vector<Path> &new_path);
 
 bool
 Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id,
                          std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                         std::mt19937 &gen,
-                         std::vector<Path> &sampled_path,
-                         const bool FIX_ROOT = false);
+                         const std::vector<std::vector<double> > &emit,
+                         std::mt19937 &gen);
 
 
 /* Pruning

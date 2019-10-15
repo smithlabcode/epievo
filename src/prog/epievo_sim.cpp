@@ -97,7 +97,7 @@ read_states_file(const string &statesfile,
     size_t node_idx = 0;
     T tmp_state_val;
     while (node_idx < n_nodes && iss >> tmp_state_val)
-      state_sequences[node_idx++].push_back(tmp_state_val == '1');
+      state_sequences[node_idx++].push_back(tmp_state_val);
 
     if (node_idx < n_nodes)
       throw std::runtime_error("inconsistent number of states: " +

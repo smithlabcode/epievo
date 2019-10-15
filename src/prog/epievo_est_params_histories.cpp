@@ -194,7 +194,6 @@ int main(int argc, const char **argv) {
     vector<vector<double> > J;
     vector<vector<double> > D;
     vector<vector<double> > root_frequences;
-    vector<Path> proposed_path;
     
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -213,14 +212,14 @@ int main(int argc, const char **argv) {
       << the_tree << "\tNA\tNA" << endl;
     
     size_t current_batch = batch;
+    const vector<vector<double> > emit(th.n_nodes);
 
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {
       // Burning
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-          Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-                                   proposed_path);
+          Metropolis_Hastings_site(the_model, th, site_id, paths, emit, gen);
         }
       }
       
@@ -233,8 +232,8 @@ int main(int argc, const char **argv) {
 
       for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-          n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                                 gen, proposed_path);
+          n_accepted += Metropolis_Hastings_site(the_model, th, site_id,
+                                                 paths, emit, gen);
         }
 
         

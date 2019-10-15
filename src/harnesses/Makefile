@@ -50,15 +50,9 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab
 	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TreeHelper.o Path.o Segment.o) \
 	$(addprefix $(TREETOOL)/, PhyloTree.o )
 
-MCMC_test MCMC_indep_site: \
+MCMC_test: \
 	$(addprefix $(COMMON_DIR)/, \
 	TripletSampler.o StateSeq.o SingleSiteSampler.o IntervalSampler.o \
-	EndCondSampling.o ContinuousTimeMarkovModel.o \
-	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
-
-MCMC_indep_site: \
-	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o StateSeq.o IndepSite.o \
 	EndCondSampling.o ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 

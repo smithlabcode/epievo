@@ -39,7 +39,8 @@
 #include "EndCondSampling.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
 #include "TreeHelper.hpp"
-#include "IntervalSampler.hpp"
+#include "SingleSiteSampler.hpp"
+#include "EmitDistro.hpp"
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
 #include "ParamEstimation.hpp"
@@ -52,6 +53,9 @@ using std::string;
 using std::runtime_error;
 using std::numeric_limits;
 using std::to_string;
+using std::function;
+using std::placeholders::_1;
+using std::bind;
 
 ///////////////////////////////////////////////////////////////////////////
 template <class T>
@@ -153,7 +157,21 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
   }
 }
 
-      
+
+static void
+compute_emit(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
+             vector<vector<vector<double> > > &all_emit,
+             const vector<function<double (bool)> > emit_distr) {
+  all_emit.resize(root_seq.size());
+  for (size_t site_id = 0; site_id < leaf_seq.size(); site_id++) {
+    all_emit[site_id].resize(2);
+    const double p1_root = emit_distr[root_seq[site_id]](true);
+    const double p1_leaf = emit_distr[leaf_seq[site_id]](true);
+    all_emit[site_id][0] = {1 - p1_root, p1_root};
+    all_emit[site_id][1] = {1 - p1_leaf, p1_leaf};
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////
 
 static void
@@ -281,15 +299,19 @@ int main(int argc, const char **argv) {
     /////// STARTING MCMC
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
+    vector<vector<vector<double> > > all_emit; // [sites x nodes x 2]
+    const Bernoulli bg_emit(0.9);
+    const Bernoulli fg_emit(0.8);
+    const vector<function<double (bool)> > emit_distr = {&bg_emit, &fg_emit};
+
+    compute_emit(root_seq, leaf_seq, all_emit, emit_distr);
     
     /* METROPOLIS-HASTINGS ALGORITHM */
     // Burning
     for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-        //vector<Path> proposed_path;
-        //Metropolis_Hastings_site(the_model, th, site_id, paths, gen,
-        //                         proposed_path, true);
-        Metropolis_Hastings_interval(the_model, th, site_id, paths, gen);
+        Metropolis_Hastings_site(the_model, th, site_id, paths,
+                                 all_emit[site_id], gen);
       }
     }
     write_root_to_pathfile_local(outfile, th.node_names.front());
