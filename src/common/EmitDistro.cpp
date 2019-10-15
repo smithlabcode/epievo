@@ -31,6 +31,12 @@
 
 using std::vector;
 
+
+double
+Bernoulli::operator()(const bool val) const {
+  return val ? p : (1-p);
+}
+
 void
 Bernoulli::fit(const vector<bool> &vals) {
   if (!vals.empty())

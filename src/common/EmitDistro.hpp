@@ -33,9 +33,4 @@ struct Bernoulli {
   double p;
 };
 
-double
-Bernoulli::operator()(const bool val) const {
-  return val ? p : (1-p);
-}
-
 #endif
