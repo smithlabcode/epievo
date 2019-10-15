@@ -111,6 +111,9 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("outfile", 'o',
                       "output file of averaged states(default: stdout)",
                       false, outfile);
+    opt_parse.add_opt("npoints", 'n',
+                      "number of equally spaced bins",
+                      false, n_points);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
 
