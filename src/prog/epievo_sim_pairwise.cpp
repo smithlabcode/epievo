@@ -161,14 +161,18 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
 static void
 compute_emit(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
              vector<vector<vector<double> > > &all_emit,
-             const vector<function<double (bool)> > emit_distr) {
+             const vector<function<double (bool)> > emit_root,
+             const vector<function<double (bool)> > emit_leaf) {
   all_emit.resize(root_seq.size());
   for (size_t site_id = 0; site_id < leaf_seq.size(); site_id++) {
     all_emit[site_id].resize(2);
-    const double p1_root = emit_distr[root_seq[site_id]](true);
-    const double p1_leaf = emit_distr[leaf_seq[site_id]](true);
-    all_emit[site_id][0] = {1 - p1_root, p1_root};
-    all_emit[site_id][1] = {1 - p1_leaf, p1_leaf};
+    const double p_bg_root = emit_root[0](root_seq[site_id]);
+    const double p_fg_root = emit_root[1](root_seq[site_id]);
+    const double p_bg_leaf = emit_leaf[0](leaf_seq[site_id]);
+    const double p_fg_leaf = emit_leaf[1](leaf_seq[site_id]);
+
+    all_emit[site_id][0] = {p_bg_root, p_fg_root};
+    all_emit[site_id][1] = {p_bg_leaf, p_fg_leaf};
   }
 }
 
@@ -262,7 +266,8 @@ int main(int argc, const char **argv) {
       cerr << "[READING PARAMETERS: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
-    the_model.scale_triplet_rates();
+    //the_model.scale_triplet_rates();
+    the_model.use_init_T = false;
 
     if (VERBOSE)
       cerr << the_model << endl;
@@ -300,11 +305,11 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
     vector<vector<vector<double> > > all_emit; // [sites x nodes x 2]
-    const Bernoulli bg_emit(0.9);
-    const Bernoulli fg_emit(0.8);
-    const vector<function<double (bool)> > emit_distr = {&bg_emit, &fg_emit};
-
-    compute_emit(root_seq, leaf_seq, all_emit, emit_distr);
+    const vector<function<double (bool)> > emit_root = {Bernoulli(0.1),
+      Bernoulli(0.95)};
+    const vector<function<double (bool)> > emit_leaf = {Bernoulli(0.1),
+      Bernoulli(0.95)};
+    compute_emit(root_seq, leaf_seq, all_emit, emit_root, emit_leaf);
     
     /* METROPOLIS-HASTINGS ALGORITHM */
     // Burning
