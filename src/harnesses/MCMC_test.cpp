@@ -390,13 +390,22 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > mcmc_paths(2);
     initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths[1], gen);
     const TreeHelper th(evolutionary_time);
-    const vector<vector<double> > emit(2);
+
+    vector<vector<vector<double> > > emit(n_sites);
+    for (size_t site_id = 0; site_id < n_sites; site_id++) {
+      emit[site_id].resize(2);
+      emit[site_id][0].resize(2);
+      emit[site_id][0][0] = (mcmc_paths[1][site_id].init_state == false ?
+                             1.0 : 0.0);
+      emit[site_id][0][1] = (mcmc_paths[1][site_id].init_state == true ?
+                             1.0 : 0.0);
+    }
 
     for (size_t batch_id = 0; batch_id < n_mcmc_batches; batch_id++) {
       for (size_t sample_id = 0; sample_id < batch; sample_id++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-          Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths, emit,
-                                   gen);
+          Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths,
+                                   emit[site_id], gen);
         }
 
         // write stats
