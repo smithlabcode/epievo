@@ -62,38 +62,38 @@ template <class T>
 size_t
 read_states_file(const string &statesfile, vector<T> &root_seq,
                  vector<T> &leaf_seq) {
-  
+
   std::ifstream in(statesfile.c_str());
   if (!in)
     throw std::runtime_error("bad states file: " + statesfile);
-  
+
   // first line is the list of node names
   string buffer;
   if (!getline(in, buffer))
     throw std::runtime_error("cannot read nodes line in: " + statesfile);
-  
+
   std::istringstream nodes_iss(buffer);
   vector<string> node_names;
-  
+
   string tmp_node_name;
   while ((node_names.size() < 2) && (nodes_iss >> tmp_node_name))
     node_names.push_back(tmp_node_name);
-  
+
   if (node_names.size() != 2)
     throw std::runtime_error("fewer than 2 nodes in: " + statesfile);
-  
+
   if (node_names.front()[0] == '#')
     node_names.front() = node_names.front().substr(1);
-  
+
   // read states
   size_t site_count = 0;
   while (getline(in, buffer)) {
     std::istringstream iss;
     iss.str(std::move(buffer));
-    
+
     size_t site_index = 0;
     iss >> site_index; // not important info but must be removed
-    
+
     // now read the states for the current site
     T tmp_state_val;
     iss >> tmp_state_val; // the first state is root
@@ -102,7 +102,7 @@ read_states_file(const string &statesfile, vector<T> &root_seq,
     leaf_seq.push_back(tmp_state_val);
     ++site_count;
   }
-  
+
   if (site_count == 0)
     throw std::runtime_error("no sites read from states file: " + statesfile);
 
@@ -121,7 +121,7 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
   paths.resize(2);
   paths[0].resize(n_sites);
   paths[1].resize(n_sites);
-  
+
   std::uniform_real_distribution<double> unif(0.0, tot_time);
 
   paths[0][0].init_state = root_seq[0];
@@ -136,7 +136,7 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
     paths[1][0].jumps.push_back(unif(gen));
   if (paths[1][n_sites-1].end_state() != leaf_seq[n_sites-1])
     paths[1][n_sites-1].jumps.push_back(unif(gen));
-  
+
   for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
     const size_t pattern0 = triple2idx(root_seq[site_id-1], false,
                                        root_seq[site_id+1]);
@@ -146,11 +146,11 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
     const bool end_state = leaf_seq[site_id];
     const TwoStateCTMarkovModel ctmm(the_model.triplet_rates[pattern0],
                                      the_model.triplet_rates[pattern1]);
-    
+
     paths[0][site_id].init_state = start_state;
     paths[1][site_id].init_state = start_state;
     paths[1][site_id].tot_time = tot_time;
-    
+
     end_cond_sample_forward_rejection(ctmm, start_state, end_state, tot_time,
                                       gen, paths[1][site_id].jumps, 0.0);
     assert(paths[1][site_id].end_state() == end_state);
@@ -185,7 +185,7 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
   std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + outfile);
-  
+
   outpath << "NODE:" << root_name << endl;
 }
 
@@ -198,7 +198,7 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
   std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + pathfile);
-  
+
   outpath << "NODE:" << node_name << endl;
   for (size_t i = 0; i < path_by_site.size(); ++i)
     outpath << i << '\t' << path_by_site[i] << '\n';
@@ -214,9 +214,9 @@ int main(int argc, const char **argv) {
 
     string outfile;               // sampled local path
     string pathfile;               // initial local path
-    
+
     size_t burnin = 10;           // burn-in MCMC iterations
-    
+
     double evolutionary_time = 1.0;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
@@ -266,7 +266,7 @@ int main(int argc, const char **argv) {
       cerr << "[READING PARAMETERS: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
-    //the_model.scale_triplet_rates();
+    the_model.scale_triplet_rates();
     the_model.use_init_T = false;
 
     if (VERBOSE)
@@ -290,38 +290,49 @@ int main(int argc, const char **argv) {
     vector<string> node_names;
     if (!pathfile.empty())
       read_paths(pathfile, node_names, paths);
-    else 
+    else
       initialize_paths_indep(gen, root_seq, leaf_seq, paths, the_model,
                              evolutionary_time);
     if (paths.size() > 2) // truncate extra nodes
       paths.resize(2);
-    
+
     if (VERBOSE)
       cerr << "[SIMULATING]" << endl;
-    
+
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
     /////// STARTING MCMC
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
+    /*
     vector<vector<vector<double> > > all_emit; // [sites x nodes x 2]
     const vector<function<double (bool)> > emit_root = {Bernoulli(0.1),
       Bernoulli(0.95)};
     const vector<function<double (bool)> > emit_leaf = {Bernoulli(0.1),
       Bernoulli(0.95)};
     compute_emit(root_seq, leaf_seq, all_emit, emit_root, emit_leaf);
-    
+    */
+    vector<vector<vector<double> > > emit(n_sites);
+    for (size_t site_id = 0; site_id < n_sites; site_id++) {
+      emit[site_id].resize(2);
+      emit[site_id][0].resize(2);
+      emit[site_id][0][0] = (paths[1][site_id].init_state == false ?
+                             1.0 : 0.0);
+      emit[site_id][0][1] = (paths[1][site_id].init_state == true ?
+                             1.0 : 0.0);
+    }
+
     /* METROPOLIS-HASTINGS ALGORITHM */
     // Burning
     for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
         Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                 all_emit[site_id], gen);
+                                 emit[site_id], gen);
       }
     }
     write_root_to_pathfile_local(outfile, th.node_names.front());
     append_to_pathfile_local(outfile, th.node_names[1], paths[1]);
-    
+
     /* (6) OUTPUT */
     if (VERBOSE)
       cerr << "[WRITING OUTPUT]" << endl;
