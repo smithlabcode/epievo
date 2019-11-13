@@ -49,7 +49,7 @@ using std::uniform_real_distribution;
 using std::ref;
 
 static const double NUMERICAL_TOLERANCE = 1e-10;
-static const size_t max_sample_count = 100000;
+static const size_t max_sample_count = 10000000;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -498,7 +498,6 @@ end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
   if (sample_count < max_sample_count)
     transform(begin(proposal), end(proposal), std::back_inserter(jump_times),
               bind(std::plus<double>(), _1, start_time));
-  
   assert((proposal.size() % 2) == static_cast<size_t>(start_state != end_state));
   
   return (sample_count < max_sample_count);
