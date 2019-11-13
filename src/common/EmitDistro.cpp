@@ -34,7 +34,7 @@ using std::vector;
 
 double
 Bernoulli::operator()(const bool val) const {
-  return val ? p : (1-p);
+  return val ? p : (1.0 - p);
 }
 
 void
