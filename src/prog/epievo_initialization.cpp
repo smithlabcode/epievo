@@ -83,38 +83,34 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
   // get sorting indices of nodes in pre-order
   vector<size_t> idx_in_tree (node_names_in.size(), th.n_nodes);
 
-  for (size_t node_id = 0; node_id < th.n_nodes; node_id++)
-    if (th.is_leaf(node_id)) {
-      const string node_name = th.node_names[node_id];
-      vector<string>::iterator it = std::find(node_names_in.begin(),
-                                              node_names_in.end(),
-                                              node_name);
-      if (it != node_names_in.end())
-        idx_in_tree[std::distance(node_names_in.begin(), it)] = node_id;
-      else
-        throw std::runtime_error("no data in node: " + node_name);
-    }
+  for (size_t node_id = 0; node_id < th.n_nodes; node_id++) {
+    const string node_name = th.node_names[node_id];
+    vector<string>::iterator it = std::find(node_names_in.begin(),
+                                            node_names_in.end(),
+                                            node_name);
+    if (it != node_names_in.end())
+      idx_in_tree[std::distance(node_names_in.begin(), it)] = node_id;
+    else
+      throw std::runtime_error("no data in node: " + node_name);
+  }
 
   // read states
   const size_t n_nodes_in = node_names_in.size();
   size_t site_count = 0;
 
   state_sequences.resize(th.n_nodes);
-  
   while (getline(in, buffer)) {
     istringstream iss;
     iss.str(std::move(buffer));
 
     size_t site_index = 0;
     iss >> site_index; // not important info but must be removed
-
     // now read the states for the current site
     size_t node_idx = 0;
     T tmp_state_val;
     while (node_idx < n_nodes_in && iss >> tmp_state_val)
       if (idx_in_tree[node_idx] < th.n_nodes)
         state_sequences[idx_in_tree[node_idx++]].push_back(tmp_state_val);
-
     if (node_idx < n_nodes_in)
       throw std::runtime_error("inconsistent number of states: " +
                                to_string(node_idx) + "/" +
@@ -169,6 +165,7 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
           child_states[n_ch++] = state_sequences[*c][site_id];
         
         // sample parent state
+        if (!th.is_root(node_id))
         state_sequences[node_id][site_id] =
           child_states[std::floor(unif()*n_ch)];
         
@@ -248,10 +245,11 @@ int main(int argc, const char **argv) {
     
     bool VERBOSE = false;
     bool OPTBRANCH = false;
+    bool ONEBRANCH = false;
 
     size_t rng_seed = numeric_limits<size_t>::max();
     size_t iterations = 10;
-
+    
     string paramfile;
     string pathfile;
     string treefile_updated;
@@ -272,6 +270,8 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("outtree", 't',
                       "output file of tree (default: stdout)",
                       false, treefile_updated);
+    opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
+                      ONEBRANCH);
     opt_parse.add_opt("path", 'o', "output file of local paths (default: stdout)",
                       false, pathfile);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
@@ -296,17 +296,25 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string treefile(leftover_args[0]);
+    const string tree(leftover_args[0]);
     const string statesfile(leftover_args[1]);
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
-      cerr << "[READING TREE: " << treefile << "]" << endl;
+      cerr << "[READING TREE: " << tree << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
-    std::ifstream tree_in(treefile.c_str());
-    if (!tree_in || !(tree_in >> the_tree))
-      throw runtime_error("cannot read tree file: " + treefile);
-    TreeHelper th(the_tree);
+    TreeHelper th;
+    if (ONEBRANCH) {
+      if (VERBOSE)
+        cerr << "initializing two node tree with time: " << tree << endl;
+      th = TreeHelper(std::stod(tree));
+    } else {
+      cerr << "reading tree file: " << tree << endl;
+      std::ifstream tree_in(tree.c_str());
+      if (!tree_in || !(tree_in >> the_tree))
+        throw std::runtime_error("bad tree file: " + tree);
+      th = TreeHelper(the_tree);
+    }
 
     vector<vector<bool> > state_sequences;
 
@@ -339,7 +347,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "ITR\tRATE0\tRATE1\t\tINIT0\t\tINIT1\tTREE\n"
       << "0" << "\t" << rates[0] << "\t" << rates[1] << "\t"
-      << init_pi[0] << "\t" << init_pi[1] << "\t" << the_tree << endl;
+      << init_pi[0] << "\t" << init_pi[1] << endl;
 
     
     for (size_t itr = 0; itr < iterations; itr++) {
@@ -358,7 +366,7 @@ int main(int argc, const char **argv) {
       // Report
       if (VERBOSE)
         cerr << itr+1 << "\t" << rates[0] << "\t" << rates[1] << "\t"
-        << init_pi[0] << "\t" << init_pi[1] << "\t" << the_tree << endl;
+        << init_pi[0] << "\t" << init_pi[1] << endl;
     }
     
     /* Re-sample a better initial path */

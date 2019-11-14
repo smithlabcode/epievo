@@ -88,6 +88,7 @@ int main(int argc, const char **argv) {
   try {
     bool VERBOSE = false;
     bool OPTBRANCH = false;
+    bool ONEBRANCH = false;
 
     string outfile;
     string param_file_updated;
@@ -118,6 +119,8 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("burnin", 'L',
                       "MCMC burn-in length (default: 10)",
                       false, burnin);
+    opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
+                      ONEBRANCH);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("outfile", 'o',
                       "output file of local paths (default: stdout)",
@@ -153,17 +156,25 @@ int main(int argc, const char **argv) {
       return EXIT_SUCCESS;
     }
     const string param_file(leftover_args[0]);
-    const string treefile(leftover_args[1]);
+    const string tree(leftover_args[1]);
     const string input_file(leftover_args[2]);
     ///////////////////////////////////////////////////////////////////////////
     /* (1) LOADING (FAKE) TREE */
     if (VERBOSE)
-      cerr << "[READING TREE: " << treefile << "]" << endl;
+      cerr << "[READING TREE: " << tree << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
-    std::ifstream tree_in(treefile.c_str());
-    if (!tree_in || !(tree_in >> the_tree))
-      throw runtime_error("cannot read tree file: " + treefile);
-    TreeHelper th(the_tree);
+    TreeHelper th;
+    if (ONEBRANCH) {
+      if (VERBOSE)
+        cerr << "initializing two node tree with time: " << tree << endl;
+      th = TreeHelper(std::stod(tree));
+    } else {
+      cerr << "reading tree file: " << tree << endl;
+      std::ifstream tree_in(tree.c_str());
+      if (!tree_in || !(tree_in >> the_tree))
+        throw std::runtime_error("bad tree file: " + tree);
+      th = TreeHelper(the_tree);
+    }
 
     /* (2) READING PARAMETERS FROM FILE */
     if (VERBOSE)
@@ -203,23 +214,32 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[RUNNING MCMC-EM (seed=" << rng_seed << ")]\n"
-      << "itr\tstationary\tbaseline\tinit\ttree\tacc_rate\tllh\n"
+      << "itr\tstationary\tbaseline\tinit\tacc_rate\tllh\n"
       << "0\t" << the_model.T[0][0] << "\t"
       << the_model.T[1][1] << "\t"
       << the_model.stationary_logbaseline[0][0] << "\t"
       << the_model.stationary_logbaseline[1][1] << "\t"
-      << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
-      << the_tree << "\tNA\tNA" << endl;
+      << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << endl;
     
     size_t current_batch = batch;
-    const vector<vector<double> > emit(th.n_nodes);
+    vector<vector<vector<double> > > emit(n_sites);
 
+    for (size_t site_id = 0; site_id < n_sites; site_id++) {
+      emit[site_id].resize(2);
+      emit[site_id][0].resize(2);
+      emit[site_id][0][0] = (paths[1][site_id].init_state == false ?
+                             1.0 : 0.0);
+      emit[site_id][0][1] = (paths[1][site_id].init_state == true ?
+                             1.0 : 0.0);
+    }
+    
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {
       // Burning
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-          Metropolis_Hastings_site(the_model, th, site_id, paths, emit, gen);
+          Metropolis_Hastings_site(the_model, th, site_id, paths,
+                                   emit[site_id], gen);
         }
       }
       
@@ -233,7 +253,7 @@ int main(int argc, const char **argv) {
       for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           n_accepted += Metropolis_Hastings_site(the_model, th, site_id,
-                                                 paths, emit, gen);
+                                                 paths, emit[site_id], gen);
         }
 
         
@@ -288,7 +308,6 @@ int main(int argc, const char **argv) {
         << the_model.stationary_logbaseline[0][0] << "\t"
         << the_model.stationary_logbaseline[1][1] << "\t"
         << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
-        << the_tree << "\t"
         << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
         << "\t" << llh << endl;
     }

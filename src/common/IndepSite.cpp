@@ -339,9 +339,9 @@ estimate_rates(const vector<vector<double> > &J,
 
   // update rates
   if (D_sum[0] > 0)
-    rates[0] = J_sum[0] / D_sum[0];
+    rates[0] = std::max(J_sum[0] / D_sum[0], 10e-6);
   if (D_sum[1] > 0)
-    rates[1] = J_sum[1] / D_sum[1];
+    rates[1] = std::max(J_sum[1] / D_sum[1], 10e-6);
 }
 
 
