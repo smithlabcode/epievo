@@ -195,7 +195,8 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
   // marginalize at root node
   p0_margin[0] = root_post_prob0(site_id, init_pi, fh[0].q);
   sampled_path = vector<Path>(th.n_nodes);
-  sampled_path.front() = Path(unif(gen) > p0_margin[0], 0.0);
+  sampled_path.front() = Path(paths[1][site_id].init_state, 0.0);
+  //sampled_path.front() = Path(unif(gen) > p0_margin[0], 0.0);
 
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     const size_t start_state = sampled_path[th.parent_ids[node_id]].end_state();
