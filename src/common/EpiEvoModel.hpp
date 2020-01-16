@@ -38,7 +38,7 @@ struct EpiEvoModel {
   /*********************************************************************
    * INSTANCE VARIABLES
    */
-  two_by_two stationary_logbaseline; // symmetric part in J-P model
+  two_by_two stationary_baseline; // symmetric part in J-P model
   two_by_two T;       // horizontal transition probs (stationary)
   two_by_two init_T;  // horizontal transition probs (initial)
   two_by_two Q;       // pair-wise potential densities (stationary)

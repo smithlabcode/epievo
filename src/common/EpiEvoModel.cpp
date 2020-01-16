@@ -189,8 +189,8 @@ EpiEvoModel::format_for_param_file() const {
   std::ostringstream oss;
   oss << "stationary\t" << T[0][0] << '\t' << T[1][1] << endl
       << "baseline\t"
-      << stationary_logbaseline[0][0] << '\t'
-      << stationary_logbaseline[1][1] << endl
+      << stationary_baseline[0][0] << '\t'
+      << stationary_baseline[1][1] << endl
       << "init\t" << init_T[0][0] << '\t' << init_T[1][1];
   return oss.str();
 }
@@ -204,8 +204,8 @@ EpiEvoModel::tostring() const {
       << format_two_by_two(init_T) << '\n'
       << "[STATIONARY HORIZ TRANSITION PROBS]\n"
       << format_two_by_two(T) << '\n'
-      << "[STATIONARY LOG BASELINE VALUES]\n"
-      << format_two_by_two(stationary_logbaseline) << '\n'
+      << "[STATIONARY BASELINE VALUES]\n"
+      << format_two_by_two(stationary_baseline) << '\n'
       << "[STATIONARY POTENTIALS DENSITIES]\n"
       << format_two_by_two(Q) << '\n'
       << "[TRIPLE RATES]\n";
@@ -348,9 +348,9 @@ read_model(const string &param_file, EpiEvoModel &m) {
     /* read the baseline */
     in >> dummy_label;
     assert(dummy_label == "baseline");
-    m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
-    in >> m.stationary_logbaseline[0][0]
-    >> m.stationary_logbaseline[1][1];
+    m.stationary_baseline.resize(2, vector<double>(2, 0.0));
+    in >> m.stationary_baseline[0][0]
+    >> m.stationary_baseline[1][1];
     
     /* read the initial distribution (at root) */
     in >> dummy_label;
@@ -367,7 +367,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
   } else {
     assert(dummy_label == "000");
     m.T.resize(2, vector<double>(2, 0.0));
-    m.stationary_logbaseline.resize(2, vector<double>(2, 0.0));
+    m.stationary_baseline.resize(2, vector<double>(2, 0.0));
     m.init_T.resize(2, vector<double>(2, 0.0));
 
     /* read triplet transition rates */
@@ -427,7 +427,7 @@ EpiEvoModel::compute_triplet_rates() {
     for (size_t j = 0; j < 2; ++j)
       for (size_t k = 0; k < 2; ++k)
         triplet_rates[triple2idx(i, j, k)] =
-          Q[i][1-j] * Q[1-j][k] * std::exp(stationary_logbaseline[i][k]);
+          Q[i][1-j] * Q[1-j][k] * std::exp(stationary_baseline[i][k]);
 }
 
 
@@ -446,25 +446,25 @@ EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
   horiz_trans_prob_to_horiz_potential(T, Q);
 
   // recompute stationary log baseline
-  stationary_logbaseline[0][0] =
+  stationary_baseline[0][0] =
     log(triplet_rates[0]) - (log(Q[0][1]) + log(Q[1][0]));
 
-  stationary_logbaseline[0][1] =
+  stationary_baseline[0][1] =
     log(triplet_rates[1]) - (log(Q[0][1]) + log(Q[1][1]));
 
-  stationary_logbaseline[1][0] =
+  stationary_baseline[1][0] =
     log(triplet_rates[4]) - (log(Q[1][1]) + log(Q[1][0]));
 
-  stationary_logbaseline[1][1] =
+  stationary_baseline[1][1] =
     log(triplet_rates[7]) - (log(Q[1][0]) + log(Q[0][1]));
 
-  const double centering_point = stationary_logbaseline[0][1];
-  stationary_logbaseline[0][0] -= centering_point;
-  stationary_logbaseline[0][1] -= centering_point;
-  stationary_logbaseline[1][0] -= centering_point;
-  stationary_logbaseline[1][1] -= centering_point;
+  const double centering_point = stationary_baseline[0][1];
+  stationary_baseline[0][0] -= centering_point;
+  stationary_baseline[0][1] -= centering_point;
+  stationary_baseline[1][0] -= centering_point;
+  stationary_baseline[1][1] -= centering_point;
 
-  assert(stationary_logbaseline[0][1] == stationary_logbaseline[1][0]);
+  assert(stationary_baseline[0][1] == stationary_baseline[1][0]);
 }
 
 
