@@ -98,7 +98,7 @@ int main(int argc, const char **argv) {
     size_t batch = 10;              // MCMC iterations
     size_t burnin = 10;           // burn-in MCMC iterations
     double increment_k = 0.0;           // batch increment controller
-
+    
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
     static const double param_tol = 1e-10;
@@ -217,8 +217,8 @@ int main(int argc, const char **argv) {
       << "itr\tstationary\tbaseline\tinit\tacc_rate\tllh\n"
       << "0\t" << the_model.T[0][0] << "\t"
       << the_model.T[1][1] << "\t"
-      << the_model.stationary_logbaseline[0][0] << "\t"
-      << the_model.stationary_logbaseline[1][1] << "\t"
+      << the_model.stationary_baseline[0][0] << "\t"
+      << the_model.stationary_baseline[1][1] << "\t"
       << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << endl;
     
     size_t current_batch = batch;
@@ -305,8 +305,8 @@ int main(int argc, const char **argv) {
       if (VERBOSE)
         cerr << itr+1 << "\t" << the_model.T[0][0] << "\t"
         << the_model.T[1][1] << "\t"
-        << the_model.stationary_logbaseline[0][0] << "\t"
-        << the_model.stationary_logbaseline[1][1] << "\t"
+        << the_model.stationary_baseline[0][0] << "\t"
+        << the_model.stationary_baseline[1][1] << "\t"
         << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
         << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
         << "\t" << llh << endl;
