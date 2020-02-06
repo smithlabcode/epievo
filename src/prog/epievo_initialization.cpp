@@ -165,9 +165,10 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
           child_states[n_ch++] = state_sequences[*c][site_id];
         
         // sample parent state
-        if (!th.is_root(node_id))
-        state_sequences[node_id][site_id] =
-          child_states[std::floor(unif()*n_ch)];
+        if (th.is_root(node_id))
+          state_sequences[node_id][site_id] = state_sequences[0][site_id];
+        else
+          state_sequences[node_id][site_id] = child_states[std::floor(unif()*n_ch)];
         
         // assign site-specific paths above two child nodes
         for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c) {
@@ -191,7 +192,7 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
   const vector<vector<double> > zeros_two_by_two =
   vector<vector<double> > (2, vector<double> (2, 0.0));
   
-  the_model.stationary_logbaseline = zeros_two_by_two;
+  the_model.stationary_baseline = zeros_two_by_two;
   the_model.T = zeros_two_by_two;
   the_model.init_T = zeros_two_by_two;
   the_model.Q = zeros_two_by_two;
@@ -322,7 +323,6 @@ int main(int argc, const char **argv) {
       cerr << "[READING STATES FILE: " << statesfile << "]" << endl;
     read_states_file(statesfile, state_sequences, th);
     
-    
     /* standard mersenne_twister_engine seeded with rd()*/
     if (rng_seed == numeric_limits<size_t>::max()) {
       std::random_device rd;
@@ -335,7 +335,7 @@ int main(int argc, const char **argv) {
     /* generate initial paths by heuristics */
     vector<vector<Path> > paths; // along multiple branches
     initialize_paths(gen, th, state_sequences, paths);
-
+    
     /* Run EM to learn a site-independent model */
     vector<double> rates (2, 0.0);
     vector<double> init_pi (2, 0.0);
