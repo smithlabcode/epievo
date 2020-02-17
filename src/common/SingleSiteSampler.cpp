@@ -49,26 +49,6 @@ using std::runtime_error;
 using std::function;
 using std::exponential_distribution;
 
-
-/* collect rates and interval lengths */
-static void
-collect_segment_info(const vector<double> &triplet_rates,
-                     const Path &l, const Path &r,
-                     vector<SegmentInfo> &seg_info) {
-  Environment env(l, r);
-  const size_t n_intervals = env.left.size();
-  seg_info = vector<SegmentInfo>(n_intervals);
-
-  for (size_t i = 0; i < n_intervals; ++i) {
-    const size_t pattern0 = triple2idx(env.left[i], false, env.right[i]);
-    const size_t pattern1 = triple2idx(env.left[i], true, env.right[i]);
-    seg_info[i] = SegmentInfo(triplet_rates[pattern0], triplet_rates[pattern1],
-                              env.breaks[i] - (i == 0 ? 0.0 : env.breaks[i-1]));
-    //cerr << env.breaks[i] << "!" << endl;
-    assert(seg_info[i].len > 0.0);
-  }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////           UPWARD PRUNING           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -91,17 +71,17 @@ static void
 process_branch_above(const vector<SegmentInfo> &seg_info, FelsHelper &fh) {
 
   const size_t n_intervals = seg_info.size();
-  vector<vector<double> > p(n_intervals, {0.0, 0.0});
+  fh.p.resize(n_intervals, {0.0, 0.0});
 
   // directly use q for final interval (back of p[node_id])
   assert(n_intervals > 0);
-  process_interval(seg_info.back(), fh.q, p.back());
+  process_interval(seg_info.back(), fh.q, fh.p.back());
 
   // iterate backwards/upwards with: q[i-1] = p[i]
   for (size_t i = n_intervals - 1; i > 0; --i)
-    process_interval(seg_info[i-1], p[i], p[i-1]);
+    process_interval(seg_info[i-1], fh.p[i], fh.p[i-1]);
 
-  swap(fh.p, p); // assign the computed p to fh
+  // swap(fh.p, p); // assign the computed p to fh
 }
 
 
@@ -378,7 +358,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const double orig_proposal =
   proposal_prob(mod.triplet_rates, th, site_id, paths,
                 mod.init_T, fh, seg_info, original);
-  
+
   const double update_proposal =
   proposal_prob(mod.triplet_rates, th, site_id, paths,
                 mod.init_T, fh, seg_info, proposed_path);
@@ -406,7 +386,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   fill_n(begin(J_orig), n_triples, 0.0);
   fill_n(begin(D_prop), n_triples, 0.0);
   fill_n(begin(J_prop), n_triples, 0.0);
-  
+
   for (size_t i = 1; i < th.n_nodes; ++i) {
     // sufficient stats for current pentet using original path at mid
     vector<Path>::const_iterator opth(paths[i].begin() + site_id);
@@ -430,7 +410,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     // to the Hastings ratio
     llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
             log_likelihood(mod.triplet_rates, J_orig, D_orig));
-    
+
     // add difference in log-likelihood related to observation
     if (emit[i].size() == 2)
       llr += (log(emit[i][proposed_path[i].end_state()]) -
@@ -453,7 +433,7 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const vector<vector<double> > &emit,
                          std::mt19937 &gen) {
   assert((th.n_nodes == paths.size()) && (th.n_nodes == emit.size()));
-  
+
   // get rates and lengths each interval [seg_info: node x segs]
   vector<Path> proposed_path;
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
