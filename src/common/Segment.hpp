@@ -29,25 +29,18 @@
 #include "Path.hpp"
 
 struct SegmentInfo {
-    SegmentInfo() {}
-    SegmentInfo(const double r0, const double r1, const double l) :
+  SegmentInfo() {}
+  SegmentInfo(const double r0, const double r1, const double l) :
     rate0(r0), rate1(r1), len(l) {}
-    double rate0;
-    double rate1;
-    double len;
+  double rate0;
+  double rate1;
+  double len;
 };
 
-////////////////////////////////////////////////////////////////////////////////
 
-
-struct Environment {
-    std::vector<bool> left; // states on the left
-    std::vector<bool> right; // states on the right
-    // time pts. of envir state change, incl. tot_time
-    std::vector<double> breaks;
-    double tot_time;
-    
-    Environment(const Path &pa, const Path &pb);
-};
+void
+collect_segment_info(const std::vector<double> &rates,
+                     const Path &l, const Path &r,
+                     std::vector<SegmentInfo> &seg_info);
 
 #endif
