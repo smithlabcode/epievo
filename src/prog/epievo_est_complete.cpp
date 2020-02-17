@@ -53,6 +53,7 @@ int main(int argc, const char **argv) {
 
     bool VERBOSE = false;
     bool OPTBRANCH = false;
+    bool ONEBRANCH = false;
 
     string outfile;
     string treefile_updated;
@@ -65,6 +66,8 @@ int main(int argc, const char **argv) {
                       false, VERBOSE);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
+    opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
+                      ONEBRANCH);
     opt_parse.add_opt("output", 'o',
                       "output parameter file (default: stdout)",
                       false, outfile);
@@ -102,21 +105,30 @@ int main(int argc, const char **argv) {
     read_paths(path_file, node_names, all_paths);
     const size_t n_sites = all_paths.back().size();
 
+    /* LOADING (FAKE) TREE */
+    if (VERBOSE)
+      cerr << "[READING TREE: " << tree_file << "]" << endl;
+    PhyloTreePreorder the_tree; // tree topology and branch lengths
+    TreeHelper th;
+    if (ONEBRANCH) {
+      if (VERBOSE)
+        cerr << "initializing two node tree with time: " << tree_file << endl;
+      th = TreeHelper(std::stod(tree_file));
+    } else {
+      cerr << "reading tree file: " << tree_file << endl;
+      std::ifstream tree_in(tree_file.c_str());
+      if (!tree_in || !(tree_in >> the_tree))
+        throw std::runtime_error("bad tree file: " + tree_file);
+      th = TreeHelper(the_tree);
+    }
+    const size_t n_nodes = the_tree.get_size();
+
     if (VERBOSE)
       cerr << "[READING PARAMETER FILE: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     if (VERBOSE)
       cerr << the_model << endl;
-
-    if (VERBOSE)
-      cerr << "[READING TREE FILE: " << tree_file << "]" << endl;
-    PhyloTreePreorder the_tree; // tree topology and branch lengths
-    std::ifstream tree_in(tree_file.c_str());
-    if (!tree_in || !(tree_in >> the_tree))
-      throw std::runtime_error("bad tree file: " + tree_file);
-    const size_t n_nodes = the_tree.get_size();
-    TreeHelper th(the_tree);
 
     if (VERBOSE) {
       cerr << "[INITIAL GUESS AT BRANCH LENGTHS]" << endl;
@@ -160,7 +172,7 @@ int main(int argc, const char **argv) {
         throw std::runtime_error("bad output param file: " + treefile_updated);
       out_tree << the_tree << endl;
     }
-    
+
     if (VERBOSE)
       cerr << "[FINISHED.]" << endl;
   }
