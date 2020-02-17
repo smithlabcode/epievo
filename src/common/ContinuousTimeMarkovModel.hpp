@@ -58,7 +58,7 @@ struct TwoStateCTMarkovModel {
   double get_trans_prob(const double time_interval, const size_t start_state,
                         const size_t end_state) const;
   std::string tostring() const;
-  
+
   double get_rate(const bool the_state) const {
     return the_state ? rate1 : rate0;
   }
