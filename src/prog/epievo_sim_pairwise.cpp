@@ -159,29 +159,9 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
 
 
 static void
-compute_emit(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
-             vector<vector<vector<double> > > &all_emit,
-             const vector<function<double (bool)> > emit_root,
-             const vector<function<double (bool)> > emit_leaf) {
-  all_emit.resize(root_seq.size());
-  for (size_t site_id = 0; site_id < leaf_seq.size(); site_id++) {
-    all_emit[site_id].resize(2);
-    const double p_bg_root = emit_root[0](root_seq[site_id]);
-    const double p_fg_root = emit_root[1](root_seq[site_id]);
-    const double p_bg_leaf = emit_leaf[0](leaf_seq[site_id]);
-    const double p_fg_leaf = emit_leaf[1](leaf_seq[site_id]);
-
-    all_emit[site_id][0] = {p_bg_root, p_fg_root};
-    all_emit[site_id][1] = {p_bg_leaf, p_fg_leaf};
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////
-
-static void
 write_root_to_pathfile_local(const string &outfile, const string &root_name) {
   std::ofstream of;
-  if (!outfile.empty()) of.open(outfile.c_str());
+  if (!outfile.empty()) of.open(outfile);
   std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + outfile);
