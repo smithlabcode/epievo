@@ -294,7 +294,7 @@ estimate_rates(const double param_tol,
                const vector<vector<double> > &D,
                const vector<double> &input_rates,
                vector<double> &rates) {
-  
+
   vector<double> J_collapsed(J.back().size(), 0.0);
   vector<double> D_collapsed(J.back().size(), 0.0);
 
@@ -304,7 +304,7 @@ estimate_rates(const double param_tol,
       D_collapsed[j] += D[b][j];
     }
   }
-  
+
   return estimate_rates(param_tol, J_collapsed, D_collapsed,
                         input_rates, rates);
 }
@@ -335,14 +335,14 @@ compute_estimates_for_rates_only(const bool VERBOSE,
                                  const vector<vector<double> > &J,
                                  const vector<vector<double> > &D,
                                  EpiEvoModel &the_model) {
-  
+
   if (VERBOSE)
     cerr << "[ESTIMATING PARAMETERS]" << endl;
 
   vector<double> updated_rates;
   const double llh = estimate_rates(param_tol, J, D, the_model.triplet_rates,
                                     updated_rates);
-  
+
   the_model.rebuild_from_triplet_rates(updated_rates);
 
   return llh;
@@ -387,11 +387,11 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
 
   if (VERBOSE)
     cerr << "[ESTIMATING PARAMETERS AND BRANCHES]" << endl;
-  
+
   // stage 1: update rates
   vector<double> updated_rates;
   estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
-  
+
   // stage 2: update branches
   vector<double> updated_branches(th.branches);
   vector<double> branch_scale(th.branches.size(), 1.0);
@@ -399,13 +399,13 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   std::transform(branch_scale.begin(), branch_scale.end(),
                  th.branches.begin(), updated_branches.begin(),
                  std::multiplies<double>() );
-  
+
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
 
   // update branch lenths
   th.branches = updated_branches;
-  
+
   // calculate new llh
   static const size_t n_triplets = 8;
   vector<double> J_collapsed(n_triplets, 0.0);
@@ -416,7 +416,7 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
       J_collapsed[i] += J[b][i];
       D_collapsed[i] += branch_scale[b] * D[b][i];
     }
-  
+
   return log_likelihood(J_collapsed, D_collapsed, updated_rates);
 }
 
@@ -427,13 +427,13 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
                                      vector<vector<Path> > &all_paths,
                                      TreeHelper &th,
                                      EpiEvoModel &the_model) {
-  
+
   if (VERBOSE)
     cerr << "[NORMALIZING ALL PATH LENGTHS]" << endl;
   for (size_t b = 1; b < all_paths.size(); ++b)
     for (size_t i = 0; i < all_paths[b].size(); ++i)
       all_paths[b][i].scale_to_unit_length();
-  
+
 
   // get initial values of sufficient statistics
   if (VERBOSE)
@@ -450,10 +450,10 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
 void
 estimate_root_distribution(const vector<vector<double> > &counts,
                            EpiEvoModel &the_model) {
-  
+
   the_model.init_T[0][0] = counts[0][0] / (counts[0][0] + counts[0][1]);
   the_model.init_T[0][1] = 1 - the_model.init_T[0][0];
-  
+
   the_model.init_T[1][1] = counts[1][1] / (counts[1][1] + counts[1][0]);
   the_model.init_T[1][0] = 1 - the_model.init_T[1][1];
 }
