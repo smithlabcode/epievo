@@ -222,30 +222,6 @@ TriplePath::time_by_context(vector<double> &tbc) const {
     tbc[states[i]] += breaks[i+1] - breaks[i];
 }
 
-/* Code associated with PathContextStat below */
-
-PathContextStat::PathContextStat(const Path &l, const Path &m, const Path &r) {
-
-  // the "jumps" is the same as m.jumps with 0 at the start, and
-  // tot_time for the mid at the end
-  vector<double> jumps(m.jumps.size() + 2, 0.0); // two extra entries
-  copy(m.jumps.begin(), m.jumps.end(), jumps.begin() + 1); // start at jumps[1]
-  jumps.back() = m.tot_time; // make sure the final entry is tot_time
-
-  jumps_in_context = vector<double>(8, 0.0);
-  time_in_context = vector<double>(8, 0.0);
-
-  size_t context = triple2idx(l.init_state, m.init_state, r.init_state);
-  for (size_t i = 1; i < jumps.size(); ++i) {
-    const double t = 0.5*(jumps[i] + jumps[i-1]);
-    context = triple2idx(l.state_at_time(t), m.state_at_time(t),
-                         r.state_at_time(t));
-    ++jumps_in_context[context];
-    time_in_context[context] += (jumps[i] - jumps[i-1]);
-  }
-  --jumps_in_context[context]; // last break point is not a jump
-}
-
 
 static void
 add_suff_stat_single(const size_t change_pos, const Path &a, size_t i,

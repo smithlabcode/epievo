@@ -88,13 +88,4 @@ void
 add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
                           std::vector<double> &J, std::vector<double> &D);
 
-////////////////////////////////////////////////////////////////////////////////
-
-struct PathContextStat {
-  std::vector<double> jumps_in_context;
-  std::vector<double> time_in_context;
-
-  PathContextStat(const Path &l, const Path &m, const Path &r);
-};
-
 #endif
