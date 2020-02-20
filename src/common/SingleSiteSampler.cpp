@@ -298,26 +298,47 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 }
 
 
-/* compute proposal prob */
+/* compute proposal prob with all paths as input*/
 static double
 proposal_prob(const vector<double> &triplet_rates,
-              const TreeHelper &th,
-              const size_t site_id,
-              const vector<vector<Path> > &paths,
+              const TreeHelper &th, const size_t site_id,
+              const two_by_two<double> &horiz_trans_prob,
+              const vector<FelsHelper> &fh,
+              const vector<vector<SegmentInfo> > &seg_info,
+              const vector<vector<Path> > &paths) {
+
+  // compute posterior probability of state 0 at root node
+  const bool rt_left_st = paths[1][site_id - 1].init_state;
+  const bool rt_right_st = paths[1][site_id + 1].init_state;
+  const double root_p0 =
+    root_post_prob0(rt_left_st, rt_right_st, horiz_trans_prob, fh[0].q);
+  double log_prob = paths[1][site_id].init_state ?
+                      log(1.0 - root_p0) : log(root_p0);
+
+  // process the paths above each node (except the root)
+  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
+    log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
+                                     paths[node_id][site_id]);
+  }
+  assert(std::isfinite(log_prob));
+  return log_prob;
+}
+
+
+/* compute proposal prob with a single path (along all nodes) as input*/
+static double
+proposal_prob(const vector<double> &triplet_rates, const TreeHelper &th,
+              const bool rt_left_st, const bool rt_right_st,
               const two_by_two<double> &horiz_trans_prob,
               const vector<FelsHelper> &fh,
               const vector<vector<SegmentInfo> > &seg_info,
               const vector<Path> &the_path) {
-
+  
   // compute posterior probability of state 0 at root node
-  const size_t right_st = paths[1][site_id + 1].init_state;
-  const size_t left_st = paths[1][site_id - 1].init_state;
-    
   const double root_p0 =
-    root_post_prob0(left_st, right_st, horiz_trans_prob, fh[0].q);
-
+  root_post_prob0(rt_left_st, rt_right_st, horiz_trans_prob, fh[0].q);
   double log_prob = the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
-
+  
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
@@ -350,33 +371,30 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 const vector<vector<SegmentInfo> > &seg_info,
                 const vector<Path> &proposed_path) {
 
+  assert(site_id > 0 && site_id < paths[1].size());
   static const size_t n_triples = 8;
 
   // ADS: this is unfortunate; we need to slice/transpose the original
   // paths because of how they are organized
-  vector<Path> original(th.n_nodes);
-  for (size_t i = 1; i < th.n_nodes; ++i)
-    original[i] = paths[i][site_id];
-  const double orig_proposal =
-  proposal_prob(mod.triplet_rates, th, site_id, paths,
-                mod.init_T, fh, seg_info, original);
+  const bool rt_left_st = paths[1][site_id-1].init_state;
+  const bool rt_right_st = paths[1][site_id+1].init_state;
 
-  const double update_proposal =
-  proposal_prob(mod.triplet_rates, th, site_id, paths,
-                mod.init_T, fh, seg_info, proposed_path);
-  assert(site_id > 0 && site_id < paths[1].size());
+  const double orig_proposal = proposal_prob(mod.triplet_rates, th, site_id,
+                                             mod.init_T, fh, seg_info, paths);
+  const double update_proposal = proposal_prob(mod.triplet_rates, th,
+                                               rt_left_st, rt_right_st,
+                                               mod.init_T, fh, seg_info,
+                                               proposed_path);
 
   double llr = orig_proposal - update_proposal;
 
   /* calculate likelihood involving root states */
   const two_by_two<double> root_T = (mod.use_init_T ? mod.init_T :
                                      two_by_two<double> (1.0, 1.0, 1.0, 1.0));
-  const size_t rt_l = paths[1][site_id-1].init_state;
-  const size_t rt_r = paths[1][site_id+1].init_state;
   const size_t rt_orig = paths[1][site_id].init_state;
   const size_t rt_prop = proposed_path[1].init_state;
-  llr += (log(root_prior_lh(rt_l, rt_prop, rt_r, root_T)) -
-          log(root_prior_lh(rt_l, rt_orig, rt_r, root_T)));
+  llr += (log(root_prior_lh(rt_left_st, rt_prop, rt_right_st, root_T)) -
+          log(root_prior_lh(rt_left_st, rt_orig, rt_right_st, root_T)));
   // add difference in log-likelihood related to observation
   if (emit[0].size() == 2)
     llr += (log(emit[0][rt_prop]) - log(emit[0][rt_orig]));
