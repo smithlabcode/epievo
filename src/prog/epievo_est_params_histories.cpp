@@ -59,7 +59,7 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
   std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + outfile);
-  
+
   outpath << "NODE:" << root_name << endl;
 }
 
@@ -72,7 +72,7 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
   std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + pathfile);
-  
+
   outpath << "NODE:" << node_name << endl;
   for (size_t i = 0; i < path_by_site.size(); ++i)
     outpath << i << '\t' << path_by_site[i] << '\n';
@@ -98,7 +98,7 @@ int main(int argc, const char **argv) {
     size_t batch = 10;              // MCMC iterations
     size_t burnin = 10;           // burn-in MCMC iterations
     double increment_k = 0.0;           // batch increment controller
-    
+
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
     static const double param_tol = 1e-10;
@@ -191,21 +191,21 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > paths; // along multiple branches
     read_paths(input_file, node_names, paths);
     const size_t n_sites = paths[1].size();
-     
+
     /* (4) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
       rng_seed = rd();
     }
     std::mt19937 gen(rng_seed);
-    
+
     /* (5) MCMC */
-  
+
     /* MCMC PARAMETERS AND DATA*/
     vector<vector<double> > J;
     vector<vector<double> > D;
     vector<vector<double> > root_frequences;
-    
+
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     /////// START MCMC-EM
@@ -220,7 +220,7 @@ int main(int argc, const char **argv) {
       << the_model.stationary_baseline[0][0] << "\t"
       << the_model.stationary_baseline[1][1] << "\t"
       << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << endl;
-    
+
     size_t current_batch = batch;
     vector<vector<vector<double> > > emit(n_sites);
 
@@ -232,7 +232,7 @@ int main(int argc, const char **argv) {
       emit[site_id][0][1] = (paths[1][site_id].init_state == true ?
                              1.0 : 0.0);
     }
-    
+
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {
       // Burning
@@ -242,7 +242,7 @@ int main(int argc, const char **argv) {
                                    emit[site_id], gen);
         }
       }
-      
+
       // MCMC samples
       current_batch += (itr+1) * increment_k;
       size_t n_accepted = 0;
@@ -256,11 +256,11 @@ int main(int argc, const char **argv) {
                                                  paths, emit[site_id], gen);
         }
 
-        
+
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
         get_root_frequences(paths, root_frequences);
-        
+
         /* RECORD STATS (POST-BURN-IN) */
         for (size_t b = 1; b < J.size(); b++) {
           for (size_t i = 0; i < 8; i++) {
@@ -273,7 +273,7 @@ int main(int argc, const char **argv) {
         root_accum[1][0] += root_frequences[1][0];
         root_accum[1][1] += root_frequences[1][1];
       }
-      
+
       //////////////////////////////////////////////////////////////////////////
       ///////////               POST-MCMC PROCESSING                 ///////////
       //////////////////////////////////////////////////////////////////////////
@@ -288,7 +288,6 @@ int main(int argc, const char **argv) {
       root_accum[0][1] /= current_batch;
       root_accum[1][0] /= current_batch;
       root_accum[1][1] /= current_batch;
-      
       /* PARAMETER ESTIMATION */
       double llh = 0.0;
       if (!OPTBRANCH)
@@ -301,7 +300,7 @@ int main(int argc, const char **argv) {
         the_tree.set_branch_lengths(th.branches);
       }
       estimate_root_distribution(root_accum, the_model);
-      
+
       if (VERBOSE)
         cerr << itr+1 << "\t" << the_model.T[0][0] << "\t"
         << the_model.T[1][1] << "\t"
@@ -310,37 +309,32 @@ int main(int argc, const char **argv) {
         << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
         << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
         << "\t" << llh << endl;
-    }
-  
- 
-    /* (6) OUTPUT */
-    if (VERBOSE)
-      cerr << "[WRITING PATHS: " << outfile << "]" << endl;
-    write_root_to_pathfile_local(outfile, th.node_names.front());
-    for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-      append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
-    
-    if (VERBOSE)
-      cerr << "[WRITING PARAMETERS: " << param_file_updated << "]\n"
-      <<  the_model << endl;
-    std::ofstream of_param;
-    if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
-    std::ostream out_param(param_file_updated.empty() ?
-                           std::cout.rdbuf() : of_param.rdbuf());
-    if (!out_param)
-      throw std::runtime_error("bad output param file: " + param_file_updated);
-    out_param << the_model.format_for_param_file() << endl;
-    
-    if (OPTBRANCH) {
-      std::ofstream of_tree;
-      if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
-      std::ostream out_tree(treefile_updated.empty() ?
-                            std::cout.rdbuf() : of_tree.rdbuf());
-      if (!out_tree)
-        throw std::runtime_error("bad output param file: " + treefile_updated);
-      out_tree << the_tree << endl;
-    }
 
+      /* WRITE PARAMETER FILE */
+      std::ofstream of_param;
+      if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
+      std::ostream out_param(param_file_updated.empty() ?
+                            std::cout.rdbuf() : of_param.rdbuf());
+      if (!out_param)
+        throw std::runtime_error("bad output param file: " + param_file_updated);
+      out_param << the_model.format_for_param_file() << endl;
+
+      /* WRITE PATH FILE */
+      write_root_to_pathfile_local(outfile, th.node_names.front());
+      for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
+        append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
+
+      /* WRITE TREE FILE */
+      if (OPTBRANCH) {
+        std::ofstream of_tree;
+        if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
+        std::ostream out_tree(treefile_updated.empty() ?
+                              std::cout.rdbuf() : of_tree.rdbuf());
+        if (!out_tree)
+          throw std::runtime_error("bad output param file: " + treefile_updated);
+        out_tree << the_tree << endl;
+      }
+    }
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;
