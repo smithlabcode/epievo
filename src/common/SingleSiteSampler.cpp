@@ -151,12 +151,9 @@ pruning(const TreeHelper &th, const size_t site_id,
  * information from the upward stage of Felsenstein's algorithm.
  */
 static double
-root_post_prob0(const size_t site_id, const vector<Path> &the_paths,
+root_post_prob0(const bool left_st, const bool right_st,
                 const two_by_two<double> &horiz_tr_prob,
                 const vector<double> &q) {
-
-  const size_t left_st = the_paths[site_id - 1].init_state;
-  const size_t right_st = the_paths[site_id + 1].init_state;
 
   const double p0 = (horiz_tr_prob(left_st, 0)*horiz_tr_prob(0, right_st))*q[0];
   const double p1 = (horiz_tr_prob(left_st, 1)*horiz_tr_prob(1, right_st))*q[1];
@@ -219,8 +216,10 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
   // compute posterior probability at root node
   const two_by_two<double> root_T = (mod.use_init_T ? mod.init_T :
                                      two_by_two<double> (1.0, 1.0, 1.0, 1.0));
-  const double root_p0 =
-    root_post_prob0(site_id, paths[1], root_T, fh[0].q);
+  const bool left_st = paths[1][site_id - 1].init_state;
+  const bool right_st = paths[1][site_id + 1].init_state;
+  const double root_p0 = root_post_prob0(left_st, right_st, root_T, fh[0].q);
+
   proposed_path = vector<Path>(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
@@ -311,8 +310,11 @@ proposal_prob(const vector<double> &triplet_rates,
               const vector<Path> &the_path) {
 
   // compute posterior probability of state 0 at root node
+  const size_t right_st = paths[1][site_id + 1].init_state;
+  const size_t left_st = paths[1][site_id - 1].init_state;
+    
   const double root_p0 =
-    root_post_prob0(site_id, paths[1], horiz_trans_prob, fh[0].q);
+    root_post_prob0(left_st, right_st, horiz_trans_prob, fh[0].q);
 
   double log_prob = the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
 

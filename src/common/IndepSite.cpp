@@ -90,8 +90,7 @@ pruning_upward(const TreeHelper &th, const size_t site_id,
 
 
 static double
-root_post_prob0(const size_t site_id, const vector<double> &init_pi,
-                const vector<double> &q) {
+root_post_prob0(const vector<double> &init_pi, const vector<double> &q) {
 
   const double p0 = init_pi[0]*q[0];
   const double p1 = init_pi[1]*q[1];
@@ -168,7 +167,7 @@ pruning_downward(const TreeHelper &th, const size_t site_id,
   vector<double> p0_margin(th.n_nodes);
 
   // marginalize at root node
-  p0_margin[0] = root_post_prob0(site_id, init_pi, fh[0].q);
+  p0_margin[0] = root_post_prob0(init_pi, fh[0].q);
   init_pi_post[0] += p0_margin[0];
   init_pi_post[1] += 1 - init_pi[0];
 
@@ -193,7 +192,7 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
   // marginalize at root node
-  p0_margin[0] = root_post_prob0(site_id, init_pi, fh[0].q);
+  p0_margin[0] = root_post_prob0(init_pi, fh[0].q);
   sampled_path = vector<Path>(th.n_nodes);
   sampled_path.front() = Path(paths[1][site_id].init_state, 0.0);
   //sampled_path.front() = Path(unif(gen) > p0_margin[0], 0.0);
