@@ -71,8 +71,9 @@ StateSeq::get_triplet_proportions(std::vector<double> &triplet_props) const {
 
   triplet_props.resize(triplet_counts.size());
   std::transform(triplet_counts.begin(), triplet_counts.end(),
-                 triplet_props.begin(), std::bind2nd(std::divides<double>(),
-                                                     seq.size() - 2));
+                 triplet_props.begin(),
+                 std::bind(std::divides<double>(), std::placeholders::_1,
+                           seq.size() - 2));
 }
 
 void
@@ -91,9 +92,9 @@ StateSeq::get_pair_proportions(std::vector<double> &pair_props) const {
   get_pair_counts(pair_counts);
 
   pair_props.resize(pair_counts.size());
-  std::transform(pair_counts.begin(), pair_counts.end(),
-                 pair_props.begin(), std::bind2nd(std::divides<double>(),
-                                                  seq.size() - 1));
+  std::transform(pair_counts.begin(), pair_counts.end(), pair_props.begin(),
+                 std::bind(std::divides<double>(), std::placeholders::_1,
+                           seq.size() - 1));
 }
 
 

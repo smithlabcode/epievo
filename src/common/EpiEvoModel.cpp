@@ -271,13 +271,13 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
   double unit = rate_scaling_factor(rates);
 
   scaled_rates = rates;
-  transform(scaled_rates.begin(), scaled_rates.end(),
-            scaled_rates.begin(), std::bind2nd(std::divides<double>(), unit));
+  transform(scaled_rates.begin(), scaled_rates.end(), scaled_rates.begin(),
+            std::bind(std::divides<double>(), std::placeholders::_1, unit));
 
   scaled_branches = branches;
   transform(scaled_branches.begin(), scaled_branches.end(),
             scaled_branches.begin(),
-            std::bind2nd(std::multiplies<double>(), unit));
+            std::bind(std::multiplies<double>(), std::placeholders::_1, unit));
 }
 
 
