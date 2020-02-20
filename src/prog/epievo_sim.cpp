@@ -224,6 +224,7 @@ int main(int argc, const char **argv) {
     string root_states_file;
     bool VERBOSE = false;
     bool SCALE = true;
+    bool SCALE_TIME = false;
     bool TRPARAM = false;
     bool write_only_leaves = false;
     size_t n_sites = 100;
@@ -251,6 +252,8 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("notscaled", 'S',
                       "do not scale model parameters (default: scaled)",
                       false, SCALE);
+    opt_parse.add_opt("scaletime", 'M',
+                      "scale time (default: no scaling)", false, SCALE_TIME);
     opt_parse.add_opt("rates", 'R', "use triplet transition rates "
                       "(default: false)", false, TRPARAM);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
@@ -299,6 +302,10 @@ int main(int argc, const char **argv) {
       cerr << "reading parameter file: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
+    if (SCALE_TIME) {
+      const double factor = rate_scaling_factor(the_model.triplet_rates);
+      evolutionary_time *= factor;
+    }
     if (SCALE)
       the_model.scale_triplet_rates();
 
