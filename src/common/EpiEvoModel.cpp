@@ -21,6 +21,7 @@
 
 #include "EpiEvoModel.hpp"
 #include "StateSeq.hpp"
+#include "epievo_utils.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -50,14 +51,14 @@ is_probability_distribution(const vector<double> &v) {
 
 
 string
-format_two_by_two(const two_by_two &m) {
+format_two_by_two(const two_by_two<double> &m) {
   std::ostringstream oss;
   oss << "["
-      << std::setw(10) << std::right << m[0][0]
-      << std::setw(10) << std::right << m[0][1]
+      << std::setw(10) << std::right << m(0, 0)
+      << std::setw(10) << std::right << m(0, 1)
       << "]\n["
-      << std::setw(10) << std::right << m[1][0]
-      << std::setw(10) << std::right << m[1][1]
+      << std::setw(10) << std::right << m(1, 0)
+      << std::setw(10) << std::right << m(1, 1)
       << "]";
   return oss.str();
 }
@@ -77,17 +78,18 @@ format_vector(const vector<T> &v) {
 
 
 void
-horiz_trans_prob_to_horiz_potential(const two_by_two &T, two_by_two &Q) {
+horiz_trans_prob_to_horiz_potential(const two_by_two<double> &T,
+                                    two_by_two<double> &Q) {
 
   assert(is_probability_distribution(T[0]) &&
          is_probability_distribution(T[1]));
 
   // Gibbs measure pair-wise potentials
   Q = T;
-  Q[0][0] = 1.0 - T[0][1];
-  Q[0][1] = sqrt(T[0][1]*T[1][0]);
-  Q[1][0] = Q[0][1];
-  Q[1][1] = 1.0 - T[1][0];
+  Q(0, 0) = 1.0 - T(0, 1);
+  Q(0, 1) = sqrt(T(0, 1)*T(1, 0));
+  Q(1, 0) = Q(0, 1);
+  Q(1, 1) = 1.0 - T(1, 0);
 }
 
 /* This function assumes phi(0,1) = 0, and will produce Q that can be
@@ -96,32 +98,33 @@ horiz_trans_prob_to_horiz_potential(const two_by_two &T, two_by_two &Q) {
  */
 void
 triplet_rates_to_horiz_potential(const vector<double> &triplet_rates,
-                                 two_by_two &Q) {
+                                 two_by_two<double> &Q) {
   // pair-wise potentials Q from rates lambda_ijk
-  Q = vector<vector<double> >(2, vector<double>(2, 1.0));
+  Q = two_by_two<double> (1.0, 1.0, 1.0, 1.0);
   const double death_birth_ratio = triplet_rates[2]/triplet_rates[0];
   const double expand_contract_ratio = triplet_rates[1]/triplet_rates[3];
-  Q[0][0] = Q[0][1] * sqrt(death_birth_ratio);
-  Q[1][1] = Q[0][1] * sqrt(death_birth_ratio) * expand_contract_ratio;
+  Q(0, 0) = Q(0, 1) * sqrt(death_birth_ratio);
+  Q(1, 1) = Q(0, 1) * sqrt(death_birth_ratio) * expand_contract_ratio;
 }
 
 
 void
-horiz_potential_to_horiz_trans_prob(const two_by_two &Q, two_by_two &T) {
+horiz_potential_to_horiz_trans_prob(const two_by_two<double> &Q,
+                                    two_by_two<double> &T) {
 
-  const double delta = sqrt(pow(Q[0][0] - Q[1][1], 2) + 4*Q[0][1]*Q[1][0]);
+  const double delta = sqrt(pow(Q(0, 0) - Q(1, 1), 2) + 4*Q(0, 1)*Q(1, 0));
 
   // transition probability matrix
   T = Q;
 
   // compute the diagonal entries
-  const double diag_denom = Q[0][0] + Q[1][1] + delta;
-  T[1][1] = 2*Q[1][1]/diag_denom;
-  T[0][0] = 2*Q[0][0]/diag_denom;
+  const double diag_denom = Q(0, 0) + Q(1, 1) + delta;
+  T(1, 1) = 2*Q(1, 1)/diag_denom;
+  T(0, 0) = 2*Q(0, 0)/diag_denom;
 
   // now compute the anti-diagonal entries
-  T[0][1] = 1.0 - T[0][0];
-  T[1][0] = 1.0 - T[1][1];
+  T(0, 1) = 1.0 - T(0, 0);
+  T(1, 0) = 1.0 - T(1, 1);
 
   assert(is_probability_distribution(T[0]) &&
          is_probability_distribution(T[1]));
@@ -130,10 +133,10 @@ horiz_potential_to_horiz_trans_prob(const two_by_two &Q, two_by_two &T) {
 
 void
 triplet_rates_to_horiz_trans_prob(const vector<double> &triplet_rates,
-                                  two_by_two &T) {
+                                  two_by_two<double> &T) {
 
   // first compute approximation to pair-wise potentials Q from the triplet rates
-  two_by_two Q_proportional;
+  two_by_two<double> Q_proportional;
   triplet_rates_to_horiz_potential(triplet_rates, Q_proportional);
 
   // now use that approx. to get the exact T
@@ -143,15 +146,16 @@ triplet_rates_to_horiz_trans_prob(const vector<double> &triplet_rates,
 
 
 void
-horiz_trans_prob_to_horiz_stationary(const two_by_two &T, vector<double> &pi) {
+horiz_trans_prob_to_horiz_stationary(const two_by_two<double> &T,
+                                     vector<double> &pi) {
   pi = vector<double>(2, 0.0);
-  pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
+  pi[1] = (1.0 - T(0, 0))/(2.0 - T(0, 0) - T(1, 1));
   pi[0] = 1.0 - pi[1];
 }
 
 double
 rate_scaling_factor(const vector<double> &pi,
-                    const two_by_two &T,
+                    const two_by_two<double> &T,
                     const vector<double> &triplet_rates) {
 
   double mu_rate_value = 0.0;
@@ -169,11 +173,11 @@ double
 rate_scaling_factor(const vector<double> &triplet_rates) {
 
   // first compute approximation to pair-wise potentials Q from the triplet rates
-  two_by_two Q_proportional;
+  two_by_two<double> Q_proportional;
   triplet_rates_to_horiz_potential(triplet_rates, Q_proportional);
 
   // now use that approx. to get the exact T
-  two_by_two T;
+  two_by_two<double> T;
   horiz_potential_to_horiz_trans_prob(Q_proportional, T);
 
   // stationary rates pi from T
@@ -187,11 +191,11 @@ rate_scaling_factor(const vector<double> &triplet_rates) {
 std::string
 EpiEvoModel::format_for_param_file() const {
   std::ostringstream oss;
-  oss << "stationary\t" << T[0][0] << '\t' << T[1][1] << endl
+  oss << "stationary\t" << T(0, 0) << '\t' << T(1, 1) << endl
       << "baseline\t"
-      << stationary_baseline[0][0] << '\t'
-      << stationary_baseline[1][1] << endl
-      << "init\t" << init_T[0][0] << '\t' << init_T[1][1];
+      << stationary_baseline(0, 0) << '\t'
+      << stationary_baseline(1, 1) << endl
+      << "init\t" << init_T(0, 0) << '\t' << init_T(1, 1);
   return oss.str();
 }
 
@@ -227,9 +231,10 @@ operator<<(std::ostream &os, const EpiEvoModel &m) {
 
 
 void
-compute_stationary_state_proportions(const two_by_two &T, vector<double> &pi) {
+compute_stationary_state_proportions(const two_by_two<double> &T,
+                                     vector<double> &pi) {
   pi.resize(2);
-  pi[1] = (1.0 - T[0][0])/(2.0 - T[0][0] - T[1][1]);
+  pi[1] = (1.0 - T(0, 0))/(2.0 - T(0, 0) - T(1, 1));
   pi[0] = (1.0 - pi[1]);
 }
 
@@ -239,7 +244,7 @@ EpiEvoModel::get_stationary_state_proportions(vector<double> &pi) const {
 }
 
 void
-compute_stationary_triplet_proportions(const two_by_two &T,
+compute_stationary_triplet_proportions(const two_by_two<double> &T,
                                        vector<double> &props) {
   vector<double> pi;
   compute_stationary_state_proportions(T, pi);
@@ -277,19 +282,20 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
 
 
 void
-sample_state_sequence(const size_t n_sites, const two_by_two &trans_prob,
+sample_state_sequence(const size_t n_sites,
+                      const two_by_two<double> &trans_prob,
                       std::mt19937 &gen, vector<bool> &sequence) {
 
   sequence = vector<bool>(n_sites, true);
 
   const double pi1 =
-    (1.0 - trans_prob[0][0])/(2.0 - trans_prob[1][1] - trans_prob[0][0]);
+    (1.0 - trans_prob(0, 0))/(2.0 - trans_prob(1, 1) - trans_prob(0, 0));
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   sequence[0] = (unif(gen) < pi1);
   for (size_t i = 1; i < n_sites; ++i) {
     const double r = unif(gen);
-    const double p = sequence[i - 1] ? trans_prob[1][1] : trans_prob[0][0];
+    const double p = sequence[i - 1] ? trans_prob(1, 1) : trans_prob(0, 0);
     sequence[i] = ((r <= p) ? sequence[i - 1] : (!sequence[i - 1]));
   }
 }
@@ -337,10 +343,10 @@ read_model(const string &param_file, EpiEvoModel &m) {
   in >> dummy_label;
   if(dummy_label == "stationary") {
     /* read the stationary distribution */
-    m.T.resize(2, vector<double>(2, 0.0));
-    in >> m.T[0][0] >> m.T[1][1];
-    m.T[1][0] = 1.0 - m.T[1][1];
-    m.T[0][1] = 1.0 - m.T[0][0];
+    m.T.reset();
+    in >> m.T(0, 0) >> m.T(1, 1);
+    m.T(1, 0) = 1.0 - m.T(1, 1);
+    m.T(0, 1) = 1.0 - m.T(0, 0);
     
     assert(is_probability_distribution(m.T[0]) &&
            is_probability_distribution(m.T[1]));
@@ -348,17 +354,17 @@ read_model(const string &param_file, EpiEvoModel &m) {
     /* read the baseline */
     in >> dummy_label;
     assert(dummy_label == "baseline");
-    m.stationary_baseline.resize(2, vector<double>(2, 0.0));
-    in >> m.stationary_baseline[0][0]
-    >> m.stationary_baseline[1][1];
+    m.stationary_baseline.reset();
+    in >> m.stationary_baseline(0, 0)
+    >> m.stationary_baseline(1, 1);
     
     /* read the initial distribution (at root) */
     in >> dummy_label;
     assert(dummy_label == "init");
-    m.init_T.resize(2, vector<double>(2, 0.0));
-    in >> m.init_T[0][0] >> m.init_T[1][1];
-    m.init_T[1][0] = 1.0 - m.init_T[1][1];
-    m.init_T[0][1] = 1.0 - m.init_T[0][0];
+    m.init_T.reset();
+    in >> m.init_T(0, 0) >> m.init_T(1, 1);
+    m.init_T(1, 0) = 1.0 - m.init_T(1, 1);
+    m.init_T(0, 1) = 1.0 - m.init_T(0, 0);
     
     assert(is_probability_distribution(m.init_T[0]) &&
            is_probability_distribution(m.init_T[1]));
@@ -366,9 +372,9 @@ read_model(const string &param_file, EpiEvoModel &m) {
     m.initialize();
   } else {
     assert(dummy_label == "000");
-    m.T.resize(2, vector<double>(2, 0.0));
-    m.stationary_baseline.resize(2, vector<double>(2, 0.0));
-    m.init_T.resize(2, vector<double>(2, 0.0));
+    m.T.reset();
+    m.stationary_baseline.reset();
+    m.init_T.reset();
 
     /* read triplet transition rates */
     vector<double> rates;
@@ -409,7 +415,7 @@ void
 EpiEvoModel::initialize() {
 
   // convert target transition probs into Gibbs pair-wise potentials
-  Q = two_by_two(2, vector<double>(2, 0.0));
+  Q = two_by_two<double> (0.0, 0.0, 0.0, 0.0);
   horiz_trans_prob_to_horiz_potential(T, Q);
 
   // get the 1D vector of rates for the triples
@@ -446,46 +452,46 @@ EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
   horiz_trans_prob_to_horiz_potential(T, Q);
 
   // recompute stationary log baseline
-  stationary_baseline[0][0] =
-    log(triplet_rates[0]) - (log(Q[0][1]) + log(Q[1][0]));
+  stationary_baseline(0, 0) =
+    log(triplet_rates[0]) - (log(Q(0, 1)) + log(Q(1, 0)));
 
-  stationary_baseline[0][1] =
-    log(triplet_rates[1]) - (log(Q[0][1]) + log(Q[1][1]));
+  stationary_baseline(0, 1) =
+    log(triplet_rates[1]) - (log(Q(0, 1)) + log(Q(1, 1)));
 
-  stationary_baseline[1][0] =
-    log(triplet_rates[4]) - (log(Q[1][1]) + log(Q[1][0]));
+  stationary_baseline(1, 0) =
+    log(triplet_rates[4]) - (log(Q(1, 1)) + log(Q(1, 0)));
 
-  stationary_baseline[1][1] =
-    log(triplet_rates[7]) - (log(Q[1][0]) + log(Q[0][1]));
+  stationary_baseline(1, 1) =
+    log(triplet_rates[7]) - (log(Q(1, 0)) + log(Q(0, 1)));
 
-  const double centering_point = stationary_baseline[0][1];
-  stationary_baseline[0][0] -= centering_point;
-  stationary_baseline[0][1] -= centering_point;
-  stationary_baseline[1][0] -= centering_point;
-  stationary_baseline[1][1] -= centering_point;
+  const double centering_point = stationary_baseline(0, 1);
+  stationary_baseline(0, 0) -= centering_point;
+  stationary_baseline(0, 1) -= centering_point;
+  stationary_baseline(1, 0) -= centering_point;
+  stationary_baseline(1, 1) -= centering_point;
 
-  assert(stationary_baseline[0][1] == stationary_baseline[1][0]);
+  assert(stationary_baseline(0, 1) == stationary_baseline(1, 0));
 }
 
 
 void
 decompose(const vector<double> &rates, // rate0 and rate1
           vector<double> &eigen_vals,
-          vector<vector<double> > &U,
-          vector<vector<double> > &Uinv) {
+          two_by_two<double> &U,
+          two_by_two<double> &Uinv) {
 
   // Q = U*D*Uinv
   eigen_vals = vector<double>(2, 0.0);
   const double sum_rate = rates[0] + rates[1];
   eigen_vals[1] = -sum_rate;
-  U = vector<vector<double> >(2, vector<double>(2, 0.0));
-  U[0][0] = 1.0;
-  U[0][1] = rates[0];
-  U[1][0] = 1;
-  U[1][1] = -rates[1];
-  Uinv = vector<vector<double> >(2, vector<double>(2, 0.0));
-  Uinv[0][0] = rates[1] / sum_rate;
-  Uinv[0][1] = rates[0] / sum_rate;
-  Uinv[1][0] = 1.0 / sum_rate;
-  Uinv[1][1] = -1.0 / sum_rate;
+
+  U(0, 0) = 1.0;
+  U(0, 1) = rates[0];
+  U(1, 0) = 1;
+  U(1, 1) = -rates[1];
+
+  Uinv(0, 0) = rates[1] / sum_rate;
+  Uinv(0, 1) = rates[0] / sum_rate;
+  Uinv(1, 0) = 1.0 / sum_rate;
+  Uinv(1, 1) = -1.0 / sum_rate;
 }

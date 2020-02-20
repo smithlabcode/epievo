@@ -28,6 +28,8 @@
 #include <numeric>
 #include <algorithm>
 #include <istream>
+#include <bitset>
+
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -162,7 +164,7 @@ write_output(const bool only_leaf_nodes, const TreeHelper &th,
 static void
 sample_jump(const EpiEvoModel &the_model, const double total_time,
             std::mt19937 &gen, TripletSampler &ts, vector<GlobalJump> &the_path,
-            double &time_value) {
+            double &time_value, vector<size_t> &events) {
 
   static const size_t n_triplets = 8;
 
@@ -199,6 +201,7 @@ sample_jump(const EpiEvoModel &the_model, const double total_time,
     std::discrete_distribution<size_t> multinom(triplet_prob.begin(),
                                                 triplet_prob.end());
     const size_t context = multinom(gen);
+    ++events[context];
 
     /* sample a change position having the relevant triplet; this
        changes the TripletSampler data structure to reflect a changed
@@ -374,6 +377,7 @@ int main(int argc, const char **argv) {
     write_root_to_pathfile_global(pathfile, th.node_names[0], s);
 
     vector<StateSeq> sequences(n_nodes, s);
+    vector<size_t> events(8, 0);
 
     /* (3) ITERATE OVER THE NODES IN THE TREE */
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
@@ -388,7 +392,8 @@ int main(int argc, const char **argv) {
 
       /* (4) SAMPLE CHANGES ALONG THE CURRENT BRANCH */
       while (time_value < curr_branch_len)
-        sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value);
+        sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value,
+                    events);
 
       /* (5) EXTRACT THE SEQUENCE AT THE NODE */
       ts.get_sequence(sequences[node_id].seq);
@@ -398,6 +403,13 @@ int main(int argc, const char **argv) {
       if (VERBOSE)
         cerr << "[SUMMARY:]" << endl
              << sequences[node_id].summary_string() << endl;
+    }
+    
+    /* report frequencies of simulated events */
+    if (VERBOSE) {
+      cerr << "[FREQUENCIES OF SAMPLED EVENTS]" << endl;
+      for (size_t i = 0; i < 8; ++i)
+        cerr << std::bitset<3>(i) << '\t' << events[i] << endl;
     }
 
     if (VERBOSE)

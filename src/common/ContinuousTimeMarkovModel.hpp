@@ -24,15 +24,15 @@
 
 #include <vector>
 #include <string>
+#include "epievo_utils.hpp"
 
-typedef std::vector<std::vector<double> > two_by_two;
 
 struct CTMarkovModel {
   CTMarkovModel(const std::vector<double> &rates);
   CTMarkovModel(const std::pair<double, double> &rates);
   CTMarkovModel(const double r0, const double r1);
   void get_trans_prob_mat(const double time_interval,
-                          two_by_two &prob_mat) const;
+                          two_by_two<double> &prob_mat) const;
   std::string tostring() const;
 
   double get_rate(const bool the_state) const {
@@ -44,8 +44,8 @@ struct CTMarkovModel {
 
   double rate0;
   double rate1;
-  two_by_two U;
-  two_by_two Uinv;
+  two_by_two<double> U;
+  two_by_two<double> Uinv;
   std::vector<double> eigen_values;
 };
 
@@ -77,7 +77,7 @@ operator<<(std::ostream &os, const TwoStateCTMarkovModel &ctmm);
 void
 continuous_time_trans_prob_mat(const double rate0, const double rate1,
                                const double time_interval,
-                               two_by_two &transition_matrix);
+                               two_by_two<double> &transition_matrix);
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////       CTMM-RELATED STATISTICS     //////////////////////////
@@ -85,10 +85,10 @@ continuous_time_trans_prob_mat(const double rate0, const double rate1,
 
 void
 expectation_J(const double r0, const double r1, const double T,
-              two_by_two &J0, two_by_two &J1);
+              two_by_two<double> &J0, two_by_two<double> &J1);
 
 void
 expectation_D(const double r0, const double r1, const double T,
-              two_by_two &D0, two_by_two &D1);
+              two_by_two<double> &D0, two_by_two<double> &D1);
 
 #endif

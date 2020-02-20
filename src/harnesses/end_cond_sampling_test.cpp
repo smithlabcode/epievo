@@ -37,6 +37,8 @@
 #include "StateSeq.hpp"
 #include "EndCondSampling.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
+#include "epievo_utils.hpp"
+
 
 using std::vector;
 using std::endl;
@@ -46,7 +48,6 @@ using std::string;
 using std::to_string;
 using std::runtime_error;
 
-typedef vector<vector<double> > two_by_two;
 
 static double
 count_zero_jumps(const size_t start_state, const vector<double> &jump_times) {
@@ -202,14 +203,14 @@ append_to_file(const string &outfile, const T &x) {
 
 static string
 expected_stat_str(const bool start_state, const bool end_state,
-                  const two_by_two &J0, const two_by_two &J1,
-                  const two_by_two &D0, const two_by_two &D1) {
+                  const two_by_two<double> &J0, const two_by_two<double> &J1,
+                  const two_by_two<double> &D0, const two_by_two<double> &D1) {
   std::ostringstream oss;
   oss.precision(3);
   
   oss << start_state << '\t' << end_state << '\t'
-  << J0[start_state][end_state] << '\t' << J1[start_state][end_state] << '\t'
-  << D0[start_state][end_state] << '\t' << D1[start_state][end_state] << '\t'
+  << J0(start_state, end_state) << '\t' << J1(start_state, end_state) << '\t'
+  << D0(start_state, end_state) << '\t' << D1(start_state, end_state) << '\t'
   << "\\\t\\\t\\\t" << endl;
   
   return oss.str();
@@ -302,7 +303,7 @@ int main(int argc, const char **argv) {
       outstat << statfile_header << endl;
     }
 
-    two_by_two expected_J0, expected_J1, expected_D0, expected_D1;
+    two_by_two<double> expected_J0, expected_J1, expected_D0, expected_D1;
     expectation_J(rate0, rate1, evo_time, expected_J0, expected_J1);
     expectation_D(rate0, rate1, evo_time, expected_D0, expected_D1);
 

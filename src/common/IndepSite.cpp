@@ -77,7 +77,7 @@ pruning_upward(const TreeHelper &th, const size_t site_id,
 
     /* now calculate p if we are not at root */
     if (!th.is_root(node_id)) {
-      vector<vector<double> > P;
+      two_by_two<double> P;
       continuous_time_trans_prob_mat(rates[0], rates[1],
                                      paths[node_id][site_id].tot_time, P);
       // p <- P*q
@@ -103,8 +103,8 @@ root_post_prob0(const size_t site_id, const vector<double> &init_pi,
 /* Joint posterior distribution p(u, v | X(u)) */
 static void
 joint_post(const double p0_u, const FelsHelper &fh,
-           const vector<vector<double> > &PT,
-           vector<vector<double> > &p_joint) {
+           const two_by_two<double> &PT,
+           two_by_two<double> &p_joint) {
 
   p_joint[0][0] = PT[0][0] * fh.q[0] * p0_u / fh.p[0];
   p_joint[0][1] = PT[0][1] * fh.q[1] * p0_u / fh.p[0];
@@ -126,19 +126,19 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
                     const double p0_parent, double &p0_child,
                     vector<double> &J, vector<double> &D) {
 
-  vector<vector<double> > P;
+  two_by_two<double> P;
   continuous_time_trans_prob_mat(rates[0], rates[1], T, P);
 
   // get joint distribution of end states
-  vector<vector<double> > p_joint(2, vector<double> (2, 0.0));
+  two_by_two<double> p_joint;
   joint_post(p0_parent, fh, P, p_joint);
   p0_child = p_joint[0][0] + p_joint[1][0];
 
   // compute weighted expectation of sufficient stats
-  vector<vector<double> > J0(2, vector<double> (2, 0.0));
-  vector<vector<double> > J1(2, vector<double> (2, 0.0));
-  vector<vector<double> > D0(2, vector<double> (2, 0.0));
-  vector<vector<double> > D1(2, vector<double> (2, 0.0));
+  two_by_two<double> J0;
+  two_by_two<double> J1;
+  two_by_two<double> D0;
+  two_by_two<double> D1;
   expectation_J(rates[0], rates[1], T, J0, J1);
   expectation_D(rates[0], rates[1], T, D0, D1);
 
@@ -205,7 +205,7 @@ sampling_downward(const TreeHelper &th, const size_t site_id,
     sampled_path[node_id].init_state = start_state;
     sampled_path[node_id].tot_time = T;
 
-    vector<vector<double> > P;
+    two_by_two<double> P;
     continuous_time_trans_prob_mat(rates[0], rates[1], T, P);
     const double p0 =
     P[start_state][0] * fh[node_id].q[0] / fh[node_id].p[start_state];

@@ -38,6 +38,8 @@
 #include "ContinuousTimeMarkovModel.hpp"
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
+#include "epievo_utils.hpp"
+
 
 using std::vector;
 using std::endl;

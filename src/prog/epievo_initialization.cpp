@@ -189,13 +189,11 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
 static void
 initialize_model_from_indep_rates(EpiEvoModel &the_model,
                                   const vector<double> rates) {
-  const vector<vector<double> > zeros_two_by_two =
-  vector<vector<double> > (2, vector<double> (2, 0.0));
   
-  the_model.stationary_baseline = zeros_two_by_two;
-  the_model.T = zeros_two_by_two;
-  the_model.init_T = zeros_two_by_two;
-  the_model.Q = zeros_two_by_two;
+  the_model.stationary_baseline.reset();
+  the_model.T.reset();
+  the_model.init_T.reset();
+  the_model.Q.reset();
   
   // set r_0_ = r0, r_1_ = r1
   vector<double> triplet_rates (the_model.n_triplets);
