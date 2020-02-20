@@ -50,7 +50,7 @@ using std::uniform_real_distribution;
 using std::ref;
 
 static const double NUMERICAL_TOLERANCE = 1e-10;
-static const size_t max_sample_count = 10000000;
+static const size_t max_sample_count = 100000000;
 
 
 ////////////////////////////////////////////////////////////////////////////////
