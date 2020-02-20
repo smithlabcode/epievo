@@ -267,7 +267,7 @@ EpiEvoModel::get_stationary_triplet_proportions(vector<double> &props) const {
 void
 scale_rates(const vector<double> &rates, const vector<double> &branches,
             vector<double> &scaled_rates, vector<double> &scaled_branches) {
-  
+
   double unit = rate_scaling_factor(rates);
 
   scaled_rates = rates;
@@ -338,7 +338,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
   std::ifstream in(param_file.c_str());
   if (!in)
     throw std::runtime_error("Could not open file: " + param_file);
-  
+
   string dummy_label;
   in >> dummy_label;
   if(dummy_label == "stationary") {
@@ -347,17 +347,17 @@ read_model(const string &param_file, EpiEvoModel &m) {
     in >> m.T(0, 0) >> m.T(1, 1);
     m.T(1, 0) = 1.0 - m.T(1, 1);
     m.T(0, 1) = 1.0 - m.T(0, 0);
-    
+
     assert(is_probability_distribution(m.T[0]) &&
            is_probability_distribution(m.T[1]));
-    
+
     /* read the baseline */
     in >> dummy_label;
     assert(dummy_label == "baseline");
     m.stationary_baseline.reset();
     in >> m.stationary_baseline(0, 0)
     >> m.stationary_baseline(1, 1);
-    
+
     /* read the initial distribution (at root) */
     in >> dummy_label;
     assert(dummy_label == "init");
@@ -365,10 +365,10 @@ read_model(const string &param_file, EpiEvoModel &m) {
     in >> m.init_T(0, 0) >> m.init_T(1, 1);
     m.init_T(1, 0) = 1.0 - m.init_T(1, 1);
     m.init_T(0, 1) = 1.0 - m.init_T(0, 0);
-    
+
     assert(is_probability_distribution(m.init_T[0]) &&
            is_probability_distribution(m.init_T[1]));
-    
+
     m.initialize();
   } else {
     assert(dummy_label == "000");
@@ -382,7 +382,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
     in >> rates[0];
     for (size_t i = 1; i < 8; i++)
       in >> dummy_label >> rates[i];
-    
+
     /* take care of constraints between rates */
     // lambda_100 = lambda_001
     rates[4] = rates[1];
@@ -392,7 +392,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
     // load B,D,E,C,M, compute S
     rates[7] = (rates[0] * rates[6] * rates[6] * rates[5]) /
     (rates[2] * rates[4] * rates[4]);
-    
+
     m.rebuild_from_triplet_rates(rates);
     m.init_T = m.T;
   }
