@@ -36,8 +36,8 @@ using std::endl;
 static void
 factor_rate_matrix(const double rate0, const double rate1,
                    vector<double> &eigen_vals,
-                   two_by_two<double> &U,
-                   two_by_two<double> &Uinv) {
+                   two_by_two &U,
+                   two_by_two &Uinv) {
 
   // Q = U*D*Uinv
   eigen_vals = vector<double>(2, 0.0);
@@ -74,7 +74,7 @@ CTMarkovModel::CTMarkovModel(const double r0, const double r1) :
 
 void
 CTMarkovModel::get_trans_prob_mat(const double time_interval,
-                                  two_by_two<double> &transition_matrix) const {
+                                  two_by_two &transition_matrix) const {
 
   assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
 
@@ -142,7 +142,7 @@ operator<<(std::ostream &os, const TwoStateCTMarkovModel &tsctmm) {
 void
 continuous_time_trans_prob_mat(const double rate0, const double rate1,
                                const double time_interval,
-                               two_by_two<double> &transition_matrix) {
+                               two_by_two &transition_matrix) {
 
   assert(rate0 > 0 && rate1 > 0 && time_interval > 0);
 
@@ -166,7 +166,7 @@ continuous_time_trans_prob_mat(const double rate0, const double rate1,
 
 void
 expectation_J(const double r0, const double r1, const double T,
-              two_by_two<double> &J0, two_by_two<double> &J1) {
+              two_by_two &J0, two_by_two &J1) {
 
   const double s = r0 + r1;
   const double p = r0 * r1;
@@ -197,7 +197,7 @@ expectation_J(const double r0, const double r1, const double T,
 
 void
 expectation_D(const double r0, const double r1, const double T,
-              two_by_two<double> &D0, two_by_two<double> &D1) {
+              two_by_two &D0, two_by_two &D1) {
 
   const double r00 = r0 * r0;
   const double r11 = r1 * r1;

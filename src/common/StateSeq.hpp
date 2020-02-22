@@ -51,38 +51,43 @@ read_states_file(const std::string &statesfile,
                  std::vector<std::string> &node_names,
                  std::vector<StateSeq> &the_states);
 
-inline size_t
+constexpr size_t
 triple2idx(const bool i, const bool j, const bool k) {
   return i*4 + j*2 + k;
 }
 
-inline size_t
+constexpr size_t
 pair2idx(const bool i, const bool j) {
   return i*2 + j;
 }
 
 // complementing a state
-inline size_t complement_state(const size_t x) {
-  assert(x == 0ul || x == 1ul);
+constexpr size_t
+complement_state(const size_t x) {
+  // assert(x == 0ul || x == 1ul);
   return 1ul - x;
 }
 
-inline bool complement_state(const bool x) {
+constexpr bool
+complement_state(const bool x) {
   return !x;
 }
 
 // flipping bits
-inline size_t flip_left_bit(const size_t x)  {return x ^ 4ul;}
-inline size_t flip_mid_bit(const size_t x)   {return x ^ 2ul;}
-inline size_t flip_right_bit(const size_t x) {return x ^ 1ul;}
+constexpr size_t
+flip_left_bit(const size_t x)  {return x ^ 4ul;}
+constexpr size_t
+flip_mid_bit(const size_t x)   {return x ^ 2ul;}
+constexpr size_t
+flip_right_bit(const size_t x) {return x ^ 1ul;}
 
 // accessing bits
-inline bool get_left_bit(const size_t x)  {return x & 4ul;}
-inline bool get_mid_bit(const size_t x)   {return x & 2ul;}
-inline bool get_right_bit(const size_t x) {return x & 1ul;}
+constexpr bool get_left_bit(const size_t x)  {return x & 4ul;}
+constexpr bool get_mid_bit(const size_t x)   {return x & 2ul;}
+constexpr bool get_right_bit(const size_t x) {return x & 1ul;}
 
-inline bool get_left_bit_from_pair(const size_t x)  {return x & 2ul;}
-inline bool get_right_bit_from_pair(const size_t x) {return x & 1ul;}
+constexpr bool get_left_bit_from_pair(const size_t x)  {return x & 2ul;}
+constexpr bool get_right_bit_from_pair(const size_t x) {return x & 1ul;}
 
 inline void
 get_bits_from_triple(const size_t x, bool &l, bool &m, bool &r) {

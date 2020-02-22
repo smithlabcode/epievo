@@ -203,8 +203,8 @@ append_to_file(const string &outfile, const T &x) {
 
 static string
 expected_stat_str(const bool start_state, const bool end_state,
-                  const two_by_two<double> &J0, const two_by_two<double> &J1,
-                  const two_by_two<double> &D0, const two_by_two<double> &D1) {
+                  const two_by_two &J0, const two_by_two &J1,
+                  const two_by_two &D0, const two_by_two &D1) {
   std::ostringstream oss;
   oss.precision(3);
   
@@ -303,7 +303,7 @@ int main(int argc, const char **argv) {
       outstat << statfile_header << endl;
     }
 
-    two_by_two<double> expected_J0, expected_J1, expected_D0, expected_D1;
+    two_by_two expected_J0, expected_J1, expected_D0, expected_D1;
     expectation_J(rate0, rate1, evo_time, expected_J0, expected_J1);
     expectation_D(rate0, rate1, evo_time, expected_D0, expected_D1);
 

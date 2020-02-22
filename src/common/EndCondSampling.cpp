@@ -80,13 +80,13 @@ static const size_t max_sample_count = 100000000;
  */
 double
 prob_no_jump(const CTMarkovModel &the_model,
-             const two_by_two<double> &P, const double T, const size_t a) {
+             const two_by_two &P, const double T, const size_t a) {
   return exp(-the_model.get_rate(a)*T)/P[a][a];
 }
 
 double
 prob_no_jump(const CTMarkovModel &the_model,
-             const two_by_two<double> &P, const double T,
+             const two_by_two &P, const double T,
              const size_t a, const size_t b) {
   return (a == b) ? prob_no_jump(the_model, P, T, a) : 0.0;
 }
@@ -160,7 +160,7 @@ summation_in_total_cdf(const CTMarkovModel &the_model,
  */
 static double
 total_cumulative_density(const CTMarkovModel &the_model,
-                         const two_by_two<double> &P,
+                         const two_by_two &P,
                          const double T, const size_t a, const size_t b) {
 
   const double Qai = the_model.get_rate(a); // two-states so Qa = Qai
@@ -248,7 +248,7 @@ summation_in_cdf(const CTMarkovModel &the_model,
 
 double
 cumulative_density_function(const CTMarkovModel &the_model,
-                            const two_by_two<double> &P,
+                            const two_by_two &P,
                             const double T, const size_t a, const size_t b,
                             const double t) {
 
@@ -291,7 +291,7 @@ summation_in_pdf(const CTMarkovModel &the_model,
  */
 double
 probability_density_function(const CTMarkovModel &the_model,
-                             const two_by_two<double> &P,
+                             const two_by_two &P,
                              const double T, const size_t a, const size_t b,
                              const double t) {
 
@@ -302,7 +302,7 @@ probability_density_function(const CTMarkovModel &the_model,
 
 static double
 bisection_search_cumulative_density(const CTMarkovModel &the_model,
-                                    const two_by_two<double> &P,
+                                    const two_by_two &P,
                                     const double T,
                                     const size_t a, const size_t b,
                                     const double target) {
@@ -351,7 +351,7 @@ end_cond_sample_first_jump(const CTMarkovModel &the_model,
 
   assert(T > std::numeric_limits<double>::min());
 
-  two_by_two<double> P; // P = exp(QT)
+  two_by_two P; // P = exp(QT)
   the_model.get_trans_prob_mat(T, P);
 
   // if (a == b) then we decide whether or not to have any jumps
@@ -414,7 +414,7 @@ end_cond_sample_direct_prop(const TwoStateCTMarkovModel &the_model,
   function<double()> distr(bind(unif, std::ref(gen)));
   
   const CTMarkovModel ctmm(the_model.rate0, the_model.rate1);
-  two_by_two<double> PT;
+  two_by_two PT;
   ctmm.get_trans_prob_mat(T, PT);
   
   size_t current_state = start_state;
@@ -544,7 +544,7 @@ end_cond_sample_forward_rejection_prop(const TwoStateCTMarkovModel &the_model,
       curr_time = jump_times[i];
     }
     
-    two_by_two<double> PT;
+    two_by_two PT;
     continuous_time_trans_prob_mat(the_model.rate0, the_model.rate1, T-curr_time, PT);
     prob *= exp (- the_model.get_rate(a) * (T - curr_time)) / PT[start_state][end_state];
   }
@@ -666,7 +666,7 @@ end_cond_sampling_Nielsen_prop(const TwoStateCTMarkovModel &the_model,
         curr_time = jump_times[i];
       }
     }
-    two_by_two<double> PT;
+    two_by_two PT;
     continuous_time_trans_prob_mat(the_model.rate0, the_model.rate1,
                                    start_time + T - curr_time, PT);
     prob *= exp (- the_model.get_rate(a) * (T - curr_time)) / PT[start_state][end_state];
@@ -721,7 +721,7 @@ num_unif_trans(const TwoStateCTMarkovModel &the_model,
                const CTMarkovUnif &unif_model,
                const double T, const size_t state_a, const size_t state_b,
                function<double()> &unif, double &prob) {
-  two_by_two<double> P; // P = exp(QT)
+  two_by_two P; // P = exp(QT)
   continuous_time_trans_prob_mat(the_model.rate0, the_model.rate1, T, P);
   
   const double u = unif();

@@ -59,7 +59,7 @@ using std::exponential_distribution;
 static void
 process_interval(const SegmentInfo &si, const vector<double> &q,
                  vector<double> &p) {
-  two_by_two<double> P; // transition matrix
+  two_by_two P; // transition matrix
   continuous_time_trans_prob_mat(si.rate0, si.rate1, si.len, P);
 
   // p <- P*q
@@ -152,7 +152,7 @@ pruning(const TreeHelper &th, const size_t site_id,
  */
 static double
 root_post_prob0(const bool left_st, const bool right_st,
-                const two_by_two<double> &horiz_tr_prob,
+                const two_by_two &horiz_tr_prob,
                 const vector<double> &q) {
 
   const double p0 = (horiz_tr_prob(left_st, 0)*horiz_tr_prob(0, right_st))*q[0];
@@ -214,8 +214,8 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
                   vector<Path> &proposed_path) {
 
   // compute posterior probability at root node
-  const two_by_two<double> root_T = (mod.use_init_T ? mod.init_T :
-                                     two_by_two<double> (1.0, 1.0, 1.0, 1.0));
+  const two_by_two root_T = (mod.use_init_T ? mod.init_T :
+                                     two_by_two (1.0, 1.0, 1.0, 1.0));
   const bool left_st = paths[1][site_id - 1].init_state;
   const bool right_st = paths[1][site_id + 1].init_state;
   const double root_p0 = root_post_prob0(left_st, right_st, root_T, fh[0].q);
@@ -239,7 +239,7 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
 /* Compute likelihood of root state at given site and neighboring states */
 static double
 root_prior_lh(const size_t l, const size_t m, const size_t r,
-              const two_by_two<double> &horiz_tr_prob) {
+              const two_by_two &horiz_tr_prob) {
 
   const double p = horiz_tr_prob(l, m)*horiz_tr_prob(m, r);
   return p;
@@ -302,7 +302,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 static double
 proposal_prob(const vector<double> &triplet_rates,
               const TreeHelper &th, const size_t site_id,
-              const two_by_two<double> &horiz_trans_prob,
+              const two_by_two &horiz_trans_prob,
               const vector<FelsHelper> &fh,
               const vector<vector<SegmentInfo> > &seg_info,
               const vector<vector<Path> > &paths) {
@@ -329,7 +329,7 @@ proposal_prob(const vector<double> &triplet_rates,
 static double
 proposal_prob(const vector<double> &triplet_rates, const TreeHelper &th,
               const bool rt_left_st, const bool rt_right_st,
-              const two_by_two<double> &horiz_trans_prob,
+              const two_by_two &horiz_trans_prob,
               const vector<FelsHelper> &fh,
               const vector<vector<SegmentInfo> > &seg_info,
               const vector<Path> &the_path) {
@@ -389,8 +389,8 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   double llr = orig_proposal - update_proposal;
 
   /* calculate likelihood involving root states */
-  const two_by_two<double> root_T = (mod.use_init_T ? mod.init_T :
-                                     two_by_two<double> (1.0, 1.0, 1.0, 1.0));
+  const two_by_two root_T = (mod.use_init_T ? mod.init_T :
+                                     two_by_two (1.0, 1.0, 1.0, 1.0));
   const size_t rt_orig = paths[1][site_id].init_state;
   const size_t rt_prop = proposed_path[1].init_state;
   llr += (log(root_prior_lh(rt_left_st, rt_prop, rt_right_st, root_T)) -
