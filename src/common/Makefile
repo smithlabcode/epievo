@@ -27,7 +27,7 @@ ifdef OPT
 CXXFLAGS += $(OPTFLAGS)
 endif
 
-INCLUDEDIRS = $(SMITHLAB_CPP) $(TREETOOL)
+INCLUDEDIRS = $(SMITHLAB_CPP)
 INCLUDEARGS = $(addprefix -I, $(INCLUDEDIRS))
 
 %.o: %.cpp %.hpp

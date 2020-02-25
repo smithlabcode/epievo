@@ -36,7 +36,7 @@ CXXFLAGS += $(OPTFLAGS)
 endif
 
 COMMON_DIR = $(realpath ../common)
-INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP) $(TREETOOL)
+INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP)
 INCLUDEARGS = $(addprefix -I, $(INCLUDEDIRS))
 
 all: $(PROGS)
@@ -50,8 +50,7 @@ all: $(PROGS)
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o \
 	smithlab_utils.o smithlab_os.o) \
 	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TreeHelper.o \
-	Path.o Segment.o epievo_utils.o) \
-	$(addprefix $(TREETOOL)/, PhyloTree.o )
+	Path.o Segment.o epievo_utils.o PhyloTree.o)
 
 scale_tree: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o)
 

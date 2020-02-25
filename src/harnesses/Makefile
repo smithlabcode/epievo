@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-PROGS = MCMC_test end_cond_sampling_test \
+PROGS = MCMC_test end_cond_sampling_test
 
 CXX = g++
 CXXFLAGS = -Wall -std=c++11
@@ -35,7 +35,7 @@ CXXFLAGS += $(OPTFLAGS)
 endif
 
 COMMON_DIR = $(realpath ../common)
-INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP) $(TREETOOL)
+INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP)
 INCLUDEARGS = $(addprefix -I, $(INCLUDEDIRS))
 
 all: $(PROGS)
@@ -46,19 +46,20 @@ all: $(PROGS)
 %: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS) $(LIBS)
 
-$(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o smithlab_utils.o smithlab_os.o) \
-	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o TreeHelper.o Path.o Segment.o epievo_utils.o) \
-	$(addprefix $(TREETOOL)/, PhyloTree.o )
+$(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o \
+	smithlab_utils.o smithlab_os.o) \
+	$(addprefix $(COMMON_DIR)/, PhyloTreePreorder.o \
+	TreeHelper.o Path.o Segment.o epievo_utils.o PhyloTree.o)
 
 MCMC_test: \
 	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o StateSeq.o SingleSiteSampler.o IntervalSampler.o \
+	TripletSampler.o epievo_utils.o SingleSiteSampler.o IntervalSampler.o \
 	EndCondSampling.o ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
 end_cond_sampling_test: \
     $(addprefix $(COMMON_DIR)/, \
-    StateSeq.o EndCondSampling.o ContinuousTimeMarkovModel.o)
+    EndCondSampling.o ContinuousTimeMarkovModel.o)
 
 
 install: all
