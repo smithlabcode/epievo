@@ -27,6 +27,8 @@
 #include "TreeHelper.hpp"
 #include "EpiEvoModel.hpp"
 
+#include "epievo_utils.hpp"
+
 #include <vector>
 
 double
@@ -59,8 +61,7 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
                                      EpiEvoModel &the_model);
 
 void
-estimate_root_distribution(const std::vector<std::vector<double> > &counts,
-                           EpiEvoModel &the_model);
+estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model);
 
 void
 estimate_root_distribution(const std::vector<std::vector<Path> > &all_paths,
@@ -78,10 +79,10 @@ get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,
                           std::vector<std::vector<double> > &J,
                           std::vector<std::vector<double> > &D);
 
-// count duplet frequences from root sequence
+// count duplet frequencies from root sequence
 void
-get_root_frequences(const std::vector<std::vector<Path> > &all_paths,
-                    std::vector<std::vector<double> > &counts);
+get_root_frequencies(const std::vector<std::vector<Path> > &all_paths,
+                     two_by_two &counts);
 
 // scale jump times according to updated branch lengths
 void

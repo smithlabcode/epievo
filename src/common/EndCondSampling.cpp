@@ -30,7 +30,6 @@
 
 #include "EndCondSampling.hpp"
 #include "EpiEvoModel.hpp"
-#include "StateSeq.hpp"
 #include "Path.hpp"
 #include "epievo_utils.hpp"
 
@@ -382,7 +381,7 @@ end_cond_sample_direct(const TwoStateCTMarkovModel &the_model,
   function<double()> distr(bind(unif, std::ref(gen)));
 
   const CTMarkovModel ctmm(the_model.rate0, the_model.rate1);
-  
+
   size_t current_state = start_state;
   double consumed_time =
     end_cond_sample_first_jump(ctmm, current_state, end_state, T, distr);
@@ -408,22 +407,22 @@ end_cond_sample_direct_prop(const TwoStateCTMarkovModel &the_model,
                             const double T, std::mt19937 &gen,
                             vector<double> &jump_times, double &prob,
                             const double start_time) {
-  
+
   prob = 1.0;
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   function<double()> distr(bind(unif, std::ref(gen)));
-  
+
   const CTMarkovModel ctmm(the_model.rate0, the_model.rate1);
   two_by_two PT;
   ctmm.get_trans_prob_mat(T, PT);
-  
+
   size_t current_state = start_state;
   double rest_time = T;
   double tau =
   end_cond_sample_first_jump(ctmm, current_state, end_state, T, distr);
   double p_no_jump = prob_no_jump(ctmm, PT, rest_time, current_state);
   double consumed_time = tau;
-  
+
   while (T - consumed_time > NUMERICAL_TOLERANCE) {
     if (current_state == start_state) {
       p_no_jump = prob_no_jump(ctmm, PT, rest_time, current_state);
@@ -442,7 +441,7 @@ end_cond_sample_direct_prop(const TwoStateCTMarkovModel &the_model,
       ctmm.get_trans_prob_mat(rest_time, PT);
   }
   prob *= prob_no_jump(ctmm, PT, rest_time, current_state);
-  
+
 }
 
 
@@ -500,7 +499,7 @@ end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
     transform(begin(proposal), end(proposal), std::back_inserter(jump_times),
               bind(std::plus<double>(), _1, start_time));
   assert((proposal.size() % 2) == static_cast<size_t>(start_state != end_state));
-  
+
   return (sample_count < max_sample_count);
 }
 
@@ -513,15 +512,15 @@ end_cond_sample_forward_rejection_prop(const TwoStateCTMarkovModel &the_model,
                                        std::mt19937 &gen,
                                        vector<double> &jump_times, double &prob,
                                        const double start_time) {
-  
+
   prob = 1.0;
-  
+
   typedef exponential_distribution<double> exp_distr;
   vector<function<double()> > the_distrs = {
     function<double()>(bind(exp_distr(the_model.rate0), ref(gen))),
     function<double()>(bind(exp_distr(the_model.rate1), ref(gen)))
   };
-  
+
   size_t sample_count = 0;
   vector<double> proposal;
   while (forward_sampling(the_distrs, start_state, T, 0.0,
@@ -530,7 +529,7 @@ end_cond_sample_forward_rejection_prop(const TwoStateCTMarkovModel &the_model,
     ++sample_count;
     proposal.clear();
   }
-  
+
   if (sample_count < max_sample_count) {
     transform(begin(proposal), end(proposal), std::back_inserter(jump_times),
               bind(std::plus<double>(), _1, start_time));
@@ -539,19 +538,19 @@ end_cond_sample_forward_rejection_prop(const TwoStateCTMarkovModel &the_model,
     for (size_t i = 0; i < jump_times.size(); i++) {
       const double tau = jump_times[i] - curr_time;
       prob *= (the_model.get_rate(a) * exp (- the_model.get_rate(a) * tau));
-      
+
       a = complement_state(a);
       curr_time = jump_times[i];
     }
-    
+
     two_by_two PT;
     continuous_time_trans_prob_mat(the_model.rate0, the_model.rate1, T-curr_time, PT);
     prob *= exp (- the_model.get_rate(a) * (T - curr_time)) / PT[start_state][end_state];
   }
 
-  
+
   assert((proposal.size() % 2) == static_cast<size_t>(start_state != end_state));
-  
+
   return (sample_count < max_sample_count);
 }
 
@@ -611,16 +610,16 @@ end_cond_sampling_Nielsen_prop(const TwoStateCTMarkovModel &the_model,
                                const double T, std::mt19937 &gen,
                                vector<double> &jump_times,
                                double &prob, const double start_time) {
-  
+
   prob = 1.0;
-  
+
   // if start and end state are the same, use regular forward sampling
   if (start_state == end_state)
     return end_cond_sample_forward_rejection_prop(the_model,
                                                   start_state, end_state,
                                                   T, gen, jump_times, prob,
                                                   start_time);
-  
+
   // otherwise do the modified procedure
   typedef std::exponential_distribution<double> exp_distr;
   vector<function<double()> > distr = {
@@ -628,7 +627,7 @@ end_cond_sampling_Nielsen_prop(const TwoStateCTMarkovModel &the_model,
     function<double()>(bind(exp_distr(the_model.rate1), ref(gen)))
   };
   function<double()> U(bind(uniform_real_distribution<double>(0, 1), ref(gen)));
-  
+
   size_t sample_count = 0;
   vector<double> proposal;
   bool valid_path = false;
@@ -643,11 +642,11 @@ end_cond_sampling_Nielsen_prop(const TwoStateCTMarkovModel &the_model,
       valid_path = true;
     ++sample_count;
   }
-  
+
   if (proposal.size() > 0)
     transform(begin(proposal), end(proposal), std::back_inserter(jump_times),
               bind(std::plus<double>(), _1, start_time));
-  
+
   if (valid_path) {
     size_t a = start_state;
     double curr_time = start_time;
@@ -673,7 +672,7 @@ end_cond_sampling_Nielsen_prop(const TwoStateCTMarkovModel &the_model,
     cerr << "end: " << prob << endl;
 
   }
-  
+
   return valid_path;
 }
 
@@ -723,22 +722,22 @@ num_unif_trans(const TwoStateCTMarkovModel &the_model,
                function<double()> &unif, double &prob) {
   two_by_two P; // P = exp(QT)
   continuous_time_trans_prob_mat(the_model.rate0, the_model.rate1, T, P);
-  
+
   const double u = unif();
-  
+
   const double muT = unif_model.scaler * T;
   const double nom_const = (state_b == unif_model.us) ? unif_model.r : 1.0;
   const double nom_sign = (state_b == unif_model.us) ? 1.0 : -1.0;
   double nom_series = (state_a == unif_model.us) ? 1 : - unif_model.r;
   const double denom = 1 + unif_model.r;
-  
+
   size_t n = 0;
   double prob_pois = exp(- muT) / P[state_a][state_b];
   double prob_unif = 1;
-  
+
   prob = prob_pois * prob_unif * (state_a == state_b);
   double sum_probs = prob;
-  
+
   while (sum_probs < u) {
     ++n;
     prob_pois *= ( muT / n);
@@ -756,25 +755,26 @@ end_cond_sample_unif(const TwoStateCTMarkovModel &the_model,
                      const size_t start_state, const size_t end_state,
                      const double T, std::mt19937 &gen,
                      vector<double> &jump_times, const double start_time) {
-  
+
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   function<double()> distr(bind(unif, std::ref(gen)));
-  
+
   CTMarkovUnif unif_model(the_model);
-  
+
   // sample number of transitions
   double prob_n_trans;
-  
+
   size_t num_trans = num_unif_trans(the_model, unif_model, T,
                                     start_state, end_state, distr, prob_n_trans);
-  
+
   size_t prev_state = start_state;
-  
+
   double prob = prob_n_trans;
   if (num_trans < 1) {
     // no jumps
     assert(start_state == end_state);
-  } else if (num_trans == 1) {
+  }
+  else if (num_trans == 1) {
     // one jump
     prob *= 1 / T;
     const double trans_time = start_time + distr() * T;
@@ -783,20 +783,21 @@ end_cond_sample_unif(const TwoStateCTMarkovModel &the_model,
       jump_times.push_back(trans_time);
       prev_state = complement_state(prev_state);
     }
-  } else {
+  }
+  else {
     // at least two jumps
     vector<double> trans_times; // all jumps, including virtual jumps
     for (size_t i = 0; i < num_trans; i++) {
       trans_times.push_back(distr() * T);
     }
     std::sort(trans_times.begin(), trans_times.end());
-    
+
     // determine the state of jumps
     size_t n_real_jumps = 0;
     for (size_t i = 0; i < num_trans - 1; i++) {
       // PDF of arriving time part
       prob *= (i + 1) / T;
-      
+
       const double next_end = unif_model.unif_trans_prob(!prev_state, end_state,
                                                          num_trans - i - 1);
       const double prev_end = unif_model.unif_trans_prob(prev_state, end_state,
@@ -831,20 +832,20 @@ end_cond_sample_unif_prop(const TwoStateCTMarkovModel &the_model,
                           const double T, std::mt19937 &gen,
                           vector<double> &jump_times, double &prob,
                           const double start_time) {
-  
+
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   function<double()> distr(bind(unif, std::ref(gen)));
-  
+
   CTMarkovUnif unif_model(the_model);
-  
+
   // sample number of transitions
   double prob_n_trans;
-  
+
   size_t num_trans = num_unif_trans(the_model, unif_model, T,
                                     start_state, end_state, distr, prob_n_trans);
-  
+
   size_t prev_state = start_state;
-  
+
   prob = prob_n_trans;
   if (num_trans < 1) {
     // no jumps
@@ -865,13 +866,13 @@ end_cond_sample_unif_prop(const TwoStateCTMarkovModel &the_model,
       trans_times.push_back(distr() * T);
     }
     std::sort(trans_times.begin(), trans_times.end());
-    
+
     // determine the state of jumps
     size_t n_real_jumps = 0;
     for (size_t i = 0; i < num_trans - 1; i++) {
       // PDF of arriving time part
       prob *= (i + 1) / T;
-      
+
       const double next_end = unif_model.unif_trans_prob(!prev_state, end_state,
                                                          num_trans - i - 1);
       const double prev_end = unif_model.unif_trans_prob(prev_state, end_state,
@@ -915,7 +916,7 @@ double
 expected_num_jumps(const TwoStateCTMarkovModel &the_model,
                    const size_t start_state, const size_t end_state,
                    const double T) {
-  
+
   const double r0 = the_model.rate0;
   const double r1 = the_model.rate1;
   const double s = r0 + r1;
@@ -923,7 +924,7 @@ expected_num_jumps(const TwoStateCTMarkovModel &the_model,
   const double d = r1 - r0;
   const double e = exp(- s * T);
   double N = 0;
-  
+
   if (start_state == end_state) {
     N = 2 * p / s;
     if (start_state == 0)
@@ -932,7 +933,7 @@ expected_num_jumps(const TwoStateCTMarkovModel &the_model,
       N *= ( ( (r0 - r1 * e) * T  + d * (1 - e) / s) / (r0 + r1 * e) );
   } else
     N = 2 * p * T * (1 + e) / (s * (1 - e)) + d * d / (s * s);
-  
+
   return (N > 0 ? N : (s * T / 2));
 }
 
@@ -941,15 +942,15 @@ static size_t
 num_Poisson_trans(const double rate, const double T, const size_t state_a,
                   const size_t state_b, function<double()> &unif, double &prob) {
   const double u = unif();
-  
+
   const double muT = rate * T;
   const double denom = (state_a == state_b) ?
   (exp(muT) + exp(-muT)) / 2 : (exp(muT) - exp(-muT)) / 2;
-  
+
   size_t n = (state_a == state_b) ? 0 : 1;
   prob = (state_a == state_b) ? 1 : muT;
   double sum_probs = prob;
-  
+
   while (sum_probs < u * denom) {
     n += 2;
     prob *= ( muT * muT / (n * (n-1)));
@@ -964,25 +965,25 @@ end_cond_sample_Poisson(const TwoStateCTMarkovModel &the_model,
                         const size_t start_state, const size_t end_state,
                         const double T, std::mt19937 &gen,
                         vector<double> &jump_times, const double start_time) {
-  
+
   const double rate = expected_num_jumps(the_model, start_state, end_state, T)/T;
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   function<double()> distr(bind(unif, std::ref(gen)));
-  
+
   // sample number of transitions
   double prob_n_trans;
   size_t num_trans = num_Poisson_trans(rate, T, start_state, end_state, distr,
                                        prob_n_trans);
   assert(((start_state == end_state) && (num_trans % 2 == 0)) ||
          ((start_state != end_state) && (num_trans % 2 != 0)));
-  
+
   if (num_trans > 0) {
     // sample the time points of jumps
     vector<double> trans_times;
     for (size_t i = 0; i < num_trans; i++)
       trans_times.push_back(distr() * T);
     std::sort(trans_times.begin(), trans_times.end());
-    
+
     // update the jumps vector
     for (size_t i = 0; i < num_trans; i++)
       jump_times.push_back(start_time + trans_times[i]);
@@ -1007,41 +1008,41 @@ end_cond_sample_prob(const TwoStateCTMarkovModel &the_model,
                      const size_t start_state, const size_t end_state,
                      const double start_time, const double end_time,
                      const size_t start_jump, const size_t end_jump) {
-  
+
   // start_jump must specify the first jump after the start time
   assert(start_jump == 0 || jump_times[start_jump - 1] < start_time);
   assert(start_jump == jump_times.size() || jump_times[start_jump] > start_time);
-  
+
   // end_jump must specify the first jump after the end time
   assert(end_jump == 0 || jump_times[end_jump - 1] < end_time);
   assert(end_jump == jump_times.size() || jump_times[end_jump] > end_time);
-  
+
   // the end points should be equal of we have an even number of jumps
   // inside the interval
   assert((end_jump - start_jump) % 2 == static_cast<size_t>(start_state != end_state));
-  
+
   double log_p = 0.0;
-  
+
   double curr_time = start_time;
-  
+
   // if start_jump == end_jump then no jump exists within the
   // specified time interval; otherwise start_jump must specify a time
   // inside the interval
   size_t a = start_state;
   const vector<double> rates = {the_model.rate0, the_model.rate1};
   const vector<double> log_rates = {log(the_model.rate0), log(the_model.rate1)};
-  
+
   for (size_t i = start_jump; i < end_jump; ++i) {
-    
+
     const double tau = jump_times[i] - curr_time;
     const double jump_log_prob = log_rates[a] - rates[a] * tau;
     log_p += jump_log_prob;
-    
+
     assert(std::isfinite(log_p));
     a = complement_state(a);
     curr_time = jump_times[i];
   }
-  
+
   // calculate last interval
   const double tau = end_time - curr_time;
   assert(a == end_state);
@@ -1051,4 +1052,3 @@ end_cond_sample_prob(const TwoStateCTMarkovModel &the_model,
                                         start_state, end_state));
   return log_p;
 }
-

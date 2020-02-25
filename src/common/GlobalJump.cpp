@@ -21,8 +21,6 @@
 
 #include "GlobalJump.hpp"
 
-#include "StateSeq.hpp"
-
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -72,15 +70,15 @@ operator<<(std::ostream &os, const GlobalJump &s) {
 
 void
 write_root_to_pathfile_global(const string &pathfile, const string &root_name,
-                              const StateSeq &root) {
+                              const state_seq &root) {
   std::ofstream of;
-  if (!pathfile.empty()) of.open(pathfile.c_str());
+  if (!pathfile.empty()) of.open(pathfile);
   std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + pathfile);
 
   outpath << ROOT_TAG << ':' << root_name << '\n';
-  copy(root.seq.begin(), root.seq.end(),
+  copy(begin(root), end(root),
        std::ostream_iterator<bool>(outpath));
   outpath << '\n';
 }
@@ -89,24 +87,24 @@ void
 append_to_pathfile_global(const string &pathfile, const string &node_name,
                           const vector<GlobalJump> &the_path) {
   std::ofstream of;
-  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
+  if (!pathfile.empty()) of.open(pathfile, std::ofstream::app);
   std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + pathfile);
-  
+
   outpath << NODE_TAG << ':' << node_name << '\n';
   for (size_t i = 0; i < the_path.size(); ++i)
     outpath << the_path[i] << '\n';
 }
 
 void
-read_pathfile_global(const string &pathfile, StateSeq &root,
+read_pathfile_global(const string &pathfile, state_seq &root,
                      vector<string> &node_names,
                      vector<vector<GlobalJump> > &the_paths) {
 
   the_paths.clear();
 
-  std::ifstream in(pathfile.c_str());
+  std::ifstream in(pathfile);
   if (!in)
     throw std::runtime_error("cannot read: " + pathfile);
 
@@ -120,7 +118,7 @@ read_pathfile_global(const string &pathfile, StateSeq &root,
 
   getline(in, buffer);
   for (size_t i = 0; i < buffer.length(); ++i)
-    root.seq.push_back(buffer[i] == '1');
+    root.push_back(buffer[i] == '1');
 
   the_paths.push_back(vector<GlobalJump>()); // empty on purpose
 

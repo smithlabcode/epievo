@@ -21,8 +21,6 @@
 
 #include "TripletSampler.hpp"
 
-#include "StateSeq.hpp"
-
 #include <iostream>
 #include <vector>
 #include <random>
@@ -30,9 +28,13 @@
 #include <fstream>
 #include <cassert>
 
-using std::vector;
+#include "epievo_utils.hpp"
 
-TripletSampler::TripletSampler(const vector<bool> &seq) {
+using std::vector;
+using std::partial_sum;
+
+
+TripletSampler::TripletSampler(const state_seq &seq) {
   assert(seq.size() >= 3); // must have at least one triplet
 
   const size_t seq_len = seq.size();
@@ -41,8 +43,7 @@ TripletSampler::TripletSampler(const vector<bool> &seq) {
   cum_pat_count.resize(8, 0ul);
   for (size_t i = 1; i < seq_len - 1; ++i)
     ++cum_pat_count[triple2idx(seq[i-1], seq[i], seq[i+1])];
-  std::partial_sum(cum_pat_count.begin(), cum_pat_count.end(),
-                   cum_pat_count.begin());
+  partial_sum(begin(cum_pat_count), end(cum_pat_count), begin(cum_pat_count));
 
   idx_in_pat = vector<size_t>(seq_len);  // valid for all sequence positions
   pos_by_pat = vector<size_t>(seq_len - 2); // total number of triples
@@ -66,45 +67,11 @@ TripletSampler::TripletSampler(const vector<bool> &seq) {
 }
 
 
-// TripletSampler::TripletSampler(const StateSeq &s) {
-//   assert(s.seq.size() >= 3); // must have at least one triplet
-
-//   const size_t seq_len = s.seq.size();
-
-//   // get the cumulative counts of each binary triplet
-//   cum_pat_count.resize(8, 0ul);
-//   for (size_t i = 1; i < seq_len - 1; ++i)
-//     ++cum_pat_count[triple2idx(s.seq[i-1], s.seq[i], s.seq[i+1])];
-//   std::partial_sum(cum_pat_count.begin(), cum_pat_count.end(),
-//                    cum_pat_count.begin());
-
-//   idx_in_pat = vector<size_t>(seq_len);  // valid for all sequence positions
-//   pos_by_pat = vector<size_t>(seq_len - 2); // total number of triples
-
-//   // place each sequence position into the appropriate part of the
-//   // vector; this is just one pass of counting-sort
-//   for (size_t i = 1; i < seq_len - 1; ++i) {
-//     const size_t idx = triple2idx(s.seq[i-1], s.seq[i], s.seq[i+1]);
-//     --cum_pat_count[idx];
-//     const size_t x = cum_pat_count[idx];
-//     pos_by_pat[x] = i;
-//     idx_in_pat[i] = x;
-//   }
-
-//   /* notice that cum_pat_count has 9 elements */
-//   cum_pat_count.push_back(seq_len - 2); // total number of triples
-
-//   // remember the start and end state; these will never change
-//   start_state = s.seq[0];
-//   end_state = s.seq.back();
-// }
-
-
 void
 TripletSampler::get_triplet_counts(vector<size_t> &triplet_counts) const {
   triplet_counts.clear();
   adjacent_difference(cum_pat_count.begin() + 1, cum_pat_count.end(),
-                      std::back_inserter(triplet_counts));
+                      back_inserter(triplet_counts));
 }
 
 size_t
@@ -207,8 +174,9 @@ TripletSampler::random_mutate(const size_t context, std::mt19937 &gen) {
   assert(context < 8);
 
   // below subtracting 1 because sampling is closed interval
-  std::uniform_int_distribution<size_t> dist(cum_pat_count[context],
-                                             cum_pat_count[context + 1] - 1);
+  const size_t low = cum_pat_count[context];
+  const size_t high = cum_pat_count[context + 1] - 1;
+  std::uniform_int_distribution<size_t> dist(low, high);
   const size_t pos = pos_by_pat[dist(gen)];
   mutate(pos, context);
 
@@ -218,7 +186,7 @@ TripletSampler::random_mutate(const size_t context, std::mt19937 &gen) {
 
 // extract the sequence by "unpermuting" the positions
 void
-TripletSampler::get_sequence(std::vector<bool> &seq) const {
+TripletSampler::get_sequence(state_seq &seq) const {
   static const size_t n_triplets = 8;
   seq.resize(idx_in_pat.size(), true);
 
@@ -235,9 +203,3 @@ TripletSampler::get_sequence(std::vector<bool> &seq) const {
   seq[0] = start_state;
   seq.back() = end_state;
 }
-
-// // same as above, but for the StateSeq object
-// void
-// TripletSampler::get_sequence(StateSeq &s) const {
-//   get_sequence(s.seq);
-// }

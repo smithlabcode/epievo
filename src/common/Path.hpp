@@ -28,8 +28,6 @@
 #include <sstream>
 #include <cassert>
 
-#include "smithlab_utils.hpp"
-
 struct Path {
 
   Path() : init_state(false), tot_time(0.0) {}

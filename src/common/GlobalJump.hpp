@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-struct StateSeq;
+#include "epievo_utils.hpp"
 
 struct GlobalJump {
   /* GlobalJump: represents a change in the boolean state within a
@@ -32,7 +32,8 @@ struct GlobalJump {
      deduced from some ground state (i.e. the root sequence).
    */
   GlobalJump() {}
-  GlobalJump(const double tp, const size_t pos) : timepoint(tp), position(pos) {}
+  GlobalJump(const double tp, const size_t pos) :
+    timepoint(tp), position(pos) {}
   double timepoint; // time of change
   size_t position; // position of change
   bool operator<(const GlobalJump &other) const {
@@ -49,7 +50,7 @@ operator>>(std::istream &is, GlobalJump &s);
 void
 write_root_to_pathfile_global(const std::string &pathfile,
                               const std::string &root_name,
-                              const StateSeq &root);
+                              const std::vector<bool> &root);
 
 void
 append_to_pathfile_global(const std::string &pathfile,
@@ -57,6 +58,6 @@ append_to_pathfile_global(const std::string &pathfile,
                           const std::vector<GlobalJump> &the_path);
 
 void
-read_pathfile_global(const std::string &pathfile, StateSeq &root,
+read_pathfile_global(const std::string &pathfile, std::vector<bool> &root,
                      std::vector<std::string> &node_names,
                      std::vector<std::vector<GlobalJump> > &the_paths);

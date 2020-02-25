@@ -26,12 +26,11 @@
 #include <random>
 #include <algorithm>
 
-// struct StateSeq;
+#include "epievo_utils.hpp"
 
 class TripletSampler {
 public:
-  TripletSampler(const std::vector<bool> &seq);
-  // TripletSampler(const StateSeq &seq);
+  TripletSampler(const state_seq &seq);
   void get_triplet_counts(std::vector<size_t> &counts) const;
   size_t get_triplet_count(const size_t context) const;
   size_t random_mutate(const size_t context, std::mt19937 &gen);
@@ -45,8 +44,7 @@ public:
   // state of the calling TripletSampler object, which is obtained by
   // "unpermuting" the idx_in_pat; essentially placing the correct bit
   // into each position of the sequence.
-  void get_sequence(std::vector<bool> &seq) const;
-  // void get_sequence(StateSeq &seq) const;
+  void get_sequence(state_seq &s) const;
 
 private:
   /* positions in state sequence organized by triplet pattern */

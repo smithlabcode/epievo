@@ -23,6 +23,8 @@
 #define EPIEVO_UTILS_HPP
 
 #include <vector>
+#include <string>
+#include <cassert>
 
 struct two_by_two {
 
@@ -49,5 +51,104 @@ struct two_by_two {
   void reset() {v00 = 0.0; v01 = 0.0; v10 = 0.0; v11 = 0.0;}
   double v00, v01, v10, v11;
 };
+
+typedef std::vector<bool> state_seq;
+
+void
+get_triplet_counts(const state_seq &s,
+                   std::vector<size_t> &triplet_counts);
+void
+get_triplet_proportions(const state_seq &s,
+                        std::vector<double> &triplet_proportions);
+void
+get_pair_counts(const state_seq &s, std::vector<size_t> &pair_counts);
+void
+get_pair_proportions(const state_seq &s, std::vector<double> &pair_proportions);
+
+std::string
+summary_string(const state_seq &s);
+
+void
+read_states_file(const std::string &statesfile, std::vector<std::string> &names,
+                 std::vector<state_seq> &the_states);
+
+// utilities for working with binary states, especially triplets
+constexpr size_t
+triple2idx(const bool i, const bool j, const bool k) {
+  return i*4 + j*2 + k;
+}
+
+constexpr size_t
+pair2idx(const bool i, const bool j) {
+  return i*2 + j;
+}
+
+// complementing a state
+constexpr size_t
+complement_state(const size_t x) {
+  // assert(x == 0ul || x == 1ul);
+  return 1ul - x;
+}
+
+constexpr bool
+complement_state(const bool x) {
+  return !x;
+}
+
+// flipping bits
+constexpr size_t
+flip_left_bit(const size_t x)  {return x ^ 4ul;}
+constexpr size_t
+flip_mid_bit(const size_t x)   {return x ^ 2ul;}
+constexpr size_t
+flip_right_bit(const size_t x) {return x ^ 1ul;}
+
+// accessing bits
+constexpr bool get_left_bit(const size_t x)  {return x & 4ul;}
+constexpr bool get_mid_bit(const size_t x)   {return x & 2ul;}
+constexpr bool get_right_bit(const size_t x) {return x & 1ul;}
+
+constexpr bool get_left_bit_from_pair(const size_t x)  {return x & 2ul;}
+constexpr bool get_right_bit_from_pair(const size_t x) {return x & 1ul;}
+
+inline void
+get_bits_from_triple(const size_t x, bool &l, bool &m, bool &r) {
+  l = get_left_bit(x);
+  m = get_mid_bit(x);
+  r = get_right_bit(x);
+}
+
+inline void
+get_bits_from_pair(const size_t x, bool &l, bool &r) {
+  l = get_left_bit_from_pair(x);
+  r = get_right_bit_from_pair(x);
+}
+
+#include <bitset>
+#include <sstream>
+
+template <class T>
+std::string
+triplet_info_to_string(const std::vector<T> &v) {
+  static const size_t n_triplets = 8;
+  assert(v.size() >= n_triplets);
+  std::ostringstream oss;
+  oss << std::bitset<3>(0) << '\t' << v.front();
+  for (size_t i = 1; i < n_triplets; ++i)
+    oss << '\n' << std::bitset<3>(i) << '\t' << v[i];
+  return oss.str();
+}
+
+template <class T>
+std::string
+pair_info_to_string(const std::vector<T> &v) {
+  static const size_t n_pairs = 4;
+  assert(v.size() >= n_pairs);
+  std::ostringstream oss;
+  oss << std::bitset<2>(0) << '\t' << v.front();
+  for (size_t i = 1; i < n_pairs; ++i)
+    oss << '\n' << std::bitset<2>(i) << '\t' << v[i];
+  return oss.str();
+}
 
 #endif

@@ -25,7 +25,6 @@
 #include "Segment.hpp"
 #include "EpiEvoModel.hpp"
 #include "TreeHelper.hpp"
-#include "EndCondSampling.hpp"
 
 struct FelsHelper {
   FelsHelper() {}
@@ -41,7 +40,7 @@ pruning(const TreeHelper &th, const size_t site_id,
         const std::vector<std::vector<double> > &emit,
         const std::vector<std::vector<SegmentInfo> > &seg_info,
         std::vector<FelsHelper> &fh);
- 
+
 void
 downward_sampling(const EpiEvoModel &the_model, const TreeHelper &th,
                   const size_t site_id,

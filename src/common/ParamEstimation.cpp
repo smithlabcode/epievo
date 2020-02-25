@@ -33,10 +33,11 @@
 
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
-#include "StateSeq.hpp"
 #include "EpiEvoModel.hpp"
 #include "TreeHelper.hpp"
 #include "TripletSampler.hpp" /* forward simulation */
+
+#include "epievo_utils.hpp"
 
 using std::vector;
 using std::endl;
@@ -104,17 +105,14 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
 }
 
 void
-get_root_frequences(const vector<vector<Path> > &all_paths,
-                    vector<vector<double> > &counts) {
-
+get_root_frequencies(const vector<vector<Path>> &all_paths, two_by_two &counts) {
   assert(all_paths.size() >= 2 && !all_paths[1].empty());
 
-  counts = vector<vector<double> >(2, vector<double>(2, 0.0));
-
+  counts.reset();
   size_t prev = all_paths[1].front().init_state;
   for (size_t i = 1; i < all_paths[1].size(); ++i) {
     const size_t curr = all_paths[1][i].init_state;
-    counts[prev][curr]++;
+    counts(prev, curr)++;
     prev = curr;
   }
 }
@@ -398,7 +396,7 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   candidate_branches(J, D, updated_rates, branch_scale);
   std::transform(branch_scale.begin(), branch_scale.end(),
                  th.branches.begin(), updated_branches.begin(),
-                 std::multiplies<double>() );
+                 std::multiplies<double>());
 
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
@@ -414,7 +412,7 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   for (size_t b = 1; b < th.n_nodes; b++)
     for (size_t i = 0; i < D[b].size(); i++) {
       J_collapsed[i] += J[b][i];
-      D_collapsed[i] += branch_scale[b] * D[b][i];
+      D_collapsed[i] += branch_scale[b]*D[b][i];
     }
 
   return log_likelihood(J_collapsed, D_collapsed, updated_rates);
@@ -448,14 +446,11 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
 
 
 void
-estimate_root_distribution(const vector<vector<double> > &counts,
-                           EpiEvoModel &the_model) {
-
-  the_model.init_T[0][0] = counts[0][0] / (counts[0][0] + counts[0][1]);
-  the_model.init_T[0][1] = 1 - the_model.init_T[0][0];
-
-  the_model.init_T[1][1] = counts[1][1] / (counts[1][1] + counts[1][0]);
-  the_model.init_T[1][0] = 1 - the_model.init_T[1][1];
+estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model) {
+  the_model.init_T[0][0] = counts(0, 0)/(counts(0, 0) + counts(0, 1));
+  the_model.init_T[0][1] = 1.0 - the_model.init_T[0][0];
+  the_model.init_T[1][1] = counts(1, 1)/(counts(1, 1) + counts(1, 0));
+  the_model.init_T[1][0] = 1.0 - the_model.init_T[1][1];
 }
 
 void
@@ -464,7 +459,7 @@ estimate_root_distribution(const vector<vector<Path> > &all_paths,
 
   assert(all_paths.size() >= 2 && !all_paths[1].empty());
 
-  vector<vector<double> > counts;
-  get_root_frequences(all_paths, counts);
+  two_by_two counts;
+  get_root_frequencies(all_paths, counts);
   estimate_root_distribution(counts, the_model);
 }
