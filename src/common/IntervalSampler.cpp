@@ -19,6 +19,8 @@
  * 02110-1301 USA
  */
 
+#include "IntervalSampler.hpp"
+
 #include <string>
 #include <vector>
 #include <cassert>
@@ -29,10 +31,10 @@
 #include <functional>
 #include <iomanip>
 
-#include "IntervalSampler.hpp"
+#include "EndCondSampling.hpp"
+#include "Segment.hpp"
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
-#include "StateSeq.hpp"
 
 using std::vector;
 using std::endl;

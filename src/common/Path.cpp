@@ -32,7 +32,7 @@
 
 #include "smithlab_utils.hpp"
 
-#include "StateSeq.hpp"
+#include "epievo_utils.hpp"
 
 using std::vector;
 using std::string;
@@ -65,8 +65,8 @@ operator<<(std::ostream &os, const Path &p) {
 }
 
 void
-initialize_paths(const std::vector<bool> &seq, const double tot_time,
-                 std::vector<Path> &paths) {
+initialize_paths(const vector<bool> &seq, const double tot_time,
+                 vector<Path> &paths) {
   paths.resize(seq.size());
   for (size_t i = 0; i < seq.size(); ++i)
     paths[i] = Path(seq[i], tot_time);
@@ -177,12 +177,12 @@ void get_seq_init(const vector<Path> &paths, vector<bool> &seq) {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct TriplePath {
-  std::vector<size_t> states; // triplet states, length k
-  std::vector<double> breaks; // start is first jump, end is total_time, length k
-  std::vector<size_t> jump_context_freq; // context freq. of jumps at middle site
+  vector<size_t> states; // triplet states, length k
+  vector<double> breaks; // start is first jump, end is total_time, length k
+  vector<size_t> jump_context_freq; // context freq. of jumps at middle site
 
   TriplePath(const Path &l, const Path &m, const Path &r);
-  void time_by_context(std::vector<double> &tbc) const;
+  void time_by_context(vector<double> &tbc) const;
 };
 
 TriplePath::TriplePath(const Path &l, const Path &m, const Path &r) {

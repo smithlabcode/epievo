@@ -24,8 +24,6 @@
 #include "Path.hpp"
 #include "EpiEvoModel.hpp"
 #include "TreeHelper.hpp"
-#include "EndCondSampling.hpp"
-#include "Segment.hpp"
 
 bool
 Metropolis_Hastings_interval(const EpiEvoModel &the_model, const TreeHelper &th,
@@ -36,7 +34,7 @@ Metropolis_Hastings_interval(const EpiEvoModel &the_model, const TreeHelper &th,
 
 /* CASE 1: Path ending in non-bifurcating nodes
   - end-conditioned uniformization sampling
- 
+
    CASE 2: Path involving bifurcating nodes
   - calculate posterior distribution at bifurcating node
   - end-conditioned uniformization sampling along involving intervals
