@@ -56,7 +56,7 @@ using std::istringstream;
 
 bool
 file_is_readable(const string &param_file) {
-  std::ifstream in(param_file.c_str());
+  std::ifstream in(param_file);
   return in.good();
 }
 
@@ -254,7 +254,7 @@ int main(int argc, const char **argv) {
       if (VERBOSE)
         cerr << "reading tree file: " << tree_file << endl;
       PhyloTreePreorder the_tree; // tree topology and branch lengths
-      std::ifstream tree_in(tree_file.c_str());
+      std::ifstream tree_in(tree_file);
       if (!tree_in || !(tree_in >> the_tree))
         throw std::runtime_error("bad tree file: " + tree_file);
       n_nodes = the_tree.get_size();
