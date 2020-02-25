@@ -28,7 +28,6 @@ CXXFLAGS = -Wall -std=c++11
 OPTFLAGS = -O2
 CPPFLAGS = -I $(SMITHLAB_CPP)
 DEBUGFLAGS = -g
-LIBS = -lgsl -lgslcblas
 
 ifdef DEBUG
 CXXFLAGS += $(DEBUGFLAGS)
@@ -46,7 +45,7 @@ all: $(PROGS)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(CPPFLAGS)
 
 %: %.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS) $(LIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(INCLUDEARGS)
 
 $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o \
 	smithlab_utils.o smithlab_os.o) \
@@ -58,7 +57,7 @@ scale_tree: $(addprefix $(COMMON_DIR)/, EpiEvoModel.o)
 
 epievo_est_complete epievo_sim: \
 	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o StateSeq.o \
+	TripletSampler.o epievo_utils.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
 epievo_initialization: \
@@ -68,21 +67,21 @@ epievo_initialization: \
 
 epievo_est_params_histories: \
 	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o StateSeq.o SingleSiteSampler.o EndCondSampling.o \
+	TripletSampler.o epievo_utils.o SingleSiteSampler.o EndCondSampling.o \
 	ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
 epievo_sim_pairwise: \
 	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o StateSeq.o SingleSiteSampler.o EndCondSampling.o \
+	TripletSampler.o epievo_utils.o SingleSiteSampler.o EndCondSampling.o \
 	ContinuousTimeMarkovModel.o EmitDistro.o\
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
-global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o StateSeq.o)
+global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o epievo_utils.o)
 
 extract_state_sequences: \
 	$(addprefix $(COMMON_DIR)/, TripletSampler.o \
-	StateSeq.o GlobalJump.o)
+	epievo_utils.o GlobalJump.o)
 
 install: all
 	@mkdir -p ../../bin
