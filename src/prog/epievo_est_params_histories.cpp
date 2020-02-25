@@ -31,9 +31,9 @@
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
 #include "smithlab_os.hpp"
+
 #include "Path.hpp"
 #include "EpiEvoModel.hpp"
-#include "StateSeq.hpp"
 #include "EndCondSampling.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
 #include "TreeHelper.hpp"
@@ -41,6 +41,7 @@
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
 #include "ParamEstimation.hpp"
+#include "epievo_utils.hpp"
 
 using std::vector;
 using std::endl;
@@ -49,43 +50,31 @@ using std::cout;
 using std::string;
 using std::runtime_error;
 using std::numeric_limits;
-
-///////////////////////////////////////////////////////////////////////////
+using std::ofstream;
 
 static void
 write_root_to_pathfile_local(const string &outfile, const string &root_name) {
-  std::ofstream of;
-  if (!outfile.empty()) of.open(outfile.c_str());
-  std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-  if (!outpath)
+  ofstream out(outfile);
+  if (!out)
     throw std::runtime_error("bad output file: " + outfile);
-
-  outpath << "NODE:" << root_name << endl;
+  out << "NODE:" << root_name << endl;
 }
-
 
 static void
 append_to_pathfile_local(const string &pathfile, const string &node_name,
                          const vector<Path> &path_by_site) {
-  std::ofstream of;
-  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
-  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-  if (!outpath)
+  std::ofstream out(pathfile, std::ofstream::app);
+  if (!out)
     throw std::runtime_error("bad output file: " + pathfile);
 
-  outpath << "NODE:" << node_name << endl;
+  out << "NODE:" << node_name << endl;
   for (size_t i = 0; i < path_by_site.size(); ++i)
-    outpath << i << '\t' << path_by_site[i] << '\n';
+    out << i << '\t' << path_by_site[i] << '\n';
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, const char **argv) {
   try {
+
     bool VERBOSE = false;
     bool OPTBRANCH = false;
     bool ONEBRANCH = false;
@@ -104,8 +93,7 @@ int main(int argc, const char **argv) {
     static const double param_tol = 1e-10;
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
-                           "Estimate parameters and evolution histories"
-                           " with MCMC-EM procedure",
+                           "estimate parameters and evolutionary histories",
                            "<param> <treefile> <path_file>");
     opt_parse.add_opt("iteration", 'i',
                       "number of MCMC-EM iteration (default: 10)",
@@ -204,7 +192,7 @@ int main(int argc, const char **argv) {
     /* MCMC PARAMETERS AND DATA*/
     vector<vector<double> > J;
     vector<vector<double> > D;
-    vector<vector<double> > root_frequences;
+    two_by_two root_frequencies;
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -214,12 +202,12 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[RUNNING MCMC-EM (seed=" << rng_seed << ")]\n"
-      << "itr\tstationary\tbaseline\tinit\tacc_rate\tllh\n"
-      << "0\t" << the_model.T[0][0] << "\t"
-      << the_model.T[1][1] << "\t"
-      << the_model.stationary_baseline[0][0] << "\t"
-      << the_model.stationary_baseline[1][1] << "\t"
-      << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << endl;
+           << "itr\tstationary\tbaseline\tinit\tacc_rate\tllh\n"
+           << "0\t" << the_model.T[0][0] << "\t"
+           << the_model.T[1][1] << "\t"
+           << the_model.stationary_baseline[0][0] << "\t"
+           << the_model.stationary_baseline[1][1] << "\t"
+           << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << endl;
 
     size_t current_batch = batch;
     vector<vector<vector<double> > > emit(n_sites);
@@ -248,7 +236,8 @@ int main(int argc, const char **argv) {
       size_t n_accepted = 0;
       vector<vector<double> > J_accum(th.n_nodes, vector<double> (8, 0.0));
       vector<vector<double> > D_accum(th.n_nodes, vector<double> (8, 0.0));
-      vector<vector<double> > root_accum(2, vector<double> (2, 0.0));
+
+      two_by_two root_accum;
 
       for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
@@ -259,7 +248,7 @@ int main(int argc, const char **argv) {
 
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
-        get_root_frequences(paths, root_frequences);
+        get_root_frequencies(paths, root_frequencies);
 
         /* RECORD STATS (POST-BURN-IN) */
         for (size_t b = 1; b < J.size(); b++) {
@@ -268,26 +257,26 @@ int main(int argc, const char **argv) {
             D_accum[b][i] += D[b][i];
           }
         }
-        root_accum[0][0] += root_frequences[0][0];
-        root_accum[0][1] += root_frequences[0][1];
-        root_accum[1][0] += root_frequences[1][0];
-        root_accum[1][1] += root_frequences[1][1];
+        root_accum(0, 0) += root_frequencies(0, 0);
+        root_accum(0, 1) += root_frequencies(0, 1);
+        root_accum(1, 0) += root_frequencies(1, 0);
+        root_accum(1, 1) += root_frequencies(1, 1);
       }
 
       //////////////////////////////////////////////////////////////////////////
       ///////////               POST-MCMC PROCESSING                 ///////////
       //////////////////////////////////////////////////////////////////////////
       /* CALCULATE/OUTPUT BATCH AVERAGE */
-      for (size_t b = 1; b < J.size(); b++) {
+      for (size_t b = 1; b < J.size(); ++b) {
         for (size_t i = 0; i < 8; i++) {
           J_accum[b][i] /= current_batch;
           D_accum[b][i] /= current_batch;
         }
       }
-      root_accum[0][0] /= current_batch;
-      root_accum[0][1] /= current_batch;
-      root_accum[1][0] /= current_batch;
-      root_accum[1][1] /= current_batch;
+      root_accum(0, 0) /= current_batch;
+      root_accum(0, 1) /= current_batch;
+      root_accum(1, 0) /= current_batch;
+      root_accum(1, 1) /= current_batch;
       /* PARAMETER ESTIMATION */
       double llh = 0.0;
       if (!OPTBRANCH)
@@ -303,18 +292,18 @@ int main(int argc, const char **argv) {
 
       if (VERBOSE)
         cerr << itr+1 << "\t" << the_model.T[0][0] << "\t"
-        << the_model.T[1][1] << "\t"
-        << the_model.stationary_baseline[0][0] << "\t"
-        << the_model.stationary_baseline[1][1] << "\t"
-        << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
-        << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
-        << "\t" << llh << endl;
+             << the_model.T[1][1] << "\t"
+             << the_model.stationary_baseline[0][0] << "\t"
+             << the_model.stationary_baseline[1][1] << "\t"
+             << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
+             << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
+             << "\t" << llh << endl;
 
       /* WRITE PARAMETER FILE */
       std::ofstream of_param;
       if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
       std::ostream out_param(param_file_updated.empty() ?
-                            std::cout.rdbuf() : of_param.rdbuf());
+                             std::cout.rdbuf() : of_param.rdbuf());
       if (!out_param)
         throw std::runtime_error("bad output param file: " + param_file_updated);
       out_param << the_model.format_for_param_file() << endl;

@@ -34,9 +34,10 @@
 #include "ParamEstimation.hpp"
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
-#include "StateSeq.hpp"
 #include "EpiEvoModel.hpp"
 #include "TreeHelper.hpp"
+
+#include "epievo_utils.hpp"
 
 using std::vector;
 using std::endl;
