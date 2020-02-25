@@ -34,7 +34,6 @@
 #include "smithlab_os.hpp"
 #include "Path.hpp"  /* related to Path */
 #include "EpiEvoModel.hpp" /* model_param */
-#include "StateSeq.hpp"
 #include "EndCondSampling.hpp"
 #include "ContinuousTimeMarkovModel.hpp"
 #include "epievo_utils.hpp"
@@ -54,7 +53,7 @@ count_zero_jumps(const size_t start_state, const vector<double> &jump_times) {
   const size_t n_jumps = jump_times.size();
   if (n_jumps % 2 == 0)
     return n_jumps/2;
-  else
+  else // ADS: below could be (n_jumps - 1)/2 + (start_state == 0)??
     return (start_state == 0) ? (n_jumps - 1)/2 + 1 : (n_jumps - 1)/2;
 }
 
@@ -84,8 +83,8 @@ struct summary_info {
 
   summary_info(const string &mn,
                const bool s, const bool e, const double et) :
-  method_name(mn), start_state(s), end_state(e), evo_time(et) {}
-  
+    method_name(mn), start_state(s), end_state(e), evo_time(et) {}
+
   string method_name;
   bool start_state;
   bool end_state;
@@ -99,7 +98,7 @@ struct summary_info {
   vector<double> one_jumps;
   vector<double> one_duration;
   vector<double> proposal_prob;
-  
+
   vector<double> all_jumps;
   static bool report_jumps;
   static string summary_suffix;
@@ -117,7 +116,7 @@ struct summary_info {
     if (report_jumps)
       all_jumps.insert(end(all_jumps), begin(jump_times), end(jump_times));
   }
-  
+
   void update(const vector<double> &jump_times, const double prob) {
     update(jump_times);
     proposal_prob.push_back(prob);
@@ -142,23 +141,23 @@ void
 summary_info::report() const {
   if (report_jumps) {
     const string jumps_filename =
-    filename_prefix + method_name + "." + jumps_suffix;
+      filename_prefix + method_name + "." + jumps_suffix;
     std::ofstream j_out(jumps_filename);
     if (!j_out)
       throw runtime_error("cannot write to: " + jumps_filename);
     j_out << "start" << '\t'
-    << "end" << '\t'
-    << "time" << '\t'
-    << "jumps" << endl;
+          << "end" << '\t'
+          << "time" << '\t'
+          << "jumps" << endl;
     const bool end_state = (all_jumps.size() % 2 == 0) ? start_state : !start_state;
     j_out << start_state << '\t' << end_state << '\t' << evo_time;
     for (auto &&i : all_jumps)
       j_out << "\t" << i;
     j_out << endl;
   }
-  
+
   const string info_filename =
-  filename_prefix + method_name + "." + summary_suffix;
+    filename_prefix + method_name + "." + summary_suffix;
   std::ofstream out(info_filename);
   if (!out)
     throw runtime_error("cannot write to: " + info_filename);
@@ -181,17 +180,14 @@ summary_info::tostring() const {
   oss.precision(3);
 
   oss << method_name << '\t' << start_state << '\t' << end_state << '\t'
-  << mean_zero_jumps << '\t' << mean_one_jumps << '\t'
-  << mean_zero_time << '\t' << mean_one_time << '\t'
-  << mean_zero_duration << '\t' << mean_one_duration << '\t'
-  << mean_proposal_prob << endl;
-  
+      << mean_zero_jumps << '\t' << mean_one_jumps << '\t'
+      << mean_zero_time << '\t' << mean_one_time << '\t'
+      << mean_zero_duration << '\t' << mean_one_duration << '\t'
+      << mean_proposal_prob << endl;
+
   return oss.str();
 }
 
-
-
-////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
 static void
@@ -207,27 +203,14 @@ expected_stat_str(const bool start_state, const bool end_state,
                   const two_by_two &D0, const two_by_two &D1) {
   std::ostringstream oss;
   oss.precision(3);
-  
+
   oss << start_state << '\t' << end_state << '\t'
-  << J0(start_state, end_state) << '\t' << J1(start_state, end_state) << '\t'
-  << D0(start_state, end_state) << '\t' << D1(start_state, end_state) << '\t'
-  << "\\\t\\\t\\\t" << endl;
-  
+      << J0(start_state, end_state) << '\t' << J1(start_state, end_state) << '\t'
+      << D0(start_state, end_state) << '\t' << D1(start_state, end_state) << '\t'
+      << "\\\t\\\t\\\t" << endl;
+
   return oss.str();
 }
-
-
-
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-
-
 
 
 int main(int argc, const char **argv) {
@@ -276,7 +259,7 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    
+
     const string outfile(leftover_args.front());
     ///////////////////////////////////////////////////////////////////////////
 
@@ -294,7 +277,7 @@ int main(int argc, const char **argv) {
       cerr << "RNG seed: " << rng_seed << endl << endl;
     std::mt19937 gen(rng_seed);
 
-    
+
     const string statfile_header = "method\tstart\tend\tJ0\tJ1\tD0\tD1\ttau0\ttau1\tprob";
     if (VERBOSE)
       cerr << statfile_header << endl;
@@ -309,11 +292,11 @@ int main(int argc, const char **argv) {
 
     vector<double> jump_times;
 
-    for (size_t start_state = 0; start_state <= 1; start_state++) {
-      for (size_t end_state = 0; end_state <= 1; end_state++) {
+    for (size_t start_state = 0; start_state < 2; ++start_state) {
+      for (size_t end_state = 0; end_state < 2; ++end_state) {
         const string expstat = "*Expected     \t" +
-        expected_stat_str(start_state, end_state, expected_J0, expected_J1,
-                          expected_D0, expected_D1);
+          expected_stat_str(start_state, end_state, expected_J0, expected_J1,
+                            expected_D0, expected_D1);
         if (VERBOSE)
           cerr << expstat;
         if(!statfile.empty())
@@ -324,7 +307,7 @@ int main(int argc, const char **argv) {
         summary_info si_nielsen("nielsen", start_state, end_state, evo_time);
         summary_info si_unif("unif", start_state, end_state, evo_time);
         summary_info si_pois("pois", start_state, end_state, evo_time);
-        
+
         /* Direct sampling */
         for (size_t i = 0; i < n_samples; i++) {
           jump_times.clear();
@@ -354,7 +337,7 @@ int main(int argc, const char **argv) {
         si_nielsen.report();
         if (VERBOSE)
           cerr << si_nielsen.tostring();
-        
+
         /* Uniformization sampling */
         for (size_t i = 0; i < n_samples; i++) {
           jump_times.clear();
