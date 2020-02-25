@@ -30,10 +30,11 @@
 
 #include "PhyloTreePreorder.hpp"
 #include "GlobalJump.hpp"
-#include "StateSeq.hpp"
 #include "Path.hpp"
 #include "TripletSampler.hpp"
 #include "TreeHelper.hpp"
+
+#include "epievo_utils.hpp"
 
 using std::vector;
 using std::endl;
@@ -41,19 +42,19 @@ using std::cerr;
 using std::cout;
 using std::string;
 using std::runtime_error;
-
+using std::ostream_iterator;
 
 static void
 process_branch_above_node(const double report_interval,
                           const string &outfile,
-                          const StateSeq &initial_states,
+                          const state_seq &initial_states,
                           const vector<GlobalJump> &the_jumps) {
 
   std::ofstream out(outfile.c_str());
   if (!out)
     throw runtime_error("cannot open output file: " + outfile);
 
-  TripletSampler ts(initial_states.seq);
+  TripletSampler ts(initial_states);
 
   double current_time = 0.0;
   double next_report_time = 0.0;
@@ -63,14 +64,15 @@ process_branch_above_node(const double report_interval,
     const double next_jump_time = the_jumps[i].timepoint;
 
     if (next_report_time < next_jump_time) {
-      StateSeq s;
-      ts.get_sequence(s.seq);
+      state_seq s;
+      ts.get_sequence(s);
       // in case there are no changes in some reporting interval
       while (next_report_time < next_jump_time) {
         cout << next_report_time << '\t' << current_time << '\t'
              << next_jump_time << '\t'
              << current_time + next_jump_time << endl;
-        out << s << endl;
+        transform(begin(s), end(s), ostream_iterator<char>(out),
+                  [](const bool b) {return b ? '1' : '0';});
         next_report_time += report_interval;
       }
     }
@@ -139,14 +141,14 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[reading paths: " << pathsfile << "]" << endl;
-    StateSeq root;
+    state_seq root;
     vector<string> node_names_from_pathsfile;
     vector<vector<GlobalJump> > the_paths; // along multiple branches
     read_pathfile_global(pathsfile, root, node_names_from_pathsfile, the_paths);
 
     if (VERBOSE)
       cerr << "[reading states: " << statesfile << "]" << endl;
-    vector<StateSeq> the_states;
+    vector<state_seq> the_states;
     vector<string> node_names_from_statesfile;
     read_states_file(statesfile, node_names_from_statesfile, the_states);
 

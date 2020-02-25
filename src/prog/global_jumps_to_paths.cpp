@@ -30,9 +30,10 @@
 
 #include "PhyloTreePreorder.hpp"
 #include "GlobalJump.hpp"
-#include "StateSeq.hpp"
 #include "Path.hpp"
 #include "TreeHelper.hpp"
+
+#include "epievo_utils.hpp"
 
 using std::vector;
 using std::endl;
@@ -130,7 +131,7 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[READING JUMPS: " << pathsfile << "]" << endl;
-    StateSeq root;
+    state_seq root;
     vector<string> node_names_from_pathsfile;
     vector<vector<GlobalJump> > the_paths; // along multiple branches
     read_pathfile_global(pathsfile, root, node_names_from_pathsfile, the_paths);
@@ -139,14 +140,14 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[READING STATES FILE: " << statesfile << "]" << endl;
-    vector<StateSeq> the_states;
+    vector<state_seq> the_states;
     vector<string> node_names_from_statesfile;
     read_states_file(statesfile, node_names_from_statesfile, the_states);
 
     assert(th.node_names == node_names_from_statesfile &&
            th.node_names == node_names_from_pathsfile);
 
-    const size_t n_sites = root.seq.size();
+    const size_t n_sites = root.size();
 
     if (VERBOSE)
       cerr << "[WRITING PATHS: " << outfile << "]" <<endl;
@@ -157,7 +158,7 @@ int main(int argc, const char **argv) {
 
       vector<Path> path_by_site(n_sites);
       for (size_t j = 0; j < path_by_site.size(); ++j) {
-        path_by_site[j].init_state = the_states[parent_id].seq[j];
+        path_by_site[j].init_state = the_states[parent_id][j];
         path_by_site[j].tot_time = branch_len;
       }
       assign_changes_to_sites(the_paths[node_id], path_by_site);

@@ -33,7 +33,9 @@
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
 #include "ParamEstimation.hpp"
-#include "StateSeq.hpp"
+#include "EndCondSampling.hpp"
+
+#include "epievo_utils.hpp"
 
 using std::vector;
 using std::endl;

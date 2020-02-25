@@ -25,7 +25,7 @@
 #include <exception>
 
 #include "Segment.hpp"
-#include "StateSeq.hpp"
+#include "epievo_utils.hpp"
 
 using std::vector;
 

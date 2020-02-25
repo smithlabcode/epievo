@@ -20,7 +20,6 @@
  */
 
 #include "EpiEvoModel.hpp"
-#include "StateSeq.hpp"
 #include "epievo_utils.hpp"
 
 #include <iostream>
