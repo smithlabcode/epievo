@@ -215,7 +215,7 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
 
   // compute posterior probability at root node
   const two_by_two root_T = (mod.use_init_T ? mod.init_T :
-                                     two_by_two (1.0, 1.0, 1.0, 1.0));
+                             two_by_two(1.0, 1.0, 1.0, 1.0));
   const bool left_st = paths[1][site_id - 1].init_state;
   const bool right_st = paths[1][site_id + 1].init_state;
   const double root_p0 = root_post_prob0(left_st, right_st, root_T, fh[0].q);
@@ -273,18 +273,16 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
     // calculate the probability for the end-conditioned path
     const TwoStateCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
 
-    const double interval_prob =
-                      end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
-                                           start_time, end_time,
-                                           start_jump, end_jump);
-    //cerr << "interval_prob: " << interval_prob << endl;
+    const double interval_prob = end_cond_sample_prob(ctmm, path.jumps,
+                                                      start_state, end_state,
+                                                      start_time, end_time,
+                                                      start_jump, end_jump);
     log_prob += interval_prob;
 
     const double PT0 = ctmm.get_trans_prob(seg_info[i].len, start_state, 0);
 
     // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
-    const double p0 =
-                      PT0/fh.p[i][start_state]*((i == n_intervals-1) ?
+    const double p0 = PT0/fh.p[i][start_state]*((i == n_intervals-1) ?
                                                 fh.q[0] : fh.p[i+1][0]);
     log_prob += (end_state == 0) ? log(p0) : log(1.0 - p0);
     assert(std::isfinite(log_prob));
@@ -313,7 +311,7 @@ proposal_prob(const vector<double> &triplet_rates,
   const double root_p0 =
     root_post_prob0(rt_left_st, rt_right_st, horiz_trans_prob, fh[0].q);
   double log_prob = paths[1][site_id].init_state ?
-                      log(1.0 - root_p0) : log(root_p0);
+    log(1.0 - root_p0) : log(root_p0);
 
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
@@ -333,12 +331,12 @@ proposal_prob(const vector<double> &triplet_rates, const TreeHelper &th,
               const vector<FelsHelper> &fh,
               const vector<vector<SegmentInfo> > &seg_info,
               const vector<Path> &the_path) {
-  
+
   // compute posterior probability of state 0 at root node
   const double root_p0 =
-  root_post_prob0(rt_left_st, rt_right_st, horiz_trans_prob, fh[0].q);
+    root_post_prob0(rt_left_st, rt_right_st, horiz_trans_prob, fh[0].q);
   double log_prob = the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
-  
+
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     log_prob += proposal_prob_branch(seg_info[node_id], fh[node_id],
@@ -390,7 +388,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 
   /* calculate likelihood involving root states */
   const two_by_two root_T = (mod.use_init_T ? mod.init_T :
-                                     two_by_two (1.0, 1.0, 1.0, 1.0));
+                             two_by_two (1.0, 1.0, 1.0, 1.0));
   const size_t rt_orig = paths[1][site_id].init_state;
   const size_t rt_prop = proposed_path[1].init_state;
   llr += (log(root_prior_lh(rt_left_st, rt_prop, rt_right_st, root_T)) -
@@ -400,12 +398,8 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     llr += (log(emit[0][rt_prop]) - log(emit[0][rt_orig]));
 
   /* calculate likelihood involving internal intervals */
-  vector<double> D_orig(n_triples), J_orig(n_triples);
-  vector<double> D_prop(n_triples), J_prop(n_triples);
-  fill_n(begin(D_orig), n_triples, 0.0);
-  fill_n(begin(J_orig), n_triples, 0.0);
-  fill_n(begin(D_prop), n_triples, 0.0);
-  fill_n(begin(J_prop), n_triples, 0.0);
+  vector<double> D_orig(n_triples, 0.0), J_orig(n_triples, 0.0);
+  vector<double> D_prop(n_triples, 0.0), J_prop(n_triples, 0.0);
 
   for (size_t i = 1; i < th.n_nodes; ++i) {
     // sufficient stats for current pentet using original path at mid
@@ -483,7 +477,7 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
   // if accepted, replace old path with proposed one.
   if (accepted)
     for (size_t i = 1; i < th.n_nodes; ++i)
-      paths[i][site_id] = proposed_path[i];
+      std::swap(paths[i][site_id], proposed_path[i]);
 
   return accepted;
 }
