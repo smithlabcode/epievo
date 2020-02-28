@@ -1,5 +1,5 @@
-# Copyright (C) 2018 University of Southern California
-#                    Jianghan Qu and Andrew D Smith
+# Copyright (C) 2018-2020 University of Southern California
+#                         Liz Ji, Jianghan Qu and Andrew D Smith
 #
 # Author: Andrew D. Smith and Jianghan Qu
 #
@@ -12,11 +12,6 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this software; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-# 02110-1301 USA
 
 PROGS = epievo_sim global_jumps_to_paths \
 	extract_state_sequences epievo_est_complete epievo_sim_pairwise \
@@ -35,7 +30,7 @@ else
 CXXFLAGS += $(OPTFLAGS)
 endif
 
-COMMON_DIR = $(realpath ../common)
+COMMON_DIR = ../libepievo
 INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP)
 INCLUDEARGS = $(addprefix -I, $(INCLUDEDIRS))
 
@@ -72,9 +67,9 @@ epievo_est_params_histories: \
 
 epievo_sim_pairwise: \
 	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o epievo_utils.o SingleSiteSampler.o EndCondSampling.o \
-	ContinuousTimeMarkovModel.o EmitDistro.o\
-	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
+	TripletSampler.o epievo_utils.o SingleSiteSampler.o \
+	EndCondSampling.o ContinuousTimeMarkovModel.o EpiEvoModel.o \
+	GlobalJump.o ParamEstimation.o)
 
 global_jumps_to_paths: $(addprefix $(COMMON_DIR)/, GlobalJump.o epievo_utils.o)
 

@@ -1,5 +1,5 @@
-# Copyright (C) 2018 University of Southern California
-#                    Jianghan Qu and Andrew D Smith
+# Copyright (C) 2018-2020 University of Southern California
+#                         Liz Ji, Jianghan Qu and Andrew D Smith
 #
 # Author: Andrew D. Smith and Jianghan Qu
 #
@@ -12,11 +12,6 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this software; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-# 02110-1301 USA
 
 PROGS = MCMC_test end_cond_sampling_test
 
@@ -26,15 +21,14 @@ OPTFLAGS = -O2
 DEBUGFLAGS = -g
 LIBS = -lgsl -lgslcblas
 
+
 ifdef DEBUG
 CXXFLAGS += $(DEBUGFLAGS)
-endif
-
-ifdef OPT
+else
 CXXFLAGS += $(OPTFLAGS)
 endif
 
-COMMON_DIR = $(realpath ../common)
+COMMON_DIR = ../libepievo
 INCLUDEDIRS = $(COMMON_DIR) $(SMITHLAB_CPP)
 INCLUDEARGS = $(addprefix -I, $(INCLUDEDIRS))
 
