@@ -29,8 +29,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <exception>
-
-#include "smithlab_utils.hpp"
+#include <iterator>
 
 #include "epievo_utils.hpp"
 
@@ -38,6 +37,8 @@ using std::vector;
 using std::string;
 using std::to_string;
 using std::runtime_error;
+using std::ostream_iterator;
+using std::istringstream;
 
 static const string NODE_TAG = "NODE";
 static const size_t TAG_LENGTH = 4;
@@ -50,7 +51,7 @@ is_node_line(const string &buffer) {
 
 static string
 get_node_name(const string &buffer) {
-  return string(buffer.begin() + buffer.find(':') + 1, buffer.end());
+  return string(begin(buffer) + buffer.find(':') + 1, end(buffer));
 }
 
 std::ostream &
@@ -58,15 +59,15 @@ operator<<(std::ostream &os, const Path &p) {
   std::ios old_state(nullptr);
   old_state.copyfmt(os);
   os << p.init_state << '\t' << p.tot_time << '\t';
-  copy(p.jumps.begin(), p.jumps.end(), std::ostream_iterator<double>(os, "\t"));
+  copy(begin(p.jumps), end(p.jumps), ostream_iterator<double>(os, "\t"));
   os.precision(std::numeric_limits<double>::max_digits10);
   os.copyfmt(old_state);
   return os;
 }
 
 void
-initialize_paths(const vector<bool> &seq, const double tot_time,
-                 vector<Path> &paths) {
+initialize_paths(const vector<bool> &seq,
+                 const double tot_time, vector<Path> &paths) {
   paths.resize(seq.size());
   for (size_t i = 0; i < seq.size(); ++i)
     paths[i] = Path(seq[i], tot_time);
@@ -81,15 +82,15 @@ get_seq_end(const vector<Path> &paths, vector<bool> &seq) {
 
 void
 Path::scale_to_unit_length() {
-  for (size_t i = 0; i < jumps.size(); ++i)
-    jumps[i] /= tot_time;
+  transform(begin(jumps), end(jumps), begin(jumps),
+            [&](const double d) {return d/tot_time;});
   tot_time = 1.0;
 }
 
 bool
 Path::state_at_time(const double t) const {
   const size_t idx =
-    std::lower_bound(jumps.begin(), jumps.end(), t) - jumps.begin();
+    std::lower_bound(begin(jumps), end(jumps), t) - begin(jumps);
   const bool s = (idx % 2 == 0) ? init_state : !init_state;
   return s;
 }
@@ -106,11 +107,14 @@ get_seq_at_time(const double t, const vector<Path> &paths,
 void
 to_path(const bool s, const string &jumps, Path &p) {
   p.init_state = s;
-  vector<string> fields = smithlab::split(jumps, ",", false);
-  p.tot_time = std::stod(fields.back());
+  istringstream iss(jumps);
+  string item;
+  getline(iss, item, ','); // eat the first one
   p.jumps.clear();
-  for (size_t i = 1; i < fields.size()-1; ++i)
-    p.jumps.push_back(std::stod(fields[i]));
+  while (getline(iss, item, ','))
+    p.jumps.push_back(std::stod(item));
+  p.tot_time = p.jumps.back();
+  p.jumps.resize(p.jumps.size() - 1);
 }
 
 void
@@ -191,24 +195,26 @@ TriplePath::TriplePath(const Path &l, const Path &m, const Path &r) {
   states.push_back(triple2idx(l.init_state, m.init_state, r.init_state));
 
   breaks.clear();
-  breaks.insert(breaks.end(), l.jumps.begin(), l.jumps.end());
-  breaks.insert(breaks.end(), m.jumps.begin(), m.jumps.end());
-  breaks.insert(breaks.end(), r.jumps.begin(), r.jumps.end());
+  breaks.insert(end(breaks), begin(l.jumps), end(l.jumps));
+  breaks.insert(end(breaks), begin(m.jumps), end(m.jumps));
+  breaks.insert(end(breaks), begin(r.jumps), end(r.jumps));
   // consider two uses of std::inplace_merge below, rather than sort
-  std::sort(breaks.begin(), breaks.end());
+  std::sort(begin(breaks), end(breaks));
   breaks.push_back(l.tot_time);
 
   for (size_t i = 1; i < breaks.size(); ++i) {
+    // ADS: this, below, is bad...
     const double t = breaks[i-1] + (breaks[i] - breaks[i-1])/2;
     states.push_back(triple2idx(l.state_at_time(t),
-                                m.state_at_time(t), r.state_at_time(t)));
+                                m.state_at_time(t),
+                                r.state_at_time(t)));
   }
 
   jump_context_freq.resize(8, 0);
   for (size_t i = 0; i < m.jumps.size(); ++i) {
     vector<double>::iterator low;
-    low = std::lower_bound (breaks.begin(), breaks.end(), m.jumps[i]);
-    const size_t context = states[(size_t)(low - breaks.begin())];
+    low = std::lower_bound (begin(breaks), end(breaks), m.jumps[i]);
+    const size_t context = states[(size_t)(low - begin(breaks))];
     ++jump_context_freq[context];
   }
 }
