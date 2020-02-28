@@ -27,9 +27,8 @@
 #include <numeric>  /* std::inner_product, accumulate*/
 #include <functional>
 
-#include "OptionParser.hpp"
-#include "smithlab_utils.hpp"
-#include "smithlab_os.hpp"
+// #include "smithlab_utils.hpp"
+// #include "smithlab_os.hpp"
 
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
