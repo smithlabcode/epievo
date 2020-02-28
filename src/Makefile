@@ -1,24 +1,34 @@
-all_subdirs=prog ${SMITHLAB_CPP} harnesses
-app_subdirs=prog harnesses
+# Copyright (C) 2020 University of Southern California
+#                    Andrew D. Smith and Liz Ji
+#
+# Authors: Andrew D. Smith
+#
+# This file is part of EPIEVO.
+#
+# EPIEVO is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EPIEVO is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+
+subdirs=prog harnesses
 
 all:
-	@for i in $(app_subdirs); do \
-	make -C $${i} SMITHLAB_CPP=$(SMITHLAB_CPP) OPT=1; \
+	@for i in $(subdirs); do \
+	make -C $${i}; \
 	done;
 
 install:
-	@for i in $(app_subdirs); do \
-	make -C $${i} SMITHLAB_CPP=$(SMITHLAB_CPP) OPT=1 install; \
-	done;
-
-test:
-	@for i in $(app_subdirs); do \
-	make -C $${i} SMITHLAB_CPP=$(SMITHLAB_CPP) test; \
+	@for i in $(subdirs); do \
+	make -C $${i} install; \
 	done;
 
 clean:
-	@for i in $(all_subdirs); do \
+	@for i in $(subdirs); do \
 	make -C $${i} clean; \
 	done;
-
-.PHONY: test
+.PHONY: clean

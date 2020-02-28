@@ -1,25 +1,30 @@
-EVOSIM_ROOT = $(shell pwd)
-export PATH := $(shell pwd):$(PATH)
-BINDIR = $(EVOSIM_ROOT)/bin
-
-ifndef SMITHLAB_CPP
-SMITHLAB_CPP=$(abspath $(dir $(MAKEFILE_LIST)))/src/smithlab_cpp
-ifeq ("$(wildcard $(SMITHLAB_CPP))","")
-$(error SMITHLAB_CPP variable not set and smithlab_cpp not found)
-endif
-endif
+# Copyright (C) 2020 University of Southern California
+#                    Andrew D. Smith and Liz Ji
+#
+# Authors: Andrew D. Smith
+#
+# This file is part of EPIEVO.
+#
+# EPIEVO is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# EPIEVO is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
 
 all:
-	@make -C src EVOSIM_ROOT=$(EVOSIM_ROOT) SMITHLAB_CPP=$(SMITHLAB_CPP) TREETOOL=$(TREETOOL) OPT=1
+	@make -C src
 
 install:
-	@make -C src EVOSIM_ROOT=$(EVOSIM_ROOT) SMITHLAB_CPP=$(SMITHLAB_CPP) TREETOOL=$(TREETOOL) OPT=1 install
-
-test:
-	@make -C src OPT=1 test
-.PHONY: test 
+	@make -C src install
 
 clean:
-	@rm -rf $(BINDIR)
-	@make -C src EVOSIM_ROOT=$(EVOSIM_ROOT) clean
+	@make -C src clean
 .PHONY: clean
+
+distclean: clean
+	@rm -rf $(EPIEVO)/bin
+.PHONY: distclean
