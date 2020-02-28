@@ -1,7 +1,7 @@
-# Copyright (C) 2018 University of Southern California
-#                    Liz Ji, Jianghan Qu and Andrew D Smith
+# Copyright (C) 2020 University of Southern California
+#                    Liz Ji and Andrew D Smith
 #
-# Author: Andrew D. Smith, Liz Ji and Jianghan Qu
+# Author: Andrew D. Smith
 #
 # This is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -13,27 +13,31 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+SOURCES = $(wildcard *.cpp)
+OBJECTS = $(patsubst %.cpp, %.o, $(SOURCES))
+HEADERS = $(wildcard *.hpp)
+
+STATIC_LIB = libepievo.a
+
 CXX = g++
-CXXFLAGS = -Wall -fmessage-length=50 -std=c++11
-OPTFLAGS = -O2
+CXXFLAGS = -Wall -std=c++11
+OPTFLAGS = -O3
 DEBUGFLAGS = -g
-LIBS = -lgsl -lgslcblas
 
 ifdef DEBUG
 CXXFLAGS += $(DEBUGFLAGS)
-endif
-
-ifdef OPT
+else
 CXXFLAGS += $(OPTFLAGS)
 endif
 
-INCLUDEDIRS = $(SMITHLAB_CPP)
-INCLUDEARGS = $(addprefix -I, $(INCLUDEDIRS))
+all: $(OBJECTS) static
 
 %.o: %.cpp %.hpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(INCLUDEARGS)
 
-clean:
-	@-rm -f $(PROGS) *.o *.so *.a *~
+static: $(OBJECTS)
+	ar cr $(STATIC_LIB) $^
 
+clean:
+	@-rm -f *.o *.a *~
 .PHONY: clean
