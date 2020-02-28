@@ -39,12 +39,12 @@
 #include "ContinuousTimeMarkovModel.hpp"
 #include "TreeHelper.hpp"
 #include "SingleSiteSampler.hpp"
-#include "EmitDistro.hpp"
 #include "TripletSampler.hpp"
 #include "GlobalJump.hpp"
 #include "ParamEstimation.hpp"
 
 #include "epievo_utils.hpp"
+#include "emission_utils.hpp"
 
 using std::vector;
 using std::endl;
