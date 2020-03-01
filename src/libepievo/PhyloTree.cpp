@@ -57,10 +57,9 @@
 #include <algorithm>
 #include <sstream>
 #include <unordered_set>
+#include <cassert>
 
 #include <cctype> // for isspace
-
-#include "smithlab_utils.hpp"
 
 using std::string;
 using std::vector;
@@ -68,6 +67,7 @@ using std::endl;
 using std::cerr;
 using std::cout;
 using std::unordered_set;
+using std::runtime_error;
 
 
 static bool
@@ -79,31 +79,6 @@ check_balanced_parentheses(const string &s) {
   }
   return count == 0;
 }
-
-
-// static bool
-// check_unique_names(const string &s) {
-//   /// ADS: this function is really poorly coded
-//   bool is_unique=true;
-//   string s_copy =s;
-//   unordered_set<string> names;
-//   size_t f1, f2;
-//   while (!s_copy.empty()) {
-//     f1 = s_copy.find_first_not_of("()0123456789:,;");
-//     s_copy.erase(0,f1);
-//     if (s_copy.empty()) break;
-//     f2 = s_copy.find_first_of("()0123456789:,;");
-//     string name=s_copy.substr(0,f2);
-//     if (names.find(name)== names.end()){
-//       names.insert(name);
-//     }
-//     else {
-//       is_unique=false;
-//       break;
-//     }
-//   }
-//   return is_unique;
-// }
 
 
 void
@@ -275,8 +250,8 @@ PhyloTree::PTNode::copy_subtree_with_species(const PTNode &t,
 
 PhyloTree::PhyloTree(string tree_rep) {
   if (!check_balanced_parentheses(tree_rep))
-    throw SMITHLABException("Unbalanced parentheses in Newick format: " +
-                            tree_rep);
+    throw runtime_error("Unbalanced parentheses in Newick format: " +
+                        tree_rep);
   // remove whitespace
   string::iterator w =
     std::remove_copy_if(tree_rep.begin(), tree_rep.end(),
@@ -288,7 +263,7 @@ PhyloTree::PhyloTree(string tree_rep) {
   /* ADS: requirement for unique names should only apply to leafs
    */
   // if (!check_unique_names(tree_rep))
-  //   throw SMITHLABException("duplicate names in: " + tree_rep);
+  //   throw runtime_error("duplicate names in: " + tree_rep);
 
   root = PTNode(tree_rep);
 }
@@ -314,7 +289,7 @@ operator>>(std::istream &in, PhyloTree &t) {
       found_end = true;
   }
   if (!found_end)
-    throw SMITHLABException("bad tree format");
+    throw runtime_error("bad tree format");
   t = PhyloTree(r);
   return in;
 }
