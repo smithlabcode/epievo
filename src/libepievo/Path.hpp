@@ -28,6 +28,8 @@
 #include <sstream>
 #include <cassert>
 
+#include "epievo_utils.hpp"
+
 struct Path {
 
   Path() : init_state(false), tot_time(0.0) {}
@@ -73,14 +75,14 @@ read_paths(const std::string &path_file,
            std::vector<std::vector<Path> > &paths);
 
 void
-get_seq_init(const std::vector<Path> &paths, std::vector<bool> &seq);
+get_seq_init(const std::vector<Path> &paths, state_seq &seq);
 
 void
-get_seq_end(const std::vector<Path> &paths, std::vector<bool> &seq);
+get_seq_end(const std::vector<Path> &paths, state_seq &seq);
 
 void
 get_seq_at_time(const double t, const std::vector<Path> &paths,
-                std::vector<bool> &seq);
+                state_seq &seq);
 
 void
 add_sufficient_statistics(const Path &left, const Path &mid, const Path &right,
