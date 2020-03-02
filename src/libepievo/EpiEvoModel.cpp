@@ -162,7 +162,7 @@ rate_scaling_factor(const vector<double> &pi,
     const size_t l = get_left_bit(i);
     const size_t m = get_mid_bit(i);
     const size_t r = get_right_bit(i);
-    mu_rate_value += (pi[l]*T[l][m]*T[m][r]) * triplet_rates[i];
+    mu_rate_value += pi[l]*T(l, m)*T(m, r)*triplet_rates[i];
   }
   return mu_rate_value;
 }
@@ -252,7 +252,7 @@ compute_stationary_triplet_proportions(const two_by_two &T,
     const size_t left = get_left_bit(i);
     const size_t mid = get_mid_bit(i);
     const size_t right = get_right_bit(i);
-    props[i] = pi[left]*T[left][mid]*T[mid][right]; // T is member variable
+    props[i] = pi[left]*T(left, mid)*T(mid, right); // T is member variable
   }
 }
 
