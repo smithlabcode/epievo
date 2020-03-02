@@ -32,33 +32,31 @@
 #include <vector>
 
 double
-compute_estimates_for_rates_only(const bool VERBOSE,
-                                 const double param_tol,
-                                 const std::vector<std::vector<double> > &J,
-                                 const std::vector<std::vector<double> > &D,
-                                 EpiEvoModel &the_model);
+estimate_rates(const bool VERBOSE,
+               const double param_tol,
+               const std::vector<std::vector<double> > &J,
+               const std::vector<std::vector<double> > &D,
+               EpiEvoModel &the_model);
 
 double
-compute_estimates_for_rates_only(const bool VERBOSE,
-                                 const double param_tol,
-                                 const std::vector<std::vector<Path> > &all_paths,
-                                 EpiEvoModel &the_model);
+estimate_rates(const bool VERBOSE,
+               const double param_tol,
+               const std::vector<std::vector<Path> > &all_paths,
+               EpiEvoModel &the_model);
 
 
 double
-compute_estimates_rates_and_branches(const bool VERBOSE,
-                                     const double param_tol,
-                                     const std::vector<std::vector<double> > &J,
-                                     const std::vector<std::vector<double> > &D,
-                                     TreeHelper &th,
-                                     EpiEvoModel &the_model);
+estimate_rates_and_branches(const bool VERBOSE,
+                            const double param_tol,
+                            const std::vector<std::vector<double> > &J,
+                            const std::vector<std::vector<double> > &D,
+                            TreeHelper &th,
+                            EpiEvoModel &the_model);
 
 double
-compute_estimates_rates_and_branches(const bool VERBOSE,
-                                     const double param_tol,
-                                     std::vector<std::vector<Path> > &all_paths,
-                                     TreeHelper &th,
-                                     EpiEvoModel &the_model);
+estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
+                            std::vector<std::vector<Path> > &all_paths,
+                            TreeHelper &th, EpiEvoModel &the_model);
 
 void
 estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model);

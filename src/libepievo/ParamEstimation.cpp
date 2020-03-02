@@ -301,7 +301,6 @@ estimate_rates(const double param_tol,
       D_collapsed[j] += D[b][j];
     }
   }
-
   return estimate_rates(param_tol, J_collapsed, D_collapsed,
                         input_rates, rates);
 }
@@ -327,11 +326,10 @@ set_one_change_per_site_per_unit_time(vector<double> &rates,
 
 
 double
-compute_estimates_for_rates_only(const bool VERBOSE,
-                                 const double param_tol,
-                                 const vector<vector<double> > &J,
-                                 const vector<vector<double> > &D,
-                                 EpiEvoModel &the_model) {
+estimate_rates(const bool VERBOSE, const double param_tol,
+               const vector<vector<double> > &J,
+               const vector<vector<double> > &D,
+               EpiEvoModel &the_model) {
 
   if (VERBOSE)
     cerr << "[ESTIMATING PARAMETERS]" << endl;
@@ -347,17 +345,16 @@ compute_estimates_for_rates_only(const bool VERBOSE,
 
 
 double
-compute_estimates_for_rates_only(const bool VERBOSE,
-                                 const double param_tol,
-                                 const vector<vector<Path> > &all_paths,
-                                 EpiEvoModel &the_model) {
+estimate_rates(const bool VERBOSE, const double param_tol,
+               const vector<vector<Path> > &all_paths,
+               EpiEvoModel &the_model) {
   if (VERBOSE)
     cerr << "[COMPUTING INITIAL SUFFICIENT STATISTICS]" << endl;
   vector<vector<double> > J;
   vector<vector<double> > D;
   get_sufficient_statistics(all_paths, J, D);
 
-  return compute_estimates_for_rates_only(VERBOSE, param_tol, J, D, the_model);
+  return estimate_rates(VERBOSE, param_tol, J, D, the_model);
 }
 
 
@@ -376,11 +373,10 @@ scale_jump_times(vector<vector<Path> > &all_paths, const TreeHelper &th) {
 
 
 double
-compute_estimates_rates_and_branches(const bool VERBOSE,
-                                     const double param_tol,
-                                     const vector<vector<double> > &J,
-                                     const vector<vector<double> > &D,
-                                     TreeHelper &th, EpiEvoModel &the_model) {
+estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
+                            const vector<vector<double> > &J,
+                            const vector<vector<double> > &D,
+                            TreeHelper &th, EpiEvoModel &the_model) {
 
   if (VERBOSE)
     cerr << "[ESTIMATING PARAMETERS AND BRANCHES]" << endl;
@@ -419,11 +415,10 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
 
 
 double
-compute_estimates_rates_and_branches(const bool VERBOSE,
-                                     const double param_tol,
-                                     vector<vector<Path> > &all_paths,
-                                     TreeHelper &th,
-                                     EpiEvoModel &the_model) {
+estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
+                            vector<vector<Path> > &all_paths,
+                            TreeHelper &th,
+                            EpiEvoModel &the_model) {
 
   if (VERBOSE)
     cerr << "[NORMALIZING ALL PATH LENGTHS]" << endl;
@@ -439,17 +434,16 @@ compute_estimates_rates_and_branches(const bool VERBOSE,
   vector<vector<double> > D;
   get_sufficient_statistics(all_paths, J, D);
 
-  return compute_estimates_rates_and_branches(VERBOSE, param_tol, J, D,
-                                              th, the_model);
+  return estimate_rates_and_branches(VERBOSE, param_tol, J, D, th, the_model);
 }
 
 
 void
 estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model) {
-  the_model.init_T[0][0] = counts(0, 0)/(counts(0, 0) + counts(0, 1));
-  the_model.init_T[0][1] = 1.0 - the_model.init_T[0][0];
-  the_model.init_T[1][1] = counts(1, 1)/(counts(1, 1) + counts(1, 0));
-  the_model.init_T[1][0] = 1.0 - the_model.init_T[1][1];
+  the_model.init_T(0, 0) = counts(0, 0)/(counts(0, 0) + counts(0, 1));
+  the_model.init_T(0, 1) = 1.0 - the_model.init_T(0, 0);
+  the_model.init_T(1, 1) = counts(1, 1)/(counts(1, 1) + counts(1, 0));
+  the_model.init_T(1, 0) = 1.0 - the_model.init_T(1, 1);
 }
 
 void
