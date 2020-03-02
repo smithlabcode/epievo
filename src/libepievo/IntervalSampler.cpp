@@ -49,61 +49,19 @@ using std::placeholders::_1;
 using std::multiplies;
 using std::runtime_error;
 
-
-// /* collect rates and interval lengths */
-// static void
-// collect_segment_info(const vector<double> &rates,
-//                      const Path &l, const Path &r,
-//                      vector<SegmentInfo> &seg_info) {
-//   seg_info.clear();
-//   size_t trip0 = triple2idx(l.init_state, false, r.init_state);
-//   size_t trip1 = triple2idx(l.init_state, true, r.init_state);
-//   double prev_time = 0.0;
-//   vector<double>::const_iterator i(begin(l.jumps)), i_lim = end(l.jumps);
-//   vector<double>::const_iterator j(begin(r.jumps)), j_lim = end(r.jumps);
-//   while (i != i_lim && j != j_lim)
-//     if (*i < *j) {
-//       seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *i-prev_time));
-//       trip0 = flip_left_bit(trip0);
-//       trip1 = flip_left_bit(trip1);
-//       prev_time = *i++;
-//     }
-//     else {
-//       seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *j-prev_time));
-//       trip0 = flip_right_bit(trip0);
-//       trip1 = flip_right_bit(trip1);
-//       prev_time = *j++;
-//     }
-//   for (; i != i_lim; ++i) {
-//     seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *i - prev_time));
-//     trip0 = flip_left_bit(trip0);
-//     trip1 = flip_left_bit(trip1);
-//     prev_time = *i;
-//   }
-//   for (; j != j_lim; ++j) {
-//     seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *j - prev_time));
-//     trip0 = flip_right_bit(trip0);
-//     trip1 = flip_right_bit(trip1);
-//     prev_time = *j;
-//   }
-// }
-
-
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////////              PROPOSAL           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-propose_h_interval(const vector<vector<Path> > &paths,
-                   const size_t site_id, const size_t node_id,
+propose_h_interval(const Path &path,
                    Path &proposed_path, const vector<SegmentInfo> &seg_info,
                    std::mt19937 &gen, const double time_to_update,
                    double &orig_proposal, double &update_proposal) {
 
   // scan and copy path
-  proposed_path = Path(paths[node_id][site_id].init_state,
-                       paths[node_id][site_id].tot_time);
-  size_t start_state = paths[node_id][site_id].init_state;
+  proposed_path = Path(path.init_state, path.tot_time);
+  size_t start_state = path.init_state;
 
   size_t start_jump = 0;
   double start_time = 0.0;
@@ -113,13 +71,12 @@ propose_h_interval(const vector<vector<Path> > &paths,
   // copy the jumps above interested segment and determine start state
   while (end_time < time_to_update && seg_id < seg_info.size() - 1) {
     // start_jump is the first jump in interested interval
-    while (start_jump < paths[node_id][site_id].jumps.size() &&
-           paths[node_id][site_id].jumps[start_jump] < end_time) {
-      proposed_path.jumps.push_back(paths[node_id][site_id].jumps[start_jump]);
+    while (start_jump < path.jumps.size() &&
+           path.jumps[start_jump] < end_time) {
+      proposed_path.jumps.push_back(path.jumps[start_jump]);
       start_state = complement_state(start_state);
       start_jump++;
     }
-
     start_time = end_time;
     end_time += seg_info[++seg_id].len;
   }
@@ -127,35 +84,30 @@ propose_h_interval(const vector<vector<Path> > &paths,
   // determine the end state and the first jump after interested interval
   size_t end_jump = start_jump;
   size_t end_state = start_state;
-  while (end_jump < paths[node_id][site_id].jumps.size() &&
-         paths[node_id][site_id].jumps[end_jump] < end_time)
+  while (end_jump < path.jumps.size() && path.jumps[end_jump] < end_time)
     end_jump++;
+
   if ((end_jump - start_jump) % 2 == 1)
     end_state = complement_state(end_state);
 
   // end-conditioned sampling
-  const TwoStateCTMarkovModel ctmm(seg_info[seg_id].rate0,
-                                   seg_info[seg_id].rate1);
+  const TwoStateCTMarkovModel ctmm(seg_info[seg_id].rate0, seg_info[seg_id].rate1);
   end_cond_sample_forward_rejection(ctmm, start_state, end_state,
                                     seg_info[seg_id].len, gen,
                                     proposed_path.jumps, start_time);
   size_t end_jump_update = proposed_path.jumps.size();
 
   // calculate proposal probabilities
-  orig_proposal =
-    end_cond_sample_prob(ctmm, paths[node_id][site_id].jumps,
-                         start_state, end_state, start_time, end_time,
-                         start_jump, end_jump);
-  update_proposal =
-    end_cond_sample_prob(ctmm, proposed_path.jumps, start_state, end_state,
-                         start_time, end_time, start_jump, end_jump_update);
-
+  orig_proposal = end_cond_sample_prob(ctmm, path.jumps, start_state, end_state,
+                                       start_time, end_time, start_jump, end_jump);
+  update_proposal = end_cond_sample_prob(ctmm, proposed_path.jumps, start_state, end_state,
+                                         start_time, end_time, start_jump, end_jump_update);
   // copy rest jumps to proposed path
-  while (end_jump < paths[node_id][site_id].jumps.size())
-    proposed_path.jumps.push_back(paths[node_id][site_id].jumps[end_jump++]);
+  while (end_jump < path.jumps.size())
+    proposed_path.jumps.push_back(path.jumps[end_jump++]);
 
-  assert(proposed_path.init_state == paths[node_id][site_id].init_state);
-  assert(proposed_path.end_state() == paths[node_id][site_id].end_state());
+  assert(proposed_path.init_state == path.init_state);
+  assert(proposed_path.end_state() == path.end_state());
 }
 
 
@@ -178,8 +130,8 @@ log_likelihood(const vector<double> &rates,
 /* compute acceptance rate */
 double
 log_accept_rate(const EpiEvoModel &mod,
-                const size_t site_id, const size_t node_id,
-                const vector<vector<Path> > &paths,
+                const size_t site_id,
+                const vector<Path> &paths,
                 const Path &proposed_path,
                 const double orig_proposal, const double update_proposal) {
 
@@ -197,29 +149,23 @@ log_accept_rate(const EpiEvoModel &mod,
   fill_n(begin(J_prop), n_triples, 0.0);
 
   if (site_id > 1) {
-    add_sufficient_statistics(paths[node_id][site_id - 2],
-                              paths[node_id][site_id - 1],
-                              paths[node_id][site_id], J_orig, D_orig);
-    add_sufficient_statistics(paths[node_id][site_id - 2],
-                              paths[node_id][site_id - 1],
+    add_sufficient_statistics(paths[site_id - 2], paths[site_id - 1],
+                              paths[site_id], J_orig, D_orig);
+    add_sufficient_statistics(paths[site_id - 2], paths[site_id - 1],
                               proposed_path, J_prop, D_prop);
   }
 
-  add_sufficient_statistics(paths[node_id][site_id - 1],
-                            paths[node_id][site_id],
-                            paths[node_id][site_id + 1], J_orig, D_orig);
-  add_sufficient_statistics(paths[node_id][site_id - 1],
-                            proposed_path,
-                            paths[node_id][site_id + 1], J_prop, D_prop);
+  add_sufficient_statistics(paths[site_id - 1], paths[site_id],
+                            paths[site_id + 1], J_orig, D_orig);
+  add_sufficient_statistics(paths[site_id - 1], proposed_path,
+                            paths[site_id + 1], J_prop, D_prop);
 
 
-  if (site_id < paths[node_id].size() - 2) {
-    add_sufficient_statistics(paths[node_id][site_id],
-                              paths[node_id][site_id + 1],
-                              paths[node_id][site_id + 2], J_orig, D_orig);
-    add_sufficient_statistics(proposed_path,
-                              paths[node_id][site_id + 1],
-                              paths[node_id][site_id + 2], J_prop, D_prop);
+  if (site_id < paths.size() - 2) {
+    add_sufficient_statistics(paths[site_id], paths[site_id + 1],
+                              paths[site_id + 2], J_orig, D_orig);
+    add_sufficient_statistics(proposed_path, paths[site_id + 1],
+                              paths[site_id + 2], J_prop, D_prop);
   }
 
   llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
@@ -228,41 +174,32 @@ log_accept_rate(const EpiEvoModel &mod,
   return llr;
 }
 
-
-
 // Currently this function only works for pairwise inference.
 bool
-Metropolis_Hastings_interval(const EpiEvoModel &the_model, const TreeHelper &th,
-                             const size_t site_id, vector<vector<Path> > &paths,
-                             std::mt19937 &gen) {
+Metropolis_Hastings_node(const EpiEvoModel &the_model,
+                         const size_t site_id, vector<Path> &paths,
+                         std::mt19937 &gen) {
 
-  // randomly pick a node
-  std::discrete_distribution<size_t> node_sampler(th.branches.begin(),
-                                                  th.branches.end());
-  const size_t node_to_update = node_sampler(gen);
   vector<SegmentInfo> seg_info;
-  collect_segment_info(the_model.triplet_rates,
-                       paths[node_to_update][site_id - 1],
-                       paths[node_to_update][site_id + 1], seg_info);
+  collect_segment_info(the_model.triplet_rates, paths[site_id - 1],
+                       paths[site_id + 1], seg_info);
 
   // randomly pick a time
-  std::uniform_real_distribution<double> time_sampler(0.0,
-                                                      paths[node_to_update][site_id].tot_time);
+  std::uniform_real_distribution<double> time_sampler(0.0, paths[site_id].tot_time);
   const double time_to_update = time_sampler(gen);
 
   // propose segment
   double orig_proposal, update_proposal;
   Path proposed_path;
-  propose_h_interval(paths, site_id, node_to_update, proposed_path, seg_info,
+  propose_h_interval(paths[site_id], proposed_path, seg_info,
                      gen, time_to_update, orig_proposal, update_proposal);
-
 
   // acceptance rate
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  const double u = unif(gen) ;
+  const double u = unif(gen);
   const double log_acc_rate =
-  log_accept_rate(the_model, site_id, node_to_update, paths, proposed_path,
-                  orig_proposal, update_proposal);
+    log_accept_rate(the_model, site_id, paths, proposed_path,
+                    orig_proposal, update_proposal);
 
   bool accepted = false;
   if (log_acc_rate >= 0 || u < exp(log_acc_rate))
@@ -270,7 +207,20 @@ Metropolis_Hastings_interval(const EpiEvoModel &the_model, const TreeHelper &th,
 
   // if accepted, replace old path with proposed one.
   if (accepted)
-    paths[node_to_update][site_id] = proposed_path;
+    paths[site_id] = proposed_path;
 
   return accepted;
+}
+
+
+// Currently this function only works for pairwise inference.
+bool
+Metropolis_Hastings_interval(const EpiEvoModel &the_model, const TreeHelper &th,
+                             const size_t site_id, vector<vector<Path> > &paths,
+                             std::mt19937 &gen) {
+  // randomly sample a node
+  std::discrete_distribution<size_t> node_sampler(begin(th.branches),
+                                                  end(th.branches));
+  const size_t node_to_update = node_sampler(gen);
+  return Metropolis_Hastings_node(the_model, site_id, paths[node_to_update], gen);
 }
