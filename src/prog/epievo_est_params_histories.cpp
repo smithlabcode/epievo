@@ -76,7 +76,7 @@ int main(int argc, const char **argv) {
   try {
 
     bool VERBOSE = false;
-    bool OPTBRANCH = false;
+    bool optimize_branches = false;
     bool ONEBRANCH = false;
 
     string outfile;
@@ -95,35 +95,27 @@ int main(int argc, const char **argv) {
     OptionParser opt_parse(strip_path(argv[0]),
                            "estimate parameters and evolutionary histories",
                            "<param> <treefile> <path_file>");
-    opt_parse.add_opt("iteration", 'i',
-                      "number of MCMC-EM iteration (default: 10)",
+    opt_parse.add_opt("iteration", 'i', "number of MCMC-EM iteration",
                       false, iteration);
-    opt_parse.add_opt("batch", 'B',
-                      "number of MCMC iteration (default: 10)",
-                      false, batch);
-    opt_parse.add_opt("increment", 'k',
-                      "batch increment controller (default: no increment 0.0)",
+    opt_parse.add_opt("batch", 'B', "number of MCMC iteration", false, batch);
+    opt_parse.add_opt("increment", 'k', "batch increment controller",
                       false, increment_k);
-    opt_parse.add_opt("burnin", 'L',
-                      "MCMC burn-in length (default: 10)",
+    opt_parse.add_opt("burnin", 'L', "MCMC burn-in length",
                       false, burnin);
     opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
                       ONEBRANCH);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
-    opt_parse.add_opt("outfile", 'o',
-                      "output file of local paths (default: stdout)",
-                      false, outfile);
-    opt_parse.add_opt("outparam", 'p',
-                      "output file of parameters (default: stdout)",
+    opt_parse.add_opt("outfile", 'o', "output file of local paths",
+                      true, outfile);
+    opt_parse.add_opt("outparam", 'p', "output file of parameters",
                       false, param_file_updated);
-    opt_parse.add_opt("outtree", 't',
-                      "output file of tree (default: stdout)",
+    opt_parse.add_opt("outtree", 't', "output file of tree",
                       false, treefile_updated);
-    opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
-                      false, OPTBRANCH);
+    opt_parse.add_opt("branch", 'b', "optimize branch lengths",
+                      false, optimize_branches);
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
-
+    opt_parse.set_show_defaults();
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -146,6 +138,7 @@ int main(int argc, const char **argv) {
     const string param_file(leftover_args[0]);
     const string tree(leftover_args[1]);
     const string input_file(leftover_args[2]);
+
     ///////////////////////////////////////////////////////////////////////////
     /* (1) LOADING (FAKE) TREE */
     if (VERBOSE)
@@ -156,9 +149,10 @@ int main(int argc, const char **argv) {
       if (VERBOSE)
         cerr << "initializing two node tree with time: " << tree << endl;
       th = TreeHelper(std::stod(tree));
-    } else {
+    }
+    else {
       cerr << "reading tree file: " << tree << endl;
-      std::ifstream tree_in(tree.c_str());
+      std::ifstream tree_in(tree);
       if (!tree_in || !(tree_in >> the_tree))
         throw std::runtime_error("bad tree file: " + tree);
       th = TreeHelper(the_tree);
@@ -232,24 +226,20 @@ int main(int argc, const char **argv) {
       }
 
       // MCMC samples
-      current_batch += (itr+1) * increment_k;
+      current_batch += (itr + 1)*increment_k;
       size_t n_accepted = 0;
-      vector<vector<double> > J_accum(th.n_nodes, vector<double> (8, 0.0));
-      vector<vector<double> > D_accum(th.n_nodes, vector<double> (8, 0.0));
+      vector<vector<double> > J_accum(th.n_nodes, vector<double>(8, 0.0));
+      vector<vector<double> > D_accum(th.n_nodes, vector<double>(8, 0.0));
 
       two_by_two root_accum;
 
-      for(size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
-        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
+      for (size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
+        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
           n_accepted += Metropolis_Hastings_site(the_model, th, site_id,
                                                  paths, emit[site_id], gen);
-        }
-
-
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
         get_root_frequencies(paths, root_frequencies);
-
         /* RECORD STATS (POST-BURN-IN) */
         for (size_t b = 1; b < J.size(); b++) {
           for (size_t i = 0; i < 8; i++) {
@@ -257,10 +247,7 @@ int main(int argc, const char **argv) {
             D_accum[b][i] += D[b][i];
           }
         }
-        root_accum(0, 0) += root_frequencies(0, 0);
-        root_accum(0, 1) += root_frequencies(0, 1);
-        root_accum(1, 0) += root_frequencies(1, 0);
-        root_accum(1, 1) += root_frequencies(1, 1);
+        root_accum += root_frequencies;
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -273,13 +260,11 @@ int main(int argc, const char **argv) {
           D_accum[b][i] /= current_batch;
         }
       }
-      root_accum(0, 0) /= current_batch;
-      root_accum(0, 1) /= current_batch;
-      root_accum(1, 0) /= current_batch;
-      root_accum(1, 1) /= current_batch;
+      root_accum.divide_all(current_batch);
+
       /* PARAMETER ESTIMATION */
       double llh = 0.0;
-      if (!OPTBRANCH)
+      if (!optimize_branches)
         llh = compute_estimates_for_rates_only(false, param_tol,
                                                J_accum, D_accum, the_model);
       else {
@@ -300,13 +285,12 @@ int main(int argc, const char **argv) {
              << "\t" << llh << endl;
 
       /* WRITE PARAMETER FILE */
-      std::ofstream of_param;
-      if (!param_file_updated.empty()) of_param.open(param_file_updated.c_str());
-      std::ostream out_param(param_file_updated.empty() ?
-                             std::cout.rdbuf() : of_param.rdbuf());
-      if (!out_param)
-        throw std::runtime_error("bad output param file: " + param_file_updated);
-      out_param << the_model.format_for_param_file() << endl;
+      if (!param_file_updated.empty()) {
+        ofstream out_param(param_file_updated);
+        if (!out_param)
+          throw runtime_error("bad output param file: " + param_file_updated);
+        out_param << the_model.format_for_param_file() << endl;
+      }
 
       /* WRITE PATH FILE */
       write_root_to_pathfile_local(outfile, th.node_names.front());
@@ -314,15 +298,13 @@ int main(int argc, const char **argv) {
         append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
 
       /* WRITE TREE FILE */
-      if (OPTBRANCH) {
-        std::ofstream of_tree;
-        if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
-        std::ostream out_tree(treefile_updated.empty() ?
-                              std::cout.rdbuf() : of_tree.rdbuf());
-        if (!out_tree)
-          throw std::runtime_error("bad output param file: " + treefile_updated);
-        out_tree << the_tree << endl;
-      }
+      if (optimize_branches)
+        if (!treefile_updated.empty()) {
+          ofstream out_tree(treefile_updated);
+          if (!out_tree)
+            throw runtime_error("bad output param file: " + treefile_updated);
+          out_tree << the_tree << endl;
+        }
     }
   }
   catch (const std::exception &e) {
