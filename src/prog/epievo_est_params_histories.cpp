@@ -197,11 +197,12 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "[RUNNING MCMC-EM (seed=" << rng_seed << ")]\n"
            << "itr\tstationary\tbaseline\tinit\tacc_rate\tllh\n"
-           << "0\t" << the_model.T[0][0] << "\t"
-           << the_model.T[1][1] << "\t"
-           << the_model.stationary_baseline[0][0] << "\t"
-           << the_model.stationary_baseline[1][1] << "\t"
-           << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << endl;
+           << "0\t"
+           << the_model.T(0, 0) << "\t"
+           << the_model.T(1, 1) << "\t"
+           << the_model.stationary_baseline(0, 0) << "\t"
+           << the_model.stationary_baseline(1, 1) << "\t"
+           << the_model.init_T(0, 0) << "\t" << the_model.init_T(1, 1) << endl;
 
     size_t current_batch = batch;
     vector<vector<vector<double> > > emit(n_sites);
@@ -265,22 +266,22 @@ int main(int argc, const char **argv) {
       /* PARAMETER ESTIMATION */
       double llh = 0.0;
       if (!optimize_branches)
-        llh = compute_estimates_for_rates_only(false, param_tol,
-                                               J_accum, D_accum, the_model);
+        llh = estimate_rates(false, param_tol, J_accum, D_accum, the_model);
       else {
-        llh = compute_estimates_rates_and_branches(false, param_tol, J_accum,
-                                                   D_accum, th, the_model);
+        llh = estimate_rates_and_branches(false, param_tol, J_accum,
+                                          D_accum, th, the_model);
         scale_jump_times(paths, th);
         the_tree.set_branch_lengths(th.branches);
       }
       estimate_root_distribution(root_accum, the_model);
 
       if (VERBOSE)
-        cerr << itr+1 << "\t" << the_model.T[0][0] << "\t"
-             << the_model.T[1][1] << "\t"
-             << the_model.stationary_baseline[0][0] << "\t"
-             << the_model.stationary_baseline[1][1] << "\t"
-             << the_model.init_T[0][0] << "\t" << the_model.init_T[1][1] << "\t"
+        cerr << itr+1 << "\t" << the_model.T(0, 0) << "\t"
+             << the_model.T(1, 1) << "\t"
+             << the_model.stationary_baseline(0, 0) << "\t"
+             << the_model.stationary_baseline(1, 1) << "\t"
+             << the_model.init_T(0, 0) << "\t"
+             << the_model.init_T(1, 1) << "\t"
              << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
              << "\t" << llh << endl;
 

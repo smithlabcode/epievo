@@ -53,7 +53,7 @@ template <class T>
 size_t
 read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
                  const TreeHelper &th) {
-  
+
   std::ifstream in(statesfile.c_str());
   if (!in)
     throw std::runtime_error("bad states file: " + statesfile);
@@ -65,7 +65,7 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
 
   std::istringstream nodes_iss(buffer);
   vector<string> node_names_in;
-  
+
   string tmp_node_name;
   while (nodes_iss >> tmp_node_name)
     node_names_in.push_back(tmp_node_name);
@@ -79,7 +79,7 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
                                       node_names_in.end());
     else node_names_in.front() = node_names_in.front().substr(1);
   }
-  
+
   // get sorting indices of nodes in pre-order
   vector<size_t> idx_in_tree (node_names_in.size(), th.n_nodes);
 
@@ -126,7 +126,7 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
   for (size_t node_id = 0; node_id < th.n_nodes; node_id++)
     if (state_sequences[node_id].size() < site_count)
       state_sequences[node_id].resize(site_count);
-  
+
   return site_count;
 }
 
@@ -145,38 +145,38 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
   const size_t n_sites = state_sequences.front().size();
 
   paths.resize(th.n_nodes);
-  
+
   auto unif =
     bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
 
   vector<T> child_states = {0, 0}; // two child states
 
   for (size_t i = th.n_nodes; i > 0; --i) {
-    
+
     const size_t node_id = i - 1;
     paths[node_id].resize(n_sites);
 
     for (size_t site_id = 0; site_id < n_sites; ++site_id) {
-      
+
       if (!th.is_leaf(node_id)) {
         // get child states
         size_t n_ch = 0;
         for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c)
           child_states[n_ch++] = state_sequences[*c][site_id];
-        
+
         // sample parent state
         if (th.is_root(node_id))
           state_sequences[node_id][site_id] = state_sequences[0][site_id];
         else
           state_sequences[node_id][site_id] = child_states[std::floor(unif()*n_ch)];
-        
+
         // assign site-specific paths above two child nodes
         for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c) {
 
           const double len = th.branches[*c];
           paths[*c][site_id].tot_time = len;
           paths[*c][site_id].init_state = state_sequences[node_id][site_id];
-          
+
           if (state_sequences[*c][site_id] != paths[*c][site_id].init_state)
             paths[*c][site_id].jumps.push_back(unif() * len);
         }
@@ -189,17 +189,17 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
 static void
 initialize_model_from_indep_rates(EpiEvoModel &the_model,
                                   const vector<double> rates) {
-  
+
   the_model.stationary_baseline.reset();
   the_model.T.reset();
   the_model.init_T.reset();
   the_model.Q.reset();
-  
+
   // set r_0_ = r0, r_1_ = r1
   vector<double> triplet_rates (the_model.n_triplets);
   for (size_t i = 0; i < the_model.n_triplets; i++)
     triplet_rates[i] = rates[i / 2 % 2];
-  
+
   the_model.rebuild_from_triplet_rates(triplet_rates);
 }
 
@@ -215,7 +215,7 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
   std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + outfile);
-  
+
   outpath << "NODE:" << root_name << endl;
 }
 
@@ -229,7 +229,7 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
   std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
   if (!outpath)
     throw std::runtime_error("bad output file: " + pathfile);
-  
+
   outpath << "NODE:" << node_name << endl;
   for (size_t i = 0; i < path_by_site.size(); ++i)
     outpath << i << '\t' << path_by_site[i] << '\n';
@@ -241,18 +241,18 @@ int main(int argc, const char **argv) {
   try {
 
     static const double param_tol = 1e-10;
-    
+
     bool VERBOSE = false;
     bool OPTBRANCH = false;
     bool ONEBRANCH = false;
 
     size_t rng_seed = numeric_limits<size_t>::max();
     size_t iterations = 10;
-    
+
     string paramfile;
     string pathfile;
     string treefile_updated;
-    
+
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
                            "generate initial paths and parameters"
@@ -320,7 +320,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "[READING STATES FILE: " << statesfile << "]" << endl;
     read_states_file(statesfile, state_sequences, th);
-    
+
     /* standard mersenne_twister_engine seeded with rd()*/
     if (rng_seed == numeric_limits<size_t>::max()) {
       std::random_device rd;
@@ -329,25 +329,25 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "rng seed: " << rng_seed << endl;
     std::mt19937 gen(rng_seed);
-    
+
     /* generate initial paths by heuristics */
     vector<vector<Path> > paths; // along multiple branches
     initialize_paths(gen, th, state_sequences, paths);
-    
+
     /* Run EM to learn a site-independent model */
-    vector<double> rates (2, 0.0);
-    vector<double> init_pi (2, 0.0);
-    vector<double> init_pi_post (2, 0.0);
+    vector<double> rates(2, 0.0);
+    vector<double> init_pi(2, 0.0);
+    vector<double> init_pi_post(2, 0.0);
     vector<vector<double> > J, D;
     compute_sufficient_statistics(paths, J, D);
     estimate_root_distribution(paths, init_pi);
- 
+
     if (VERBOSE)
       cerr << "ITR\tRATE0\tRATE1\t\tINIT0\t\tINIT1\tTREE\n"
       << "0" << "\t" << rates[0] << "\t" << rates[1] << "\t"
       << init_pi[0] << "\t" << init_pi[1] << endl;
 
-    
+
     for (size_t itr = 0; itr < iterations; itr++) {
       if (!OPTBRANCH)
         estimate_rates(J, D, rates, th);
@@ -360,17 +360,17 @@ int main(int argc, const char **argv) {
                                         init_pi_post);
 
       init_pi = init_pi_post;
-      
+
       // Report
       if (VERBOSE)
         cerr << itr+1 << "\t" << rates[0] << "\t" << rates[1] << "\t"
         << init_pi[0] << "\t" << init_pi[1] << endl;
     }
-    
+
     /* Re-sample a better initial path */
     vector<vector<Path> > sampled_paths(paths);
     sample_paths(rates, init_pi, th, paths, gen, sampled_paths);
-    
+
     /*******************************************************/
     /* Generate initial parameters of context-dependent model */
     /*******************************************************/
@@ -384,14 +384,12 @@ int main(int argc, const char **argv) {
 
     // set init_T
     estimate_root_distribution(sampled_paths, the_model);
-    
+
     // re-estimate triplet rates from paths
     if (!OPTBRANCH)
-      compute_estimates_for_rates_only(false, param_tol, sampled_paths,
-                                       the_model);
+      estimate_rates(false, param_tol, sampled_paths, the_model);
     else {
-      compute_estimates_rates_and_branches(false, param_tol, sampled_paths,
-                                           th, the_model);
+      estimate_rates_and_branches(false, param_tol, sampled_paths, th, the_model);
       scale_jump_times(sampled_paths, th);
       the_tree.set_branch_lengths(th.branches);
     }
@@ -404,7 +402,7 @@ int main(int argc, const char **argv) {
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
       append_to_pathfile_local(pathfile, th.node_names[node_id],
                                sampled_paths[node_id]);
-    
+
     // write parameters
     if (VERBOSE)
       cerr << "[WRITING PARAMETERS]\n" << the_model << "\n" << the_tree << endl;
@@ -415,9 +413,9 @@ int main(int argc, const char **argv) {
                            std::cout.rdbuf() : of_param.rdbuf());
     if (!out_param)
       throw std::runtime_error("bad output param file: " + paramfile);
-    
+
     out_param << the_model.format_for_param_file() << endl;
-    
+
     if (OPTBRANCH) {
       std::ofstream of_tree;
       if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());

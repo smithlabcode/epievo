@@ -44,7 +44,8 @@ using std::endl;
 using std::cerr;
 using std::cout;
 using std::string;
-
+using std::ofstream;
+using std::runtime_error;
 
 int main(int argc, const char **argv) {
 
@@ -53,7 +54,7 @@ int main(int argc, const char **argv) {
     static const double param_tol = 1e-10;
 
     bool VERBOSE = false;
-    bool OPTBRANCH = false;
+    bool optimize_branches = false;
     bool ONEBRANCH = false;
 
     string outfile;
@@ -66,14 +67,12 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
-                      false, OPTBRANCH);
+                      false, optimize_branches);
     opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
                       ONEBRANCH);
-    opt_parse.add_opt("output", 'o',
-                      "output parameter file (default: stdout)",
-                      false, outfile);
-    opt_parse.add_opt("outtree", 't',
-                      "output file of tree (default: stdout)",
+    opt_parse.add_opt("output", 'o', "output parameter file",
+                      true, outfile);
+    opt_parse.add_opt("outtree", 't', "output file of tree",
                       false, treefile_updated);
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -119,7 +118,7 @@ int main(int argc, const char **argv) {
       cerr << "reading tree file: " << tree_file << endl;
       std::ifstream tree_in(tree_file.c_str());
       if (!tree_in || !(tree_in >> the_tree))
-        throw std::runtime_error("bad tree file: " + tree_file);
+        throw runtime_error("bad tree file: " + tree_file);
       th = TreeHelper(the_tree);
     }
     const size_t n_nodes = the_tree.get_size();
@@ -141,13 +140,11 @@ int main(int argc, const char **argv) {
       cerr << "n_nodes=" << n_nodes << endl
            << "n_sites=" << n_sites << endl;
 
-    if (!OPTBRANCH) {
-      compute_estimates_for_rates_only(VERBOSE, param_tol,
-                                       all_paths, the_model);
+    if (!optimize_branches) {
+      estimate_rates(VERBOSE, param_tol, all_paths, the_model);
     }
     else {
-      compute_estimates_rates_and_branches(VERBOSE, param_tol, all_paths,
-                                           th, the_model);
+      estimate_rates_and_branches(VERBOSE, param_tol, all_paths, th, the_model);
       scale_jump_times(all_paths, th);
       the_tree.set_branch_lengths(th.branches);
     }
@@ -156,21 +153,15 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[WRITING PARAMETERS]\n" <<  the_model << endl;
-    std::ofstream of;
-    if (!outfile.empty()) of.open(outfile.c_str());
-    std::ostream out(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
+    ofstream out(outfile);
     if (!out)
-      throw std::runtime_error("bad output file: " + outfile);
-
+      throw runtime_error("bad output file: " + outfile);
     out << the_model.format_for_param_file() << endl;
 
-    if (OPTBRANCH) {
-      std::ofstream of_tree;
-      if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
-      std::ostream out_tree(treefile_updated.empty() ?
-                            std::cout.rdbuf() : of_tree.rdbuf());
+    if (optimize_branches && !treefile_updated.empty()) {
+      ofstream out_tree(treefile_updated);
       if (!out_tree)
-        throw std::runtime_error("bad output param file: " + treefile_updated);
+        throw runtime_error("bad output param file: " + treefile_updated);
       out_tree << the_tree << endl;
     }
 
