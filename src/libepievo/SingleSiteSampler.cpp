@@ -467,7 +467,7 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
 
   // acceptance rate
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-  const double u = unif(gen) ;
+  const double u = unif(gen);
   const double log_acc_rate =
     log_accept_rate(the_model, th, site_id, paths, emit,fh, seg_info,
                     proposed_path);
