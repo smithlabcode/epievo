@@ -15,7 +15,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 
-subdirs=prog harnesses
+subdirs=prog harnesses libepievo
 
 all:
 	@for i in $(subdirs); do \
