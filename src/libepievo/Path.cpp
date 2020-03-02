@@ -149,7 +149,7 @@ void
 read_paths(const string &path_file, vector<string> &node_names,
            vector<vector<Path> > &paths) {
 
-  std::ifstream in(path_file.c_str());
+  std::ifstream in(path_file);
   if (!in)
     throw runtime_error("cannot read: " + path_file);
 
