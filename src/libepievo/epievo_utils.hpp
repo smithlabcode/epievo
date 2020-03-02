@@ -50,7 +50,7 @@ struct two_by_two {
   two_by_two &operator+=(const two_by_two &rhs) {
     v00 += rhs.v00; v01 += rhs.v01;
     v10 += rhs.v10; v11 += rhs.v11;
-    return *this
+    return *this;
   }
   void divide_all(const double &denom) {
     v00 /= denom; v01 /= denom;
