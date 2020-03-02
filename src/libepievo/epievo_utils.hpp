@@ -47,6 +47,15 @@ struct two_by_two {
     return r == 0 ? std::vector<double>{v00, v01} :
     std::vector<double>{v10, v11};
   }
+  two_by_two &operator+=(const two_by_two &rhs) {
+    v00 += rhs.v00; v01 += rhs.v01;
+    v10 += rhs.v10; v11 += rhs.v11;
+    return *this
+  }
+  void divide_all(const double &denom) {
+    v00 /= denom; v01 /= denom;
+    v10 /= denom; v11 /= denom;
+  }
   // reset all values to zero
   void reset() {v00 = 0.0; v01 = 0.0; v10 = 0.0; v11 = 0.0;}
   double v00, v01, v10, v11;
