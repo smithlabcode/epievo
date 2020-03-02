@@ -38,14 +38,9 @@ struct two_by_two {
   constexpr double operator() (const size_t r, const size_t c) const {
     return (r == 0 ? (c == 0 ? v00 : v01) : (c == 0 ? v10 : v11));
   }
-  // changing an element
+  // access and change an element
   double &operator() (const size_t r, const size_t c) {
     return (r == 0 ? (c == 0 ? v00 : v01) : (c == 0 ? v10 : v11));
-  }
-  // get a row
-  std::vector<double> operator[](const size_t r) const {
-    return r == 0 ? std::vector<double>{v00, v01} :
-    std::vector<double>{v10, v11};
   }
   two_by_two &operator+=(const two_by_two &rhs) {
     v00 += rhs.v00; v01 += rhs.v01;
@@ -105,12 +100,9 @@ complement_state(const bool x) {
 }
 
 // flipping bits
-constexpr size_t
-flip_left_bit(const size_t x)  {return x ^ 4ul;}
-constexpr size_t
-flip_mid_bit(const size_t x)   {return x ^ 2ul;}
-constexpr size_t
-flip_right_bit(const size_t x) {return x ^ 1ul;}
+constexpr size_t flip_left_bit(const size_t x)  {return x ^ 4ul;}
+constexpr size_t flip_mid_bit(const size_t x)   {return x ^ 2ul;}
+constexpr size_t flip_right_bit(const size_t x) {return x ^ 1ul;}
 
 // accessing bits
 constexpr bool get_left_bit(const size_t x)  {return x & 4ul;}
