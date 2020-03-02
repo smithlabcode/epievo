@@ -129,49 +129,35 @@ log_likelihood(const vector<double> &rates,
 
 /* compute acceptance rate */
 double
-log_accept_rate(const EpiEvoModel &mod,
-                const size_t site_id,
-                const vector<Path> &paths,
-                const Path &proposed_path,
-                const double orig_proposal, const double update_proposal) {
-
+log_accept_rate(const EpiEvoModel &mod, const size_t site_id,
+                const vector<Path> &paths, const Path &proposed_path) {
   // calculate likelihood
   static const size_t n_triples = 8;
 
-  double llr = orig_proposal - update_proposal;
-
-  vector<double> D_orig(n_triples), J_orig(n_triples);
-  fill_n(begin(D_orig), n_triples, 0.0);
-  fill_n(begin(J_orig), n_triples, 0.0);
-
-  vector<double> D_prop(n_triples), J_prop(n_triples);
-  fill_n(begin(D_prop), n_triples, 0.0);
-  fill_n(begin(J_prop), n_triples, 0.0);
-
-  if (site_id > 1) {
+  vector<double> D_orig(n_triples, 0.0), J_orig(n_triples, 0.0);
+  if (site_id > 1)
     add_sufficient_statistics(paths[site_id - 2], paths[site_id - 1],
                               paths[site_id], J_orig, D_orig);
-    add_sufficient_statistics(paths[site_id - 2], paths[site_id - 1],
-                              proposed_path, J_prop, D_prop);
-  }
-
   add_sufficient_statistics(paths[site_id - 1], paths[site_id],
                             paths[site_id + 1], J_orig, D_orig);
-  add_sufficient_statistics(paths[site_id - 1], proposed_path,
-                            paths[site_id + 1], J_prop, D_prop);
-
-
-  if (site_id < paths.size() - 2) {
+  if (site_id < paths.size() - 2)
     add_sufficient_statistics(paths[site_id], paths[site_id + 1],
                               paths[site_id + 2], J_orig, D_orig);
+
+  vector<double> D_prop(n_triples, 0.0), J_prop(n_triples, 0.0);
+  if (site_id > 1)
+    add_sufficient_statistics(paths[site_id - 2], paths[site_id - 1],
+                              proposed_path, J_prop, D_prop);
+  add_sufficient_statistics(paths[site_id - 1], proposed_path,
+                            paths[site_id + 1], J_prop, D_prop);
+  if (site_id < paths.size() - 2)
     add_sufficient_statistics(proposed_path, paths[site_id + 1],
                               paths[site_id + 2], J_prop, D_prop);
-  }
 
-  llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
-          log_likelihood(mod.triplet_rates, J_orig, D_orig));
+  const double log_lik_prop = log_likelihood(mod.triplet_rates, J_prop, D_prop);
+  const double log_lik_orig = log_likelihood(mod.triplet_rates, J_orig, D_orig);
 
-  return llr;
+  return log_lik_prop - log_lik_orig;
 }
 
 // Currently this function only works for pairwise inference.
@@ -194,12 +180,12 @@ Metropolis_Hastings_node(const EpiEvoModel &the_model,
   propose_h_interval(paths[site_id], proposed_path, seg_info,
                      gen, time_to_update, orig_proposal, update_proposal);
 
+  double log_acc_rate = orig_proposal - update_proposal;
+
   // acceptance rate
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   const double u = unif(gen);
-  const double log_acc_rate =
-    log_accept_rate(the_model, site_id, paths, proposed_path,
-                    orig_proposal, update_proposal);
+  log_acc_rate += log_accept_rate(the_model, site_id, paths, proposed_path);
 
   bool accepted = false;
   if (log_acc_rate >= 0 || u < exp(log_acc_rate))
