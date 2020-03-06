@@ -105,17 +105,17 @@ joint_post(const double p0_u, const FelsHelper &fh,
            const two_by_two &PT,
            two_by_two &p_joint) {
 
-  p_joint[0][0] = PT[0][0] * fh.q[0] * p0_u / fh.p[0];
-  p_joint[0][1] = PT[0][1] * fh.q[1] * p0_u / fh.p[0];
-  p_joint[1][0] = PT[1][0] * fh.q[0] * (1 - p0_u) / fh.p[1];
-  p_joint[1][1] = PT[1][1] * fh.q[1] * (1 - p0_u) / fh.p[1];
+  p_joint(0, 0) = PT(0, 0) * fh.q[0] * p0_u / fh.p[0];
+  p_joint(0, 1) = PT(0, 1) * fh.q[1] * p0_u / fh.p[0];
+  p_joint(1, 0) = PT(1, 0) * fh.q[0] * (1 - p0_u) / fh.p[1];
+  p_joint(1, 1) = PT(1, 1) * fh.q[1] * (1 - p0_u) / fh.p[1];
 
-  const double Z = p_joint[0][0] + p_joint[0][1] + p_joint[1][0] + p_joint[1][1];
+  const double Z = p_joint(0, 0) + p_joint(0, 1) + p_joint(1, 0) + p_joint(1, 1);
   assert(Z > 0);
 
   for (size_t u = 0; u < 2; u++)
     for (size_t v = 0; v < 2; v++)
-      p_joint[u][v] /= Z;
+      p_joint(u, v) /= Z;
 }
 
 
@@ -131,7 +131,7 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
   // get joint distribution of end states
   two_by_two p_joint;
   joint_post(p0_parent, fh, P, p_joint);
-  p0_child = p_joint[0][0] + p_joint[1][0];
+  p0_child = p_joint(0, 0) + p_joint(1, 0);
 
   // compute weighted expectation of sufficient stats
   two_by_two J0;
@@ -143,10 +143,10 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
 
   for (size_t u = 0; u < 2; u++) {
     for (size_t v = 0; v < 2; v++) {
-      J[0] += p_joint[u][v]*J0[u][v];
-      J[1] += p_joint[u][v]*J1[u][v];
-      D[0] += p_joint[u][v]*D0[u][v];
-      D[1] += p_joint[u][v]*D1[u][v];
+      J[0] += p_joint(u, v)*J0(u, v);
+      J[1] += p_joint(u, v)*J1(u, v);
+      D[0] += p_joint(u, v)*D0(u, v);
+      D[1] += p_joint(u, v)*D1(u, v);
     }
   }
 }

@@ -80,7 +80,7 @@ static const size_t max_sample_count = 100000000;
 double
 prob_no_jump(const CTMarkovModel &the_model,
              const two_by_two &P, const double T, const size_t a) {
-  return exp(-the_model.get_rate(a)*T)/P[a][a];
+  return exp(-the_model.get_rate(a)*T)/P(a, a);
 }
 
 double
@@ -163,7 +163,7 @@ total_cumulative_density(const CTMarkovModel &the_model,
                          const double T, const size_t a, const size_t b) {
 
   const double Qai = the_model.get_rate(a); // two-states so Qa = Qai
-  return (Qai/P[a][b])*summation_in_total_cdf(the_model, T, a, b);
+  return (Qai/P(a, b))*summation_in_total_cdf(the_model, T, a, b);
 }
 
 ///////////
@@ -252,7 +252,7 @@ cumulative_density_function(const CTMarkovModel &the_model,
                             const double t) {
 
   const double Qai = the_model.get_rate(a); // two-states so Qa = Qai
-  return (Qai/P[a][b])*summation_in_cdf(the_model, T, a, b, t);
+  return (Qai/P(a, b))*summation_in_cdf(the_model, T, a, b, t);
 }
 
 /* The summation in the pdf is given by equation (2.5) in HS2009. The
@@ -545,7 +545,7 @@ end_cond_sample_forward_rejection_prop(const TwoStateCTMarkovModel &the_model,
 
     two_by_two PT;
     continuous_time_trans_prob_mat(the_model.rate0, the_model.rate1, T-curr_time, PT);
-    prob *= exp (- the_model.get_rate(a) * (T - curr_time)) / PT[start_state][end_state];
+    prob *= exp (- the_model.get_rate(a) * (T - curr_time)) / PT(start_state, end_state);
   }
 
 
@@ -668,7 +668,7 @@ end_cond_sampling_Nielsen_prop(const TwoStateCTMarkovModel &the_model,
     two_by_two PT;
     continuous_time_trans_prob_mat(the_model.rate0, the_model.rate1,
                                    start_time + T - curr_time, PT);
-    prob *= exp (- the_model.get_rate(a) * (T - curr_time)) / PT[start_state][end_state];
+    prob *= exp (- the_model.get_rate(a) * (T - curr_time)) / PT(start_state, end_state);
     cerr << "end: " << prob << endl;
 
   }
@@ -732,7 +732,7 @@ num_unif_trans(const TwoStateCTMarkovModel &the_model,
   const double denom = 1 + unif_model.r;
 
   size_t n = 0;
-  double prob_pois = exp(- muT) / P[state_a][state_b];
+  double prob_pois = exp(- muT) / P(state_a, state_b);
   double prob_unif = 1;
 
   prob = prob_pois * prob_unif * (state_a == state_b);
