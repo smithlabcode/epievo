@@ -302,8 +302,9 @@ estimate_rates(const double param_tol,
                const vector<double> &input_rates,
                vector<double> &rates) {
 
-  vector<double> J_collapsed(J.back().size(), 0.0);
-  vector<double> D_collapsed(J.back().size(), 0.0);
+  const size_t n_rates = J.back().size();
+  vector<double> J_collapsed(n_rates, 0.0);
+  vector<double> D_collapsed(n_rates, 0.0);
 
   for (size_t b = 1; b < J.size(); b++) {
     for (size_t j = 0; j < J.back().size(); j++) {
@@ -320,8 +321,8 @@ static void
 set_one_change_per_site_per_unit_time(vector<double> &rates,
                                       vector<double> &branches) {
 
-  /* scale rates and branches to have unit branch length
-     corresponding to one expected transition per site */
+  /* scale rates and branches to have unit branch length corresponding
+     to one expected transition per site */
   const double the_rate_factor = rate_scaling_factor(rates);
 
   // scale up the branch lengths
@@ -345,8 +346,8 @@ estimate_rates(const bool VERBOSE, const double param_tol,
     cerr << "[ESTIMATING PARAMETERS]" << endl;
 
   vector<double> updated_rates;
-  const double llh = estimate_rates(param_tol, J, D, the_model.triplet_rates,
-                                    updated_rates);
+  const double llh =
+    estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
 
   the_model.rebuild_from_triplet_rates(updated_rates);
 
@@ -360,8 +361,7 @@ estimate_rates(const bool VERBOSE, const double param_tol,
                EpiEvoModel &the_model) {
   if (VERBOSE)
     cerr << "[COMPUTING INITIAL SUFFICIENT STATISTICS]" << endl;
-  vector<vector<double> > J;
-  vector<vector<double> > D;
+  vector<vector<double>> J, D;
   get_sufficient_statistics(all_paths, J, D);
 
   return estimate_rates(VERBOSE, param_tol, J, D, the_model);
@@ -399,9 +399,9 @@ estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
   vector<double> updated_branches(th.branches);
   vector<double> branch_scale(th.branches.size(), 1.0);
   candidate_branches(J, D, updated_rates, branch_scale);
-  std::transform(branch_scale.begin(), branch_scale.end(),
-                 th.branches.begin(), updated_branches.begin(),
-                 std::multiplies<double>());
+  transform(begin(branch_scale), end(branch_scale),
+            begin(th.branches), begin(updated_branches),
+            std::multiplies<double>());
 
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
@@ -455,6 +455,7 @@ estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model) {
   the_model.init_T(1, 1) = counts(1, 1)/(counts(1, 1) + counts(1, 0));
   the_model.init_T(1, 0) = 1.0 - the_model.init_T(1, 1);
 }
+
 
 void
 estimate_root_distribution(const vector<vector<Path> > &all_paths,
