@@ -68,6 +68,15 @@ add_sufficient_statistics(const vector<Path> &paths,
     add_sufficient_statistics(paths[i-1], paths[i], paths[i+1], J, D);
 }
 
+void
+add_sufficient_statistics(const vector<vector<Path> > &paths,
+                          vector<double> &J, vector<double> &D) {
+  // iterate over sites with valid triples (i.e. not the first and last)
+  const size_t n_sites = paths.size();
+  for (size_t i = 1; i < n_sites - 1; ++i)
+    add_sufficient_statistics(paths[i-1][1], paths[i][1], paths[i+1][1], J, D);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -219,7 +228,7 @@ end_cond_forward_simulation(const EpiEvoModel &the_model, const double &evo_time
 /* generate initial paths by heuristics */
 static void
 initialize_paths(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
-                 const double evo_time, vector<Path> &paths,
+                 const double evo_time, vector<vector<Path> > paths,
                  std::mt19937 &gen) {
   
   paths.resize(root_seq.size());
@@ -228,11 +237,12 @@ initialize_paths(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
   bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
   
   for (size_t site_id = 0; site_id < root_seq.size(); ++site_id) {
-    paths[site_id].init_state = root_seq[site_id];
-    paths[site_id].tot_time = evo_time;
+    paths[site_id].resize(2);
+    paths[site_id][1].init_state = root_seq[site_id];
+    paths[site_id][1].tot_time = evo_time;
     
     if (root_seq[site_id] != leaf_seq[site_id])
-      paths[site_id].jumps.push_back(unif() * evo_time);
+      paths[site_id][1].jumps.push_back(unif() * evo_time);
   }
 }
 
@@ -338,7 +348,7 @@ int main(int argc, const char **argv) {
     /* (4) GENERATE ONE PATH */
     if (VERBOSE)
       cerr << "[GENERATE A SAMPLE PATH]"<< endl;
-    vector<Path> paths; // along multiple branches
+    vector<Path> paths; // paths on single branch
     forward_simulation(the_model, evolutionary_time, n_sites, paths, gen);
     // collect sequences
     vector<bool> root_seq;
@@ -388,11 +398,11 @@ int main(int argc, const char **argv) {
     write_statistics_header(mcmc_stat);
 
     // distort/randomize paths
-    //vector<Path> mcmc_paths(sampled_paths);
-    vector<vector<Path> > mcmc_paths(2);
-    initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths[1], gen);
+    vector<vector<Path> > mcmc_paths(2); // [sites] x [nodes]
+    initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths, gen);
     const TreeHelper th(evolutionary_time);
 
+    // [sites] x [states] x [emit states]
     vector<vector<vector<double> > > emit(n_sites);
     for (size_t site_id = 0; site_id < n_sites; site_id++) {
       emit[site_id].resize(2);
@@ -412,7 +422,7 @@ int main(int argc, const char **argv) {
 
         // write stats
         vector<double> J(8), D(8);
-        add_sufficient_statistics(mcmc_paths[1], J, D);
+        add_sufficient_statistics(mcmc_paths, J, D);
         write_statistics(mcmc_stat, batch_id, sample_id, J, D);
       }
     }
