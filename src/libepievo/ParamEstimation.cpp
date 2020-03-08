@@ -94,7 +94,7 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<vector<double> > &D) {
 
   static const size_t n_triplets = 8;
-  const size_t n_branches = all_paths.size();
+  const size_t n_branches = all_paths[0].size();
   J.resize(n_branches);
   D.resize(n_branches);
   for (size_t i = 0; i < n_branches; ++i) {
@@ -105,20 +105,22 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
   }
 
   // iterate over nodes, starting at 1 to avoid root
-  for (size_t i = 1; i < n_branches; ++i)
-    // ADS: will need transposing
-    add_sufficient_statistics(all_paths[i], J[i], D[i]);
+  for (size_t i = 1; i < all_paths.size() - 1; ++i)
+    for (size_t b = 1; b < n_branches; ++b)
+      add_sufficient_statistics(all_paths[i-1][b],
+                                all_paths[i][b],
+                                all_paths[i+1][b], J[b], D[b]);
 }
 
 void
 get_root_frequencies(const vector<vector<Path>> &all_paths,
                      two_by_two &counts) {
-  assert(all_paths.size() > 1 && !all_paths[1].empty());
+  assert(!all_paths.empty() && all_paths[0].size() > 1);
 
   counts.reset();
-  size_t prev = all_paths[1][0].init_state;
-  for (size_t i = 1; i < all_paths[1].size(); ++i) {
-    const size_t curr = all_paths[1][i].init_state;
+  size_t prev = all_paths[0][1].init_state;
+  for (size_t i = 1; i < all_paths.size(); ++i) {
+    const size_t curr = all_paths[i][1].init_state;
     counts(prev, curr)++;
     prev = curr;
   }
