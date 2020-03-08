@@ -305,17 +305,14 @@ estimate_rates(const double param_tol,
                vector<double> &rates) {
 
   const size_t n_rates = J.back().size();
-  vector<double> J_collapsed(n_rates, 0.0);
-  vector<double> D_collapsed(n_rates, 0.0);
-
-  for (size_t b = 1; b < J.size(); b++) {
-    for (size_t j = 0; j < J.back().size(); j++) {
-      J_collapsed[j] += J[b][j];
-      D_collapsed[j] += D[b][j];
+  vector<double> J_clps(n_rates, 0.0), D_clps(n_rates, 0.0);
+  for (size_t b = 1; b < J.size(); ++b) {
+    for (size_t i = 0; i < n_rates; ++i) {
+      J_clps[i] += J[b][i];
+      D_clps[i] += D[b][i];
     }
   }
-  return estimate_rates(param_tol, J_collapsed, D_collapsed,
-                        input_rates, rates);
+  return estimate_rates(param_tol, J_clps, D_clps, input_rates, rates);
 }
 
 
