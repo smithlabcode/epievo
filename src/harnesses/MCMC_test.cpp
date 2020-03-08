@@ -402,7 +402,7 @@ int main(int argc, const char **argv) {
     initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths, gen);
     const TreeHelper th(evolutionary_time);
 
-    // [sites] x [states] x [emit states]
+    // [sites] x [nodes] x [emit states]
     vector<vector<vector<double> > > emit(n_sites);
     for (size_t site_id = 0; site_id < n_sites; site_id++) {
       emit[site_id].resize(2);

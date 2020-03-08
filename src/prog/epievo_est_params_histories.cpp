@@ -62,14 +62,15 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
 
 static void
 append_to_pathfile_local(const string &pathfile, const string &node_name,
-                         const vector<Path> &path_by_site) {
+                         const vector<vector<Path> > &paths,
+                         const size_t node_id) {
   std::ofstream out(pathfile, std::ofstream::app);
   if (!out)
     throw std::runtime_error("bad output file: " + pathfile);
 
   out << "NODE:" << node_name << endl;
-  for (size_t i = 0; i < path_by_site.size(); ++i)
-    out << i << '\t' << path_by_site[i] << '\n';
+  for (size_t i = 0; i < paths.size(); ++i)
+    out << i << '\t' << paths[i][node_id] << '\n';
 }
 
 int main(int argc, const char **argv) {
@@ -170,9 +171,21 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "[READING PATHS FILE: " << input_file << "]" << endl;
     vector<string> node_names;
-    vector<vector<Path> > paths; // along multiple branches
-    read_paths(input_file, node_names, paths);
-    const size_t n_sites = paths[1].size();
+    vector<vector<Path> > orig_paths; // [nodes] x [sites]
+    vector<vector<Path> > paths; // [sites] x [nodes]
+    read_paths(input_file, node_names, orig_paths);
+
+    ////////// transposing
+    const size_t n_sites = orig_paths[1].size();
+    const size_t n_nodes = orig_paths.size();
+    paths.resize(n_sites);
+    for (size_t i = 0; i < n_sites; ++i) {
+      paths[i].resize(n_nodes);
+      for (size_t b = 1; b < n_nodes; ++b) {
+        paths[i][b] = orig_paths[b][i];
+      }
+    }
+    //////////
 
     /* (4) INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -210,9 +223,9 @@ int main(int argc, const char **argv) {
     for (size_t site_id = 0; site_id < n_sites; site_id++) {
       emit[site_id].resize(2);
       emit[site_id][0].resize(2);
-      emit[site_id][0][0] = (paths[1][site_id].init_state == false ?
+      emit[site_id][0][0] = (paths[site_id][1].init_state == false ?
                              1.0 : 0.0);
-      emit[site_id][0][1] = (paths[1][site_id].init_state == true ?
+      emit[site_id][0][1] = (paths[site_id][1].init_state == true ?
                              1.0 : 0.0);
     }
 
@@ -296,7 +309,7 @@ int main(int argc, const char **argv) {
       /* WRITE PATH FILE */
       write_root_to_pathfile_local(outfile, th.node_names.front());
       for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
-        append_to_pathfile_local(outfile, th.node_names[node_id], paths[node_id]);
+        append_to_pathfile_local(outfile, th.node_names[node_id], paths, node_id);
 
       /* WRITE TREE FILE */
       if (optimize_branches)

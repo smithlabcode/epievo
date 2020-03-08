@@ -94,23 +94,26 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<vector<double> > &D) {
 
   static const size_t n_triplets = 8;
-  const size_t n_branches = all_paths.size();
+  const size_t n_branches = all_paths[0].size();
   J = vector<vector<double> >(n_branches, vector<double>(n_triplets, 0.0));
   D = vector<vector<double> >(n_branches, vector<double>(n_triplets, 0.0));
 
   // iterate over nodes, starting at 1 to avoid root
-  for (size_t i = 1; i < n_branches; ++i)
-    add_sufficient_statistics(all_paths[i], J[i], D[i]);
+  for (size_t i = 1; i < all_paths.size() - 1; ++i)
+    for (size_t b = 1; b < all_paths[i].size(); ++b)
+      add_sufficient_statistics(all_paths[i-1][b],
+                                all_paths[i][b],
+                                all_paths[i+1][b], J[b], D[b]);
 }
 
 void
 get_root_frequencies(const vector<vector<Path>> &all_paths, two_by_two &counts) {
-  assert(all_paths.size() >= 2 && !all_paths[1].empty());
+  assert(!all_paths.empty() && all_paths[0].size() > 1);
 
   counts.reset();
-  size_t prev = all_paths[1].front().init_state;
-  for (size_t i = 1; i < all_paths[1].size(); ++i) {
-    const size_t curr = all_paths[1][i].init_state;
+  size_t prev = all_paths.front()[1].init_state;
+  for (size_t i = 1; i < all_paths.size(); ++i) {
+    const size_t curr = all_paths[i][1].init_state;
     counts(prev, curr)++;
     prev = curr;
   }
@@ -360,13 +363,13 @@ estimate_rates(const bool VERBOSE, const double param_tol,
 
 void
 scale_jump_times(vector<vector<Path> > &all_paths, const TreeHelper &th) {
-  for (size_t b = 1; b < all_paths.size(); ++b) {
-    for (size_t i = 0; i < all_paths[b].size(); ++i) {
-      const double scale = th.branches[b] / all_paths[b][i].tot_time;
-      for (size_t j = 0; j < all_paths[b][i].jumps.size(); ++j) {
-        all_paths[b][i].jumps[j] *= scale;
+  for (size_t i = 0; i < all_paths.size(); ++i) {
+    for (size_t b = 1; b < all_paths[i].size(); ++b) {
+      const double scale = th.branches[b] / all_paths[i][b].tot_time;
+      for (size_t j = 0; j < all_paths[i][b].jumps.size(); ++j) {
+        all_paths[i][b].jumps[j] *= scale;
       }
-      all_paths[b][i].tot_time = th.branches[b];
+      all_paths[i][b].tot_time = th.branches[b];
     }
   }
 }
