@@ -130,8 +130,10 @@ log_likelihood(const vector<double> &J, const vector<double> &D,
                const vector<double> &rates) {
 
   static const size_t n_triplets = 8;
-  assert(J.size() == n_triplets && D.size() == n_triplets &&
-         rates.size() == n_triplets);
+  if (!(J.size() == n_triplets && D.size() == n_triplets &&
+        rates.size() == n_triplets)) {
+    cerr << J.size() << '\t' << D.size() << '\t' << n_triplets << '\t' << rates.size() << endl;
+  }
 
   double ll = 0;
   for (size_t i = 0; i < n_triplets; ++i)
@@ -283,7 +285,7 @@ estimate_rates(const double param_tol,
 
   double llh = log_likelihood(J, D, input_rates);
   rates.resize(input_rates.size());
-  rates.insert(begin(rates), begin(input_rates), end(input_rates));
+  copy(begin(input_rates), end(input_rates), begin(rates));
 
   vector<double> tmp_rates(rates);
   double tmp_llh = llh;
