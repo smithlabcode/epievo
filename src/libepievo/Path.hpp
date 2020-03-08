@@ -34,7 +34,7 @@ struct Path {
 
   Path() : init_state(false), tot_time(0.0) {}
   Path(const bool is, const double tt) :
-    init_state(is), tot_time(tt), jumps(std::vector<double>()) {}
+    init_state(is), tot_time(tt) {}
   Path(const bool is, const double tt, const std::vector<double> &j) :
     init_state(is), tot_time(tt), jumps(j) {}
 
@@ -53,11 +53,14 @@ struct Path {
   bool end_state() const {
     return (jumps.size() % 2 == 0) ? init_state : !init_state;
   }
-  void scale_to_unit_length();
+  void scale_to_unit_length(const double t);
 };
 
 std::ostream &
 operator<<(std::ostream &os, const Path &p);
+
+std::istream &
+operator>>(std::istream &is, Path &p);
 
 void
 to_path(const bool s, const std::string &jumps, Path &p);

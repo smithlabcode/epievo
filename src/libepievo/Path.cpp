@@ -37,8 +37,13 @@ using std::vector;
 using std::string;
 using std::to_string;
 using std::runtime_error;
+
 using std::ostream_iterator;
 using std::istringstream;
+using std::ostream;
+using std::istream;
+using std::istream_iterator;
+using std::back_inserter;
 
 static const string NODE_TAG = "NODE";
 static const size_t TAG_LENGTH = 4;
@@ -65,6 +70,16 @@ operator<<(std::ostream &os, const Path &p) {
   return os;
 }
 
+std::istream &
+operator>>(std::istream &is, Path &p) {
+  if (is >> p.init_state >> p.tot_time) {
+    p.jumps.clear();
+    copy(istream_iterator<double>(is), istream_iterator<double>(),
+         back_inserter(p.jumps));
+  }
+  return is;
+}
+
 void
 initialize_paths(const state_seq &seq,
                  const double tot_time, vector<Path> &paths) {
@@ -81,9 +96,9 @@ get_seq_end(const vector<Path> &paths, state_seq &seq) {
 }
 
 void
-Path::scale_to_unit_length() {
+Path::scale_to_unit_length(const double t) {
   transform(begin(jumps), end(jumps), begin(jumps),
-            [&](const double d) {return d/tot_time;});
+            [&](const double d) {return d/t;});
   tot_time = 1.0;
 }
 

@@ -47,19 +47,15 @@ using std::string;
 
 template <class T, class U> static void
 scale_mult(const T scale_factor, U &to_scale) {
-  transform(to_scale.begin(), to_scale.end(), to_scale.begin(),
-            std::bind(std::multiplies<double>(),
-                      std::placeholders::_1,
-                      scale_factor));
+  transform(begin(to_scale), end(to_scale), begin(to_scale),
+            [&](const double x) {return x*scale_factor;});
 }
 
 
 template <class T, class U> static void
 scale_div(const T scale_factor, U &to_scale) {
-  transform(to_scale.begin(), to_scale.end(), to_scale.begin(),
-            std::bind(std::divides<double>(),
-                      std::placeholders::_1,
-                      scale_factor));
+  transform(begin(to_scale), end(to_scale), begin(to_scale),
+            [&](const double x) {return x/scale_factor;});
 }
 
 
@@ -73,12 +69,16 @@ add_sufficient_statistics(const vector<Path> &paths,
     add_sufficient_statistics(paths[i-1], paths[i], paths[i+1], J, D);
 }
 
+
 void
 get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<double> &J, vector<double> &D) {
   static const size_t n_triplets = 8;
-  J = vector<double>(n_triplets, 0.0);
-  D = vector<double>(n_triplets, 0.0);
+  // below result but faster than J = vector<double>(n_triplets, 0.0)
+  J.clear();
+  J.resize(n_triplets, 0.0);
+  D.clear();
+  D.resize(n_triplets, 0.0);
 
   // iterate over nodes, starting at 1 to avoid root
   for (size_t i = 1; i < all_paths.size(); ++i)
@@ -94,26 +94,31 @@ get_sufficient_statistics(const vector<vector<Path> > &all_paths,
                           vector<vector<double> > &D) {
 
   static const size_t n_triplets = 8;
-  const size_t n_branches = all_paths[0].size();
-  J = vector<vector<double> >(n_branches, vector<double>(n_triplets, 0.0));
-  D = vector<vector<double> >(n_branches, vector<double>(n_triplets, 0.0));
+  const size_t n_branches = all_paths.size();
+  J.resize(n_branches);
+  D.resize(n_branches);
+  for (size_t i = 0; i < n_branches; ++i) {
+    J[i].clear();
+    J[i].resize(n_triplets, 0.0);
+    D[i].clear();
+    D[i].resize(n_triplets, 0.0);
+  }
 
   // iterate over nodes, starting at 1 to avoid root
-  for (size_t i = 1; i < all_paths.size() - 1; ++i)
-    for (size_t b = 1; b < all_paths[i].size(); ++b)
-      add_sufficient_statistics(all_paths[i-1][b],
-                                all_paths[i][b],
-                                all_paths[i+1][b], J[b], D[b]);
+  for (size_t i = 1; i < n_branches; ++i)
+    // ADS: will need transposing
+    add_sufficient_statistics(all_paths[i], J[i], D[i]);
 }
 
 void
-get_root_frequencies(const vector<vector<Path>> &all_paths, two_by_two &counts) {
-  assert(!all_paths.empty() && all_paths[0].size() > 1);
+get_root_frequencies(const vector<vector<Path>> &all_paths,
+                     two_by_two &counts) {
+  assert(all_paths.size() > 1 && !all_paths[1].empty());
 
   counts.reset();
-  size_t prev = all_paths.front()[1].init_state;
-  for (size_t i = 1; i < all_paths.size(); ++i) {
-    const size_t curr = all_paths[i][1].init_state;
+  size_t prev = all_paths[1][0].init_state;
+  for (size_t i = 1; i < all_paths[1].size(); ++i) {
+    const size_t curr = all_paths[1][i].init_state;
     counts(prev, curr)++;
     prev = curr;
   }
@@ -125,8 +130,10 @@ log_likelihood(const vector<double> &J, const vector<double> &D,
                const vector<double> &rates) {
 
   static const size_t n_triplets = 8;
-  assert(J.size() == n_triplets && D.size() == n_triplets &&
-         rates.size() == n_triplets);
+  if (!(J.size() == n_triplets && D.size() == n_triplets &&
+        rates.size() == n_triplets)) {
+    cerr << J.size() << '\t' << D.size() << '\t' << n_triplets << '\t' << rates.size() << endl;
+  }
 
   double ll = 0;
   for (size_t i = 0; i < n_triplets; ++i)
@@ -181,7 +188,8 @@ static void
 get_gradient(const vector<double> &J, const vector<double> &D,
              const vector<double> &rates, vector<double> &gradient) {
   static const size_t n_params = 8;
-  gradient = vector<double>(n_params, 0.0);
+  gradient.clear();
+  gradient.resize(n_params, 0.0);
   add_to_gradient(J, D, rates, gradient);
 }
 
@@ -203,11 +211,11 @@ candidate_rates(const double step_size,
 
   // final rate is in terms of other rates
   updated_rates[n_rates - 1] =
-    exp(    log(updated_rates[0])   // 000 -> 010 (once, numerator)
-            +   log(updated_rates[5])   // 101 -> 111 (once, numerator)
-            + 2*log(updated_rates[3])   // 011 -> 001 (twice,numerator)
-            -   log(updated_rates[2])   // 010 -> 000 (once, denominator)
-            - 2*log(updated_rates[1])); // 001 -> 011 (twice,denominator)
+    exp(/**/log(updated_rates[0])   // 000 -> 010 (once, numerator)
+        +   log(updated_rates[5])   // 101 -> 111 (once, numerator)
+        + 2*log(updated_rates[3])   // 011 -> 001 (twice,numerator)
+        -   log(updated_rates[2])   // 010 -> 000 (once, denominator)
+        - 2*log(updated_rates[1])); // 001 -> 011 (twice,denominator)
 }
 
 
@@ -225,9 +233,9 @@ candidate_branches(const vector<vector<double> > &J,
 
   updated_branches.resize(n_branches);
   for (size_t b = 1; b < n_branches; ++b) {
-    const double num = accumulate(J[b].begin(), J[b].end(), 0.0);
-    const double denom = inner_product(D[b].begin(), D[b].end(),
-                                       rates.begin(), 0.0);
+    const double num = accumulate(begin(J[b]), end(J[b]), 0.0);
+    const double denom = inner_product(begin(D[b]), end(D[b]),
+                                       begin(rates), 0.0);
     updated_branches[b] = num/denom;
   }
 }
@@ -236,9 +244,9 @@ candidate_branches(const vector<vector<double> > &J,
 static double
 get_starting_step_size(const vector<double> &gradient) {
   double l1_norm = 0.0;
-  for (size_t i = 0; i < gradient.size(); ++i)
-    l1_norm += fabs(gradient[i]);
-  return 1.0/l1_norm; // MAGIC!!!!
+  for (auto &&i : gradient)
+    l1_norm += fabs(i);
+  return 1.0/l1_norm; // ADS: is this magic?
 }
 
 
@@ -276,7 +284,8 @@ estimate_rates(const double param_tol,
                vector<double> &rates) {
 
   double llh = log_likelihood(J, D, input_rates);
-  rates = input_rates;
+  rates.resize(input_rates.size());
+  copy(begin(input_rates), end(input_rates), begin(rates));
 
   vector<double> tmp_rates(rates);
   double tmp_llh = llh;
@@ -295,17 +304,15 @@ estimate_rates(const double param_tol,
                const vector<double> &input_rates,
                vector<double> &rates) {
 
-  vector<double> J_collapsed(J.back().size(), 0.0);
-  vector<double> D_collapsed(J.back().size(), 0.0);
-
-  for (size_t b = 1; b < J.size(); b++) {
-    for (size_t j = 0; j < J.back().size(); j++) {
-      J_collapsed[j] += J[b][j];
-      D_collapsed[j] += D[b][j];
+  const size_t n_rates = J.back().size();
+  vector<double> J_clps(n_rates, 0.0), D_clps(n_rates, 0.0);
+  for (size_t b = 1; b < J.size(); ++b) {
+    for (size_t i = 0; i < n_rates; ++i) {
+      J_clps[i] += J[b][i];
+      D_clps[i] += D[b][i];
     }
   }
-  return estimate_rates(param_tol, J_collapsed, D_collapsed,
-                        input_rates, rates);
+  return estimate_rates(param_tol, J_clps, D_clps, input_rates, rates);
 }
 
 
@@ -313,8 +320,8 @@ static void
 set_one_change_per_site_per_unit_time(vector<double> &rates,
                                       vector<double> &branches) {
 
-  /* scale rates and branches to have unit branch length
-     corresponding to one expected transition per site */
+  /* scale rates and branches to have unit branch length corresponding
+     to one expected transition per site */
   const double the_rate_factor = rate_scaling_factor(rates);
 
   // scale up the branch lengths
@@ -338,8 +345,8 @@ estimate_rates(const bool VERBOSE, const double param_tol,
     cerr << "[ESTIMATING PARAMETERS]" << endl;
 
   vector<double> updated_rates;
-  const double llh = estimate_rates(param_tol, J, D, the_model.triplet_rates,
-                                    updated_rates);
+  const double llh =
+    estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
 
   the_model.rebuild_from_triplet_rates(updated_rates);
 
@@ -353,8 +360,7 @@ estimate_rates(const bool VERBOSE, const double param_tol,
                EpiEvoModel &the_model) {
   if (VERBOSE)
     cerr << "[COMPUTING INITIAL SUFFICIENT STATISTICS]" << endl;
-  vector<vector<double> > J;
-  vector<vector<double> > D;
+  vector<vector<double>> J, D;
   get_sufficient_statistics(all_paths, J, D);
 
   return estimate_rates(VERBOSE, param_tol, J, D, the_model);
@@ -392,9 +398,9 @@ estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
   vector<double> updated_branches(th.branches);
   vector<double> branch_scale(th.branches.size(), 1.0);
   candidate_branches(J, D, updated_rates, branch_scale);
-  std::transform(branch_scale.begin(), branch_scale.end(),
-                 th.branches.begin(), updated_branches.begin(),
-                 std::multiplies<double>());
+  transform(begin(branch_scale), end(branch_scale),
+            begin(th.branches), begin(updated_branches),
+            std::multiplies<double>());
 
   set_one_change_per_site_per_unit_time(updated_rates, updated_branches);
   the_model.rebuild_from_triplet_rates(updated_rates);
@@ -419,22 +425,22 @@ estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
 
 double
 estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
-                            vector<vector<Path> > &all_paths,
+                            vector<vector<Path>> &all_paths,
                             TreeHelper &th,
                             EpiEvoModel &the_model) {
 
   if (VERBOSE)
     cerr << "[NORMALIZING ALL PATH LENGTHS]" << endl;
   for (size_t b = 1; b < all_paths.size(); ++b)
-    for (size_t i = 0; i < all_paths[b].size(); ++i)
-      all_paths[b][i].scale_to_unit_length();
-
+    for (size_t i = 0; i < all_paths[b].size(); ++i) {
+      all_paths[b][i].scale_to_unit_length(all_paths[b][i].tot_time);
+      all_paths[b][i].tot_time = 1.0;
+    }
 
   // get initial values of sufficient statistics
   if (VERBOSE)
     cerr << "[COMPUTING INITIAL SUFFICIENT STATISTICS]" << endl;
-  vector<vector<double> > J;
-  vector<vector<double> > D;
+  vector<vector<double>> J, D;
   get_sufficient_statistics(all_paths, J, D);
 
   return estimate_rates_and_branches(VERBOSE, param_tol, J, D, th, the_model);
@@ -448,6 +454,7 @@ estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model) {
   the_model.init_T(1, 1) = counts(1, 1)/(counts(1, 1) + counts(1, 0));
   the_model.init_T(1, 0) = 1.0 - the_model.init_T(1, 1);
 }
+
 
 void
 estimate_root_distribution(const vector<vector<Path> > &all_paths,
