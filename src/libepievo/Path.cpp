@@ -104,46 +104,6 @@ get_seq_at_time(const double t, const vector<Path> &paths,
   }
 }
 
-void
-to_path(const bool s, const string &jumps, Path &p) {
-  p.init_state = s;
-  istringstream iss(jumps);
-  string item;
-  getline(iss, item, ','); // eat the first one
-  p.jumps.clear();
-  while (getline(iss, item, ','))
-    p.jumps.push_back(std::stod(item));
-  p.tot_time = p.jumps.back();
-  p.jumps.resize(p.jumps.size() - 1);
-}
-
-void
-read_paths(const string path_file, vector<vector<Path> > &paths) {
-  std::ifstream in(path_file.c_str());
-  if (!in)
-    throw runtime_error("cannot read: " + path_file);
-
-  vector<size_t> node_ids;
-  size_t node_id, pos;
-  bool init_state;
-  string jumpstring;
-  string line;
-  while (std::getline(in, line)) {
-    if (line[0]!= '#') {
-      std::istringstream iss(line);
-      iss >> node_id >> pos >> init_state >> jumpstring;
-      if (node_ids.size() == 0 || node_id != node_ids.back()) {
-        node_ids.push_back(node_id);
-        vector<Path> pp;
-        paths.push_back(pp);
-      }
-      Path p;
-      to_path(init_state, jumpstring, p);
-      paths[node_ids.size() - 1].push_back(p);
-    }
-  }
-}
-
 
 void
 read_paths(const string &path_file, vector<string> &node_names,
