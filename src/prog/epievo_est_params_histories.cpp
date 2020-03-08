@@ -73,6 +73,22 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
     out << i << '\t' << paths[i][node_id] << '\n';
 }
 
+static void
+write_mcmc_verbose_header(std::ostream &out) {
+  vector<string> header_tokens = {
+    "itr",
+    "stationary",
+    "baseline",
+    "init",
+    "acc_rate",
+    "llh",
+  };
+  copy(begin(header_tokens), end(header_tokens),
+       std::ostream_iterator<string>(out, "\t"));
+  out << '\n';
+}
+
+
 int main(int argc, const char **argv) {
   try {
 
@@ -208,14 +224,7 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
-      cerr << "[RUNNING MCMC-EM (seed=" << rng_seed << ")]\n"
-           << "itr\tstationary\tbaseline\tinit\tacc_rate\tllh\n"
-           << "0\t"
-           << the_model.T(0, 0) << "\t"
-           << the_model.T(1, 1) << "\t"
-           << the_model.stationary_baseline(0, 0) << "\t"
-           << the_model.stationary_baseline(1, 1) << "\t"
-           << the_model.init_T(0, 0) << "\t" << the_model.init_T(1, 1) << endl;
+      write_mcmc_verbose_header(cerr);
 
     size_t current_batch = batch;
     vector<vector<vector<double> > > emit(n_sites);

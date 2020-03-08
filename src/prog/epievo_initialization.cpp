@@ -48,7 +48,6 @@ using std::numeric_limits;
 using std::ostream_iterator;
 
 
-
 template <class T>
 size_t
 read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
@@ -205,8 +204,24 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-///////////////               write output             /////////////////////////
+///////////////                  output                /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+static void
+write_mcmc_verbose_header(std::ostream &out) {
+  vector<string> header_tokens = {
+    "itr",
+    "rate0",
+    "rate1",
+    "init0",
+    "init1",
+    "tree",
+  };
+  copy(begin(header_tokens), end(header_tokens),
+       std::ostream_iterator<string>(out, "\t"));
+  out << '\n';
+}
+
 
 static void
 write_root_to_pathfile_local(const string &outfile, const string &root_name) {
@@ -343,9 +358,7 @@ int main(int argc, const char **argv) {
     estimate_root_distribution(paths, init_pi);
 
     if (VERBOSE)
-      cerr << "ITR\tRATE0\tRATE1\t\tINIT0\t\tINIT1\tTREE\n"
-      << "0" << "\t" << rates[0] << "\t" << rates[1] << "\t"
-      << init_pi[0] << "\t" << init_pi[1] << endl;
+      write_mcmc_verbose_header(cerr);
 
 
     for (size_t itr = 0; itr < iterations; itr++) {
