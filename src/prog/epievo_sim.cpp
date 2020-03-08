@@ -238,7 +238,7 @@ int main(int argc, const char **argv) {
     read_model(param_file, the_model);
     if (SCALE_TIME) {
       const double factor = rate_scaling_factor(the_model.triplet_rates);
-      evolutionary_time *= factor;
+      evolutionary_time /= factor;
     }
     if (SCALE)
       the_model.scale_triplet_rates();
