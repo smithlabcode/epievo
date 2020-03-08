@@ -42,6 +42,7 @@ using std::cerr;
 using std::cout;
 using std::string;
 using std::istringstream;
+using std::ofstream;
 using std::runtime_error;
 using std::to_string;
 using std::numeric_limits;
@@ -143,7 +144,11 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
 
   const size_t n_sites = state_sequences.front().size();
 
-  paths.resize(th.n_nodes);
+  paths.resize(n_sites);
+  for (size_t site_id = 0; site_id < n_sites; ++site_id) {
+    paths[site_id].clear();
+    paths[site_id].resize(th.n_nodes);
+  }
 
   auto unif =
     bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
@@ -153,7 +158,6 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
   for (size_t i = th.n_nodes; i > 0; --i) {
 
     const size_t node_id = i - 1;
-    paths[node_id].resize(n_sites);
 
     for (size_t site_id = 0; site_id < n_sites; ++site_id) {
 
@@ -173,11 +177,11 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
         for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c) {
 
           const double len = th.branches[*c];
-          paths[*c][site_id].tot_time = len;
-          paths[*c][site_id].init_state = state_sequences[node_id][site_id];
+          paths[site_id][*c].tot_time = len;
+          paths[site_id][*c].init_state = state_sequences[node_id][site_id];
 
-          if (state_sequences[*c][site_id] != paths[*c][site_id].init_state)
-            paths[*c][site_id].jumps.push_back(unif() * len);
+          if (state_sequences[*c][site_id] != paths[site_id][*c].init_state)
+            paths[site_id][*c].jumps.push_back(unif() * len);
         }
       }
     }
@@ -208,6 +212,27 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
+write_root_to_pathfile_local(const string &outfile, const string &root_name) {
+  ofstream out(outfile);
+  if (!out)
+    throw std::runtime_error("bad output file: " + outfile);
+  out << "NODE:" << root_name << endl;
+}
+
+static void
+append_to_pathfile_local(const string &pathfile, const string &node_name,
+                         const vector<vector<Path> > &paths,
+                         const size_t node_id) {
+  std::ofstream out(pathfile, std::ofstream::app);
+  if (!out)
+    throw std::runtime_error("bad output file: " + pathfile);
+  
+  out << "NODE:" << node_name << endl;
+  for (size_t i = 0; i < paths.size(); ++i)
+    out << i << '\t' << paths[i][node_id] << '\n';
+}
+
+static void
 write_mcmc_verbose_header(std::ostream &out) {
   vector<string> header_tokens = {
     "itr",
@@ -220,34 +245,6 @@ write_mcmc_verbose_header(std::ostream &out) {
   copy(begin(header_tokens), end(header_tokens),
        std::ostream_iterator<string>(out, "\t"));
   out << '\n';
-}
-
-
-static void
-write_root_to_pathfile_local(const string &outfile, const string &root_name) {
-  std::ofstream of;
-  if (!outfile.empty()) of.open(outfile.c_str());
-  std::ostream outpath(outfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-  if (!outpath)
-    throw std::runtime_error("bad output file: " + outfile);
-
-  outpath << "NODE:" << root_name << endl;
-}
-
-
-
-static void
-append_to_pathfile_local(const string &pathfile, const string &node_name,
-                         const vector<Path> &path_by_site) {
-  std::ofstream of;
-  if (!pathfile.empty()) of.open(pathfile.c_str(), std::ofstream::app);
-  std::ostream outpath(pathfile.empty() ? std::cout.rdbuf() : of.rdbuf());
-  if (!outpath)
-    throw std::runtime_error("bad output file: " + pathfile);
-
-  outpath << "NODE:" << node_name << endl;
-  for (size_t i = 0; i < path_by_site.size(); ++i)
-    outpath << i << '\t' << path_by_site[i] << '\n';
 }
 
 
@@ -346,7 +343,7 @@ int main(int argc, const char **argv) {
     std::mt19937 gen(rng_seed);
 
     /* generate initial paths by heuristics */
-    vector<vector<Path> > paths; // along multiple branches
+    vector<vector<Path> > paths; // [sites] x [nodes]
     initialize_paths(gen, th, state_sequences, paths);
 
     /* Run EM to learn a site-independent model */
@@ -359,7 +356,9 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       write_mcmc_verbose_header(cerr);
-
+    if (VERBOSE)
+      cerr << "0" << "\t" << rates[0] << "\t" << rates[1] << "\t"
+      << init_pi[0] << "\t" << init_pi[1] << endl;
 
     for (size_t itr = 0; itr < iterations; itr++) {
       if (!OPTBRANCH)
@@ -414,7 +413,7 @@ int main(int argc, const char **argv) {
     write_root_to_pathfile_local(pathfile, th.node_names.front());
     for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
       append_to_pathfile_local(pathfile, th.node_names[node_id],
-                               sampled_paths[node_id]);
+                               sampled_paths, node_id);
 
     // write parameters
     if (VERBOSE)
