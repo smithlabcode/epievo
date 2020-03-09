@@ -100,10 +100,22 @@ int main(int argc, const char **argv) {
 
     if (VERBOSE)
       cerr << "[READING PATHS FILE: " << path_file << "]" << endl;
-    vector<vector<Path> > all_paths; // along multiple branches
     vector<string> node_names;
-    read_paths(path_file, node_names, all_paths);
-    const size_t n_sites = all_paths.back().size();
+    vector<vector<Path> > orig_paths; // [nodes] x [sites]
+    vector<vector<Path> > paths; // [sites] x [nodes]
+    read_paths(path_file, node_names, orig_paths);
+    
+    ////////// transposing
+    const size_t n_sites = orig_paths[1].size();
+    const size_t n_nodes = orig_paths.size();
+    paths.resize(n_sites);
+    for (size_t i = 0; i < n_sites; ++i) {
+      paths[i].resize(n_nodes);
+      for (size_t b = 1; b < n_nodes; ++b) {
+        paths[i][b] = orig_paths[b][i];
+      }
+    }
+    //////////
 
     /* LOADING (FAKE) TREE */
     if (VERBOSE)
@@ -121,7 +133,6 @@ int main(int argc, const char **argv) {
         throw runtime_error("bad tree file: " + tree_file);
       th = TreeHelper(the_tree);
     }
-    const size_t n_nodes = the_tree.get_size();
 
     if (VERBOSE)
       cerr << "[READING PARAMETER FILE: " << param_file << endl;
@@ -141,15 +152,15 @@ int main(int argc, const char **argv) {
            << "n_sites=" << n_sites << endl;
 
     if (!optimize_branches) {
-      estimate_rates(VERBOSE, param_tol, all_paths, the_model);
+      estimate_rates(VERBOSE, param_tol, paths, the_model);
     }
     else {
-      estimate_rates_and_branches(VERBOSE, param_tol, all_paths, th, the_model);
-      scale_jump_times(all_paths, th);
+      estimate_rates_and_branches(VERBOSE, param_tol, paths, th, the_model);
+      scale_jump_times(paths, th);
       the_tree.set_branch_lengths(th.branches);
     }
 
-    estimate_root_distribution(all_paths, the_model);
+    estimate_root_distribution(paths, the_model);
 
     if (VERBOSE)
       cerr << "[WRITING PARAMETERS]\n" <<  the_model << endl;
