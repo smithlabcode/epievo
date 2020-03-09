@@ -67,28 +67,29 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
                        const EpiEvoModel &the_model, const double tot_time) {
 
   const size_t n_sites = root_seq.size();
-  paths.resize(2);
-  paths[0].resize(n_sites);
-  paths[1].resize(n_sites);
+  paths.resize(n_sites);
+  for (size_t site_id = 0; site_id < n_sites; ++site_id) {
+    paths[site_id].resize(2);
+  }
 
   std::uniform_real_distribution<double> unif(0.0, tot_time);
 
   paths[0][0].init_state = root_seq[0];
-  paths[1][0].init_state = root_seq[0];
-  paths[1][0].tot_time = tot_time;
+  paths[0][1].init_state = root_seq[0];
+  paths[0][1].tot_time = tot_time;
 
-  paths[0][n_sites-1].init_state = root_seq[n_sites-1];
-  paths[1][n_sites-1].init_state = root_seq[n_sites-1];
-  paths[1][n_sites-1].tot_time = tot_time;
+  paths[n_sites-1][0].init_state = root_seq[n_sites-1];
+  paths[n_sites-1][1].init_state = root_seq[n_sites-1];
+  paths[n_sites-1][1].tot_time = tot_time;
 
-  if (paths[1][0].end_state() != leaf_seq[0])
-    paths[1][0].jumps.push_back(unif(gen));
-  if (paths[1][n_sites-1].end_state() != leaf_seq[n_sites-1])
-    paths[1][n_sites-1].jumps.push_back(unif(gen));
+  if (paths[0][1].end_state() != leaf_seq[0])
+    paths[0][1].jumps.push_back(unif(gen));
+  if (paths[n_sites-1][1].end_state() != leaf_seq[n_sites-1])
+    paths[n_sites-1][1].jumps.push_back(unif(gen));
 
   for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
     const size_t l = site_id - 1;
-    const size_t r = site_id - 1;
+    const size_t r = site_id + 1;
     const size_t pattern0 = triple2idx(root_seq[l], false, root_seq[r]);
     const size_t pattern1 = triple2idx(root_seq[l], true, root_seq[r]);
     const bool start_state = root_seq[site_id];
@@ -96,13 +97,13 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
     const TwoStateCTMarkovModel ctmm(the_model.triplet_rates[pattern0],
                                      the_model.triplet_rates[pattern1]);
 
-    paths[0][site_id].init_state = start_state;
-    paths[1][site_id].init_state = start_state;
-    paths[1][site_id].tot_time = tot_time;
+    paths[site_id][0].init_state = start_state;
+    paths[site_id][1].init_state = start_state;
+    paths[site_id][1].tot_time = tot_time;
 
     end_cond_sample_forward_rejection(ctmm, start_state, end_state, tot_time,
-                                      gen, paths[1][site_id].jumps, 0.0);
-    assert(paths[1][site_id].end_state() == end_state);
+                                      gen, paths[site_id][1].jumps, 0.0);
+    assert(paths[site_id][1].end_state() == end_state);
   }
 }
 
@@ -116,14 +117,15 @@ write_root_to_pathfile_local(const string &outfile, const string &root_name) {
 
 static void
 append_to_pathfile_local(const string &pathfile, const string &node_name,
-                         const vector<Path> &path_by_site) {
-  ofstream out(pathfile, std::ofstream::app);
+                         const vector<vector<Path> > &paths,
+                         const size_t node_id) {
+  std::ofstream out(pathfile, std::ofstream::app);
   if (!out)
     throw std::runtime_error("bad output file: " + pathfile);
 
   out << "NODE:" << node_name << endl;
-  for (size_t i = 0; i < path_by_site.size(); ++i)
-    out << i << '\t' << path_by_site[i] << '\n';
+  for (size_t i = 0; i < paths.size(); ++i)
+    out << i << '\t' << paths[i][node_id] << '\n';
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -208,15 +210,25 @@ int main(int argc, const char **argv) {
     }
     std::mt19937 gen(rng_seed);
 
-    vector<vector<Path> > paths;
-    if (!pathfile.empty())
+    vector<vector<Path> > paths; // [sites] x [nodes]
+    if (!pathfile.empty()) {
       // reading into node_names again here
-      read_paths(pathfile, node_names, paths);
+      vector<vector<Path> > orig_paths; // [nodes] x [sites]
+      read_paths(pathfile, node_names, orig_paths);
+      
+      ////////// transposing
+      paths.resize(orig_paths[1].size());
+      for (size_t i = 0; i < orig_paths[1].size(); ++i) {
+        paths[i].resize(orig_paths.size());
+        for (size_t b = 1; b < 2; ++b) {
+          paths[i][b] = orig_paths[b][i];
+        }
+      }
+      //////////
+    }
     else
       initialize_paths_indep(gen, root_seq, leaf_seq, paths, the_model,
                              evolutionary_time);
-    if (paths.size() > 2) // truncate extra nodes
-      paths.resize(2);
 
     if (VERBOSE)
       cerr << "[SIMULATING]" << endl;
@@ -226,20 +238,13 @@ int main(int argc, const char **argv) {
     /////// STARTING MCMC
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
-    /*
-    vector<vector<vector<double> > > all_emit; // [sites x nodes x 2]
-    const vector<function<double (bool)> > emit_root = {Bernoulli(0.1),
-      Bernoulli(0.95)};
-    const vector<function<double (bool)> > emit_leaf = {Bernoulli(0.1),
-      Bernoulli(0.95)};
-    compute_emit(root_seq, leaf_seq, all_emit, emit_root, emit_leaf);
-    */
+
     vector<vector<vector<double> > > emit(n_sites);
     for (size_t site_id = 0; site_id < n_sites; site_id++) {
       emit[site_id].resize(2);
       emit[site_id][0].resize(2);
-      emit[site_id][0][0] = (paths[1][site_id].init_state ? 0.0 : 1.0);
-      emit[site_id][0][1] = (paths[1][site_id].init_state ? 1.0 : 0.0);
+      emit[site_id][0][0] = (paths[site_id][1].init_state ? 0.0 : 1.0);
+      emit[site_id][0][1] = (paths[site_id][1].init_state ? 1.0 : 0.0);
     }
 
     /* METROPOLIS-HASTINGS ALGORITHM */
@@ -251,7 +256,7 @@ int main(int argc, const char **argv) {
       }
     }
     write_root_to_pathfile_local(outfile, th.node_names.front());
-    append_to_pathfile_local(outfile, th.node_names[1], paths[1]);
+    append_to_pathfile_local(outfile, th.node_names[1], paths, 1);
 
     /* (6) OUTPUT */
     if (VERBOSE)
