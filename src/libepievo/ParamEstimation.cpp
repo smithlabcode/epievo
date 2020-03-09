@@ -132,10 +132,8 @@ log_likelihood(const vector<double> &J, const vector<double> &D,
                const vector<double> &rates) {
 
   static const size_t n_triplets = 8;
-  if (!(J.size() == n_triplets && D.size() == n_triplets &&
-        rates.size() == n_triplets)) {
-    cerr << J.size() << '\t' << D.size() << '\t' << n_triplets << '\t' << rates.size() << endl;
-  }
+  assert(J.size() == n_triplets && D.size() == n_triplets &&
+         rates.size() == n_triplets);
 
   double ll = 0;
   for (size_t i = 0; i < n_triplets; ++i)
