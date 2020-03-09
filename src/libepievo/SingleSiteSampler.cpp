@@ -47,6 +47,7 @@ using std::make_pair;
 using std::bind;
 using std::placeholders::_1;
 using std::multiplies;
+using std::accumulate;
 using std::runtime_error;
 using std::function;
 using std::exponential_distribution;
@@ -333,91 +334,79 @@ log_likelihood(const vector<double> &rates,
 }
 
 
-/* compute acceptance rate */
+/* Currently, emission probabilities are not considered. */
 double
+path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
+                    const vector<Path> &m, const vector<Path> &r) {
+  static const size_t n_triples = 8;
+  double llh = 0.0;
+
+  /* calculate likelihood involving root states */
+  const bool rt_left_st = l[1].init_state;
+  const bool rt_mid_st = m[1].init_state;
+  const bool rt_right_st = r[1].init_state;
+
+  const two_by_two root_T = (mod.use_init_T ? mod.init_T :
+                             two_by_two (1.0, 1.0, 1.0, 1.0));
+
+  llh += root_prior_lh(rt_left_st, rt_mid_st, rt_right_st, root_T);
+
+  /* calculate likelihood involving internal intervals */
+  vector<double> D(n_triples, 0.0), J(n_triples, 0.0);
+  for (size_t i = 1; i < m.size(); ++i) {
+    // sufficient stats for current pentet using original path at mid
+    fill_n(begin(D), n_triples, 0.0);
+    fill_n(begin(J), n_triples, 0.0);
+
+    add_sufficient_statistics(l[i], m[i], r[i], J, D);
+    llh += log_likelihood(mod.triplet_rates, J, D);
+  }
+
+  return llh;
+}
+
+
+/* compute acceptance rate */
+/* Currently, emission probabilities are not considered. */
+static double
 log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
-                const size_t site_id,
-                const vector<vector<Path> > &paths,
-                const vector<vector<double> > &emit,
+                const size_t site_id, const vector<vector<Path> > &paths,
+                double &llh_l, double &llh_m, double &llh_r,
                 const vector<FelsHelper> &fh,
                 const vector<vector<SegmentInfo> > &seg_info,
                 const vector<Path> &proposed_path) {
-
+  
   assert(site_id > 0 && site_id < paths.size());
-  static const size_t n_triples = 8;
-
+  
   const bool rt_left_st = paths[site_id-1][1].init_state;
   const bool rt_right_st = paths[site_id+1][1].init_state;
-
+  
   const double orig_proposal = proposal_prob(mod.triplet_rates, th,
                                              rt_left_st, rt_right_st,
                                              mod.init_T, fh, seg_info,
                                              paths[site_id]);
-
+  
   const double update_proposal = proposal_prob(mod.triplet_rates, th,
                                                rt_left_st, rt_right_st,
                                                mod.init_T, fh, seg_info,
                                                proposed_path);
-
+  
   double llr = orig_proposal - update_proposal;
 
-  /* calculate likelihood involving root states */
-  const two_by_two root_T = (mod.use_init_T ? mod.init_T :
-                             two_by_two (1.0, 1.0, 1.0, 1.0));
-  const size_t rt_orig = paths[site_id][1].init_state;
-  const size_t rt_prop = proposed_path[1].init_state;
-  llr += (log(root_prior_lh(rt_left_st, rt_prop, rt_right_st, root_T)) -
-          log(root_prior_lh(rt_left_st, rt_orig, rt_right_st, root_T)));
-  // add difference in log-likelihood related to observation
-  if (emit[0].size() == 2)
-    llr += (log(emit[0][rt_prop]) - log(emit[0][rt_orig]));
+  const double llh_l_orig = llh_l;
+  const double llh_m_orig = llh_m;
+  const double llh_r_orig = llh_r;
 
-  /* calculate likelihood involving internal intervals */
-  vector<double> D_orig(n_triples, 0.0), J_orig(n_triples, 0.0);
-  vector<double> D_prop(n_triples, 0.0), J_prop(n_triples, 0.0);
-
-  for (size_t i = 1; i < th.n_nodes; ++i) {
-    // sufficient stats for current pentet using original path at mid
-    fill_n(begin(D_orig), n_triples, 0.0);
-    fill_n(begin(J_orig), n_triples, 0.0);
-    fill_n(begin(D_prop), n_triples, 0.0);
-    fill_n(begin(J_prop), n_triples, 0.0);
-
-    if (site_id > 1)
-      add_sufficient_statistics(paths[site_id-2][i],
-                                paths[site_id-1][i],
-                                paths[site_id][i], J_orig, D_orig);
-    add_sufficient_statistics(paths[site_id-1][i],
-                              paths[site_id][i],
-                              paths[site_id+1][i], J_orig, D_orig);
-    if (site_id < paths.size() - 2)
-      add_sufficient_statistics(paths[site_id][i],
-                                paths[site_id+1][i],
-                                paths[site_id+2][i], J_orig, D_orig);
-
-    // sufficient stats for current pentet using proposed path at mid
-    if (site_id > 1)
-      add_sufficient_statistics(paths[site_id-2][i],
-                                paths[site_id-1][i],
-                                proposed_path[i], J_prop, D_prop);
-    add_sufficient_statistics(paths[site_id-1][i],
-                              proposed_path[i],
-                              paths[site_id+1][i], J_prop, D_prop);
-    if (site_id < paths.size() - 2)
-      add_sufficient_statistics(proposed_path[i],
-                                paths[site_id+1][i],
-                                paths[site_id+2][i], J_prop, D_prop);
-
-    // add difference in log-likelihood for the proposed vs. original
-    // to the Hastings ratio
-    llr += (log_likelihood(mod.triplet_rates, J_prop, D_prop) -
-            log_likelihood(mod.triplet_rates, J_orig, D_orig));
-
-    // add difference in log-likelihood related to observation
-    if (emit[i].size() == 2)
-      llr += (log(emit[i][proposed_path[i].end_state()]) -
-              log(emit[i][paths[site_id][i].end_state()]));
-  }
+  if (site_id > 1)
+    llh_l = path_log_likelihood(mod, paths[site_id-2], paths[site_id-1],
+                                proposed_path);
+  llh_m = path_log_likelihood(mod, paths[site_id-1], proposed_path,
+                              paths[site_id+1]);
+  if (site_id < paths.size() - 2)
+    llh_r = path_log_likelihood(mod, proposed_path, paths[site_id+1],
+                                paths[site_id+2]);
+  
+  llr += (llh_l + llh_m + llh_r - llh_l_orig - llh_m_orig - llh_r_orig);
 
   return llr;
 }
@@ -434,6 +423,7 @@ bool
 Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id, vector<vector<Path> > &paths,
                          const vector<vector<double> > &emit,
+                         double &llh_l, double &llh_m, double &llh_r,
                          std::mt19937 &gen) {
   assert((th.n_nodes == paths[0].size()) && (th.n_nodes == emit.size()));
 
@@ -454,19 +444,27 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                     gen, proposed_path);
 
   // acceptance rate
+  double llh_l_new = llh_l;
+  double llh_m_new = llh_m;
+  double llh_r_new = llh_r;
+
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   const double u = unif(gen);
   const double log_acc_rate =
-    log_accept_rate(the_model, th, site_id, paths, emit,fh, seg_info,
-                    proposed_path);
+    log_accept_rate(the_model, th, site_id, paths, llh_l_new, llh_m_new,
+                    llh_r_new, fh, seg_info, proposed_path);
 
   bool accepted = false;
   if (log_acc_rate >= 0 || u < exp(log_acc_rate))
     accepted = true;
 
   // if accepted, replace old path with proposed one.
-  if (accepted)
+  if (accepted) {
     std::swap(paths[site_id], proposed_path);
+    llh_l = llh_l_new;
+    llh_m = llh_m_new;
+    llh_r = llh_r_new;
+  }
 
   return accepted;
 }

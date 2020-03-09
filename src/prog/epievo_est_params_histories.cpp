@@ -217,18 +217,7 @@ int main(int argc, const char **argv) {
     vector<vector<double> > D;
     two_by_two root_frequencies;
 
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    /////// START MCMC-EM
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-
-    if (VERBOSE)
-      write_mcmc_verbose_header(cerr);
-
-    size_t current_batch = batch;
     vector<vector<vector<double> > > emit(n_sites);
-
     for (size_t site_id = 0; site_id < n_sites; site_id++) {
       emit[site_id].resize(2);
       emit[site_id][0].resize(2);
@@ -238,13 +227,40 @@ int main(int argc, const char **argv) {
                              1.0 : 0.0);
     }
 
+    vector<double> tri_llh(n_sites, 0.0);
+
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    /////// START MCMC-EM
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    if (VERBOSE) {
+      write_mcmc_verbose_header(cerr);
+      cerr << "0" << "\t" << the_model.T(0, 0) << "\t"
+      << the_model.T(1, 1) << "\t"
+      << the_model.stationary_baseline(0, 0) << "\t"
+      << the_model.stationary_baseline(1, 1) << "\t"
+      << the_model.init_T(0, 0) << "\t"
+      << the_model.init_T(1, 1) << endl;
+    }
+
+    size_t current_batch = batch;
+
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {
+
+      // pre-compute triplet log-likelihood on each site
+      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
+        tri_llh[site_id] = path_log_likelihood(the_model, paths[site_id-1],
+                                               paths[site_id], paths[site_id+1]);
+
       // Burning
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                   emit[site_id], gen);
+                                   emit[site_id], tri_llh[site_id-1],
+                                   tri_llh[site_id], tri_llh[site_id+1], gen);
         }
       }
 
@@ -258,8 +274,11 @@ int main(int argc, const char **argv) {
 
       for (size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-          n_accepted += Metropolis_Hastings_site(the_model, th, site_id,
-                                                 paths, emit[site_id], gen);
+          n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths,
+                                                 emit[site_id],
+                                                 tri_llh[site_id-1],
+                                                 tri_llh[site_id],
+                                                 tri_llh[site_id+1], gen);
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
         get_root_frequencies(paths, root_frequencies);

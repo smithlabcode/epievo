@@ -54,7 +54,12 @@ Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                          const size_t site_id,
                          std::vector<std::vector<Path> > &paths_all_sites_and_branches,
                          const std::vector<std::vector<double> > &emit,
+                         double &llh_l, double &llh_m, double &llh_r,
                          std::mt19937 &gen);
+
+double
+path_log_likelihood(const EpiEvoModel &the_model, const std::vector<Path> &l,
+                    const std::vector<Path> &m, const std::vector<Path> &r);
 
 
 /* Pruning

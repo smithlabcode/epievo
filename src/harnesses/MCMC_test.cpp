@@ -413,11 +413,19 @@ int main(int argc, const char **argv) {
                              1.0 : 0.0);
     }
 
+    vector<double> tri_llh(n_sites, 0.0);
+    // pre-compute triplet log-likelihood on each site
+    for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
+      tri_llh[site_id] = path_log_likelihood(the_model, mcmc_paths[site_id-1],
+                                             mcmc_paths[site_id],
+                                             mcmc_paths[site_id+1]);
+
     for (size_t batch_id = 0; batch_id < n_mcmc_batches; batch_id++) {
       for (size_t sample_id = 0; sample_id < batch; sample_id++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths,
-                                   emit[site_id], gen);
+                                   emit[site_id], tri_llh[site_id-1],
+                                   tri_llh[site_id], tri_llh[site_id+1], gen);
         }
 
         // write stats
