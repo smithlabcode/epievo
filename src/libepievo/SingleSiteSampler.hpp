@@ -19,6 +19,9 @@
  * 02110-1301 USA
  */
 
+#ifndef SINGLE_SITE_SAMPLER_HPP
+#define SINGLE_SITE_SAMPLER_HPP
+
 #include <vector>
 
 #include "Path.hpp"
@@ -26,56 +29,30 @@
 #include "EpiEvoModel.hpp"
 #include "TreeHelper.hpp"
 
-struct FelsHelper {
-  FelsHelper() {}
-  FelsHelper(const std::vector<std::vector<double> > &_p,
-             const std::vector<double> &_q) : p(_p), q(_q) {}
-  std::vector<std::vector<double> > p;
-  std::vector<double> q;
+struct FelsHelper;
+
+class SingleSiteSampler {
+public:
+
+  SingleSiteSampler(const size_t n_nodes);
+
+  bool
+  Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
+                           const size_t site_id,
+                           std::vector<std::vector<Path> > &paths,
+                           const std::vector<std::vector<double> > &emit,
+                           double &llh_l, double &llh_m, double &llh_r,
+                           std::mt19937 &gen);
+private:
+
+  // scratch variables
+  std::vector<double> J;
+  std::vector<double> D;
+  std::vector<Path> proposed_path;
 };
-
-void
-pruning(const TreeHelper &th, const size_t site_id,
-        const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-        const std::vector<std::vector<double> > &emit,
-        const std::vector<std::vector<SegmentInfo> > &seg_info,
-        std::vector<FelsHelper> &fh);
-
-void
-downward_sampling(const EpiEvoModel &the_model, const TreeHelper &th,
-                  const size_t site_id,
-                  const std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                  const std::vector<std::vector<SegmentInfo> > &seg_info,
-                  const std::vector<FelsHelper> &fh,
-                  std::mt19937 &gen, std::vector<Path> &new_path);
-
-bool
-Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
-                         const size_t site_id,
-                         std::vector<std::vector<Path> > &paths_all_sites_and_branches,
-                         const std::vector<std::vector<double> > &emit,
-                         double &llh_l, double &llh_m, double &llh_r,
-                         std::mt19937 &gen);
 
 double
 path_log_likelihood(const EpiEvoModel &the_model, const std::vector<Path> &l,
                     const std::vector<Path> &m, const std::vector<Path> &r);
 
-
-/* Pruning
-  - post-order traversal of nodes
-  ---- at node v:
-  ---- (1) get break points and context, create transition rate matrices
-  ---- (2) from bottom up for each break point:
-  ------- compute q_k(v), p_j(v)
-  ------- (i) if v is a leaf: observed data
-  ------- (ii) if v is an internal branching node: two children
-  ------- (ii) otherwise: single child
-
-  Downward sampling
-  - preorder traversal
-  - at root, compute posterior probability of 0 vs 1
-  - at each internal node and break points within branch do conditional posterior sampling
-
-  Compute acceptance rate (todo)
-*/
+#endif

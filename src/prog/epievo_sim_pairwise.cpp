@@ -239,6 +239,8 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
 
+    SingleSiteSampler mcmc(th.n_nodes);
+
     vector<vector<vector<double> > > emit(n_sites);
     for (size_t site_id = 0; site_id < n_sites; site_id++) {
       emit[site_id].resize(2);
@@ -256,9 +258,10 @@ int main(int argc, const char **argv) {
     // Burning
     for (size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-        Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                 emit[site_id], tri_llh[site_id-1],
-                                 tri_llh[site_id], tri_llh[site_id+1], gen);
+        mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
+                                      emit[site_id], tri_llh[site_id-1],
+                                      tri_llh[site_id], tri_llh[site_id+1],
+                                      gen);
       }
     }
     write_root_to_pathfile_local(outfile, th.node_names.front());

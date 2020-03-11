@@ -234,6 +234,8 @@ int main(int argc, const char **argv) {
     /////// START MCMC-EM
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
+    
+    SingleSiteSampler mcmc(th.n_nodes);
 
     if (VERBOSE) {
       write_mcmc_verbose_header(cerr);
@@ -258,9 +260,10 @@ int main(int argc, const char **argv) {
       // Burning
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-          Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                   emit[site_id], tri_llh[site_id-1],
-                                   tri_llh[site_id], tri_llh[site_id+1], gen);
+          mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
+                                        emit[site_id], tri_llh[site_id-1],
+                                        tri_llh[site_id], tri_llh[site_id+1],
+                                        gen);
         }
       }
 
@@ -274,11 +277,12 @@ int main(int argc, const char **argv) {
 
       for (size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-          n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                                 emit[site_id],
-                                                 tri_llh[site_id-1],
-                                                 tri_llh[site_id],
-                                                 tri_llh[site_id+1], gen);
+          n_accepted += mcmc.Metropolis_Hastings_site(the_model, th, site_id,
+                                                      paths, emit[site_id],
+                                                      tri_llh[site_id-1],
+                                                      tri_llh[site_id],
+                                                      tri_llh[site_id+1],
+                                                      gen);
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
         get_root_frequencies(paths, root_frequencies);
