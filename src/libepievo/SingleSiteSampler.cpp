@@ -62,6 +62,7 @@ SingleSiteSampler::SingleSiteSampler(const size_t n_nodes) {
   J.resize(n_triples, 0.0);
   D.resize(n_triples, 0.0);
   proposed_path.resize(n_nodes);
+  SAMPLE_ROOT = false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -121,19 +122,14 @@ process_branch_above(const vector<SegmentInfo> &seg_info, FelsHelper &fh) {
  */
 static void
 pruning_branch(const TreeHelper &th, const size_t node_id, const Path &path,
-               const vector<double> &emit, const vector<SegmentInfo> &seg_info,
-               vector<FelsHelper> &fh) {
+               const vector<SegmentInfo> &seg_info, vector<FelsHelper> &fh) {
 
   /* first calculate q */
-  vector<double> q = ((emit.size() == 2) ? emit : vector<double> (2, 1.0));
-
+  vector<double> q(2, 1.0);
   if (th.is_leaf(node_id)) {
     const bool leaf_state = path.end_state();
-    if (emit.size() != 2) {
-      // no observation at the leaf: emit binary values from hidden states
-      q[0] = (leaf_state == false) ? 1.0 : 0.0;
-      q[1] = (leaf_state == true)  ? 1.0 : 0.0;
-    }
+    q[0] = (leaf_state == false) ? 1.0 : 0.0;
+    q[1] = (leaf_state == true)  ? 1.0 : 0.0;
   }
   else {
     for (ChildSet c(th.subtree_sizes, node_id); c.good(); ++c) {
@@ -155,7 +151,7 @@ pruning_branch(const TreeHelper &th, const size_t node_id, const Path &path,
  */
 void
 pruning(const TreeHelper &th, const size_t site_id,
-        const vector<vector<Path> > &paths, const vector<vector<double> > &emit,
+        const vector<vector<Path> > &paths,
         const vector<vector<SegmentInfo> > &seg_info, vector<FelsHelper> &fh) {
 
   // avoid recursion by iterating backwards ensuring all child nodes
@@ -163,8 +159,7 @@ pruning(const TreeHelper &th, const size_t site_id,
   fh.resize(th.n_nodes);
   for (size_t i = th.n_nodes; i > 0; --i) {
     const size_t node_id = i - 1;
-    pruning_branch(th, node_id, paths[site_id][node_id], emit[node_id],
-                   seg_info[node_id], fh);
+    pruning_branch(th, node_id, paths[site_id][node_id], seg_info[node_id], fh);
   }
 }
 
@@ -231,11 +226,26 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 /* Iterates over all nodes in pre-order, and for each branch it samples new
  * paths from top to bottom, requiring starting state has been determined.
  */
-/* Assume proposed_path has proper size */
+// Assume proposed_path has proper size
+// Case1: Not sampling the root state
 void
 downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
-                  const size_t site_id,
-                  const vector<vector<Path> > &paths,
+                  const vector<vector<SegmentInfo> > &seg_info,
+                  const vector<FelsHelper> &fh,
+                  std::mt19937 &gen,
+                  vector<Path> &proposed_path) {
+  
+  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
+    const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
+    downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
+                             th.branches[node_id], gen, proposed_path[node_id]);
+  }
+}
+
+// Case2: Sampling the root state
+void
+downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
+                  const bool left_root_state, const bool right_root_state,
                   const vector<vector<SegmentInfo> > &seg_info,
                   const vector<FelsHelper> &fh,
                   std::mt19937 &gen,
@@ -244,21 +254,14 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
   // compute posterior probability at root node
   const two_by_two root_T = (mod.use_init_T ? mod.init_T :
                              two_by_two(1.0, 1.0, 1.0, 1.0));
-  const bool left_st = paths[site_id - 1][1].init_state;
-  const bool right_st = paths[site_id + 1][1].init_state;
-  const double root_p0 = root_post_prob0(left_st, right_st, root_T, fh[0].q);
-
-  proposed_path = vector<Path>(th.n_nodes);
+  const double root_p0 = root_post_prob0(left_root_state, right_root_state,
+                                         root_T, fh[0].q);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
-
   proposed_path.front().init_state = (unif(gen) > root_p0); // sampling root
 
-  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
-    downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
-                             th.branches[node_id], gen, proposed_path[node_id]);
-  }
+  downward_sampling(mod, th, seg_info, fh,  gen, proposed_path);
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////        Compute acceptance rate         /////////////////////////
@@ -460,11 +463,9 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
                                             const TreeHelper &th,
                                             const size_t site_id,
                                             vector<vector<Path> > &paths,
-                                            const vector<vector<double> > &emit,
                                             double &llh_l, double &llh_m,
                                             double &llh_r,
                                             std::mt19937 &gen) {
-  assert((th.n_nodes == paths[0].size()) && (th.n_nodes == emit.size()));
 
   // get rates and lengths each interval [seg_info: node x segs]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
@@ -476,23 +477,32 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
 
   // upward pruning and downward sampling [fh: one for each node]
   vector<FelsHelper> fh;
-  pruning(th, site_id, paths, emit, seg_info, fh);
+  pruning(th, site_id, paths, seg_info, fh);
 
-  downward_sampling(the_model, th, site_id, paths, seg_info, fh,
-                    gen, proposed_path);
+  if (SAMPLE_ROOT)
+    downward_sampling(the_model, th,
+                      paths[site_id-1][1].init_state,
+                      paths[site_id+1][1].init_state,
+                      seg_info, fh, gen, proposed_path);
+  else {
+    // paths[site_id][0].init_state may not be defined
+    proposed_path.front().init_state = paths[site_id][1].init_state;
+    downward_sampling(the_model, th, seg_info, fh, gen, proposed_path);
+  }
+  
 
+  // acceptance rate
   double llh_l_prop = llh_l;
   double llh_m_prop = llh_m;
   double llh_r_prop = llh_r;
 
-  std::uniform_real_distribution<double> unif(0.0, 1.0);
-  const double u = unif(gen);
-
-  // acceptance rate
   const double log_acc_rate =
     log_accept_rate(the_model, th, site_id, paths,
                     llh_l_prop, llh_m_prop, llh_r_prop, J, D,
                     fh, seg_info, proposed_path);
+
+  std::uniform_real_distribution<double> unif(0.0, 1.0);
+  const double u = unif(gen);
 
   bool accepted = false;
   if (log_acc_rate >= 0 || u < exp(log_acc_rate))

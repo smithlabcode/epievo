@@ -241,14 +241,6 @@ int main(int argc, const char **argv) {
 
     SingleSiteSampler mcmc(th.n_nodes);
 
-    vector<vector<vector<double> > > emit(n_sites);
-    for (size_t site_id = 0; site_id < n_sites; site_id++) {
-      emit[site_id].resize(2);
-      emit[site_id][0].resize(2);
-      emit[site_id][0][0] = (paths[site_id][1].init_state ? 0.0 : 1.0);
-      emit[site_id][0][1] = (paths[site_id][1].init_state ? 1.0 : 0.0);
-    }
-
     vector<double> tri_llh(n_sites, 0.0); // log-likelihood over three triplets
     // pre-compute triplet log-likelihood on each site
     for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
@@ -259,8 +251,8 @@ int main(int argc, const char **argv) {
     for (size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
         mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                      emit[site_id], tri_llh[site_id-1],
-                                      tri_llh[site_id], tri_llh[site_id+1],
+                                      tri_llh[site_id-1], tri_llh[site_id],
+                                      tri_llh[site_id+1],
                                       gen);
       }
     }

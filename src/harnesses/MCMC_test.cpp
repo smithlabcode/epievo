@@ -401,18 +401,6 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > mcmc_paths(2); // [sites] x [nodes]
     initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths, gen);
     const TreeHelper th(evolutionary_time);
-
-    // [sites] x [nodes] x [emit states]
-    vector<vector<vector<double> > > emit(n_sites);
-    for (size_t site_id = 0; site_id < n_sites; site_id++) {
-      emit[site_id].resize(2);
-      emit[site_id][0].resize(2);
-      emit[site_id][0][0] = (mcmc_paths[1][site_id].init_state == false ?
-                             1.0 : 0.0);
-      emit[site_id][0][1] = (mcmc_paths[1][site_id].init_state == true ?
-                             1.0 : 0.0);
-    }
-
     vector<double> tri_llh(n_sites, 0.0);
     // pre-compute triplet log-likelihood on each site
     for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
@@ -426,9 +414,8 @@ int main(int argc, const char **argv) {
       for (size_t sample_id = 0; sample_id < batch; sample_id++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           mcmc.Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths,
-                                        emit[site_id], tri_llh[site_id-1],
-                                        tri_llh[site_id], tri_llh[site_id+1],
-                                        gen);
+                                        tri_llh[site_id-1], tri_llh[site_id],
+                                        tri_llh[site_id+1], gen);
         }
 
         // write stats

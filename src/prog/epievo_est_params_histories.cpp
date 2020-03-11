@@ -216,17 +216,6 @@ int main(int argc, const char **argv) {
     vector<vector<double> > J;
     vector<vector<double> > D;
     two_by_two root_frequencies;
-
-    vector<vector<vector<double> > > emit(n_sites);
-    for (size_t site_id = 0; site_id < n_sites; site_id++) {
-      emit[site_id].resize(2);
-      emit[site_id][0].resize(2);
-      emit[site_id][0][0] = (paths[site_id][1].init_state == false ?
-                             1.0 : 0.0);
-      emit[site_id][0][1] = (paths[site_id][1].init_state == true ?
-                             1.0 : 0.0);
-    }
-
     vector<double> tri_llh(n_sites, 0.0);
 
     ////////////////////////////////////////////////////////////////////////////
@@ -261,9 +250,8 @@ int main(int argc, const char **argv) {
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                        emit[site_id], tri_llh[site_id-1],
-                                        tri_llh[site_id], tri_llh[site_id+1],
-                                        gen);
+                                        tri_llh[site_id-1], tri_llh[site_id],
+                                        tri_llh[site_id+1], gen);
         }
       }
 
@@ -278,7 +266,7 @@ int main(int argc, const char **argv) {
       for (size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
           n_accepted += mcmc.Metropolis_Hastings_site(the_model, th, site_id,
-                                                      paths, emit[site_id],
+                                                      paths,
                                                       tri_llh[site_id-1],
                                                       tri_llh[site_id],
                                                       tri_llh[site_id+1],

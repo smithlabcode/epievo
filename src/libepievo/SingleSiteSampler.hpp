@@ -40,9 +40,11 @@ public:
   Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                            const size_t site_id,
                            std::vector<std::vector<Path> > &paths,
-                           const std::vector<std::vector<double> > &emit,
                            double &llh_l, double &llh_m, double &llh_r,
                            std::mt19937 &gen);
+
+  bool SAMPLE_ROOT;
+
 private:
 
   // scratch variables
