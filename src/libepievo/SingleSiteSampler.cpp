@@ -252,10 +252,8 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
                   vector<Path> &proposed_path) {
 
   // compute posterior probability at root node
-  const two_by_two root_T = (mod.use_init_T ? mod.init_T :
-                             two_by_two(1.0, 1.0, 1.0, 1.0));
   const double root_p0 = root_post_prob0(left_root_state, right_root_state,
-                                         root_T, fh[0].q);
+                                         mod.init_T, fh[0].q);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   proposed_path.front().init_state = (unif(gen) > root_p0); // sampling root
 
@@ -370,10 +368,8 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
   vector<double> D(n_triples, 0.0), J(n_triples, 0.0);
 
   /* calculate likelihood involving root states */
-  const two_by_two root_T = (mod.use_init_T ? mod.init_T :
-                             two_by_two (1.0, 1.0, 1.0, 1.0));
   double llh = root_prior_lh(l[1].init_state, m[1].init_state, r[1].init_state,
-                             root_T);
+                             mod.init_T);
   
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
@@ -391,10 +387,8 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
   fill_n(begin(J), n_triples, 0.0);
 
   /* calculate likelihood involving root states */
-  const two_by_two root_T = (mod.use_init_T ? mod.init_T :
-                             two_by_two (1.0, 1.0, 1.0, 1.0));
   double llh = root_prior_lh(l[1].init_state, m[1].init_state, r[1].init_state,
-                             root_T);
+                             mod.init_T);
   
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
@@ -455,9 +449,6 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Metropolis-Hastings sampling at single site */
-// emit: node x {p_0, p_1}
-//       empty emit indicates no observation at that node
-// paths: sites x
 bool
 SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
                                             const TreeHelper &th,

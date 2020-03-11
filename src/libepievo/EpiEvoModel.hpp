@@ -42,7 +42,6 @@ struct EpiEvoModel {
   two_by_two T;       // horizontal transition probs (stationary)
   two_by_two init_T;  // horizontal transition probs (initial)
   two_by_two Q;       // pair-wise potential densities (stationary)
-  bool use_init_T;    // whether to use initial prior
 
   std::vector<double> triplet_rates; // rates for triples
 

@@ -396,7 +396,6 @@ read_model(const string &param_file, EpiEvoModel &m) {
     m.rebuild_from_triplet_rates(rates);
     m.init_T = m.T;
   }
-  m.use_init_T = true;
 }
 
 void

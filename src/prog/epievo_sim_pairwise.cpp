@@ -184,7 +184,6 @@ int main(int argc, const char **argv) {
     EpiEvoModel the_model;
     read_model(param_file, the_model);
     the_model.scale_triplet_rates();
-    the_model.use_init_T = false;
 
     if (VERBOSE)
       cerr << the_model << endl;
