@@ -64,8 +64,8 @@ operator<<(std::ostream &os, const Path &p) {
   std::ios old_state(nullptr);
   old_state.copyfmt(os);
   os << p.init_state << '\t' << p.tot_time << '\t';
-  copy(begin(p.jumps), end(p.jumps), ostream_iterator<double>(os, "\t"));
   os.precision(std::numeric_limits<double>::max_digits10);
+  copy(begin(p.jumps), end(p.jumps), ostream_iterator<double>(os, "\t"));
   os.copyfmt(old_state);
   return os;
 }
