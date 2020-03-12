@@ -259,7 +259,7 @@ sample_paths(const vector<double> &rates, const vector<double> &init_pi,
 
   assert(!paths.empty() && paths[0].size() > 1);
   const size_t n_sites = paths.size();
-  
+
   sampled_paths.resize(n_sites);
 
   for (size_t site_id = 0; site_id < n_sites; site_id++) {

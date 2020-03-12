@@ -234,7 +234,7 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
                   const vector<FelsHelper> &fh,
                   std::mt19937 &gen,
                   vector<Path> &proposed_path) {
-  
+
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
     downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
@@ -370,11 +370,11 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
   /* calculate likelihood involving root states */
   double llh = root_prior_lh(l[1].init_state, m[1].init_state, r[1].init_state,
                              mod.init_T);
-  
+
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
   llh += log_likelihood(mod.triplet_rates, J, D);
-  
+
   return llh;
 }
 
@@ -389,7 +389,7 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
   /* calculate likelihood involving root states */
   double llh = root_prior_lh(l[1].init_state, m[1].init_state, r[1].init_state,
                              mod.init_T);
-  
+
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
   llh += log_likelihood(mod.triplet_rates, J, D);
@@ -408,22 +408,22 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 const vector<FelsHelper> &fh,
                 const vector<vector<SegmentInfo> > &seg_info,
                 const vector<Path> &proposed_path) {
-  
+
   assert(site_id > 0 && site_id < paths.size());
-  
+
   const bool rt_left_st = paths[site_id-1][1].init_state;
   const bool rt_right_st = paths[site_id+1][1].init_state;
-  
+
   const double orig_proposal = proposal_prob(mod.triplet_rates, th,
                                              rt_left_st, rt_right_st,
                                              mod.init_T, fh, seg_info,
                                              paths[site_id]);
-  
+
   const double update_proposal = proposal_prob(mod.triplet_rates, th,
                                                rt_left_st, rt_right_st,
                                                mod.init_T, fh, seg_info,
                                                proposed_path);
-  
+
   double llr = orig_proposal - update_proposal;
 
   const double llh_l_orig = llh_l;
@@ -438,7 +438,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   if (site_id < paths.size() - 2)
     llh_r = path_log_likelihood(mod, proposed_path, paths[site_id+1],
                                 paths[site_id+2], J, D);
-  
+
   llr += (llh_l + llh_m + llh_r - llh_l_orig - llh_m_orig - llh_r_orig);
 
   return llr;
@@ -480,7 +480,7 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
     proposed_path.front().init_state = paths[site_id][1].init_state;
     downward_sampling(the_model, th, seg_info, fh, gen, proposed_path);
   }
-  
+
 
   // acceptance rate
   double llh_l_prop = llh_l;

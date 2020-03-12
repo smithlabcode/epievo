@@ -226,7 +226,7 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
   std::ofstream out(pathfile, std::ofstream::app);
   if (!out)
     throw std::runtime_error("bad output file: " + pathfile);
-  
+
   out << "NODE:" << node_name << endl;
   for (size_t i = 0; i < paths.size(); ++i)
     out << i << '\t' << paths[i][node_id] << '\n';

@@ -208,6 +208,8 @@ int main(int argc, const char **argv) {
       std::random_device rd;
       rng_seed = rd();
     }
+    if (VERBOSE)
+      cerr << "rng seed: " << rng_seed << endl;
     std::mt19937 gen(rng_seed);
 
     /* (5) MCMC */
@@ -223,7 +225,7 @@ int main(int argc, const char **argv) {
     /////// START MCMC-EM
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    
+
     SingleSiteSampler mcmc(th.n_nodes);
 
     if (VERBOSE) {
