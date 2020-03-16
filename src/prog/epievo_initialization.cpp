@@ -198,7 +198,7 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
   the_model.Q.reset();
 
   // set r_0_ = r0, r_1_ = r1
-  vector<double> triplet_rates(the_model.n_triplets);
+  double triplet_rates[8];
   for (size_t i = 0; i < the_model.n_triplets; i++)
     triplet_rates[i] = rates[(i/2) % 2];
 

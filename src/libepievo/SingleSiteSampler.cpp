@@ -330,7 +330,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
 /* compute proposal prob with a single path (along all nodes) as input*/
 static double
-proposal_prob(const vector<double> &triplet_rates, const TreeHelper &th,
+proposal_prob(const double(&triplet_rates)[8], const TreeHelper &th,
               const bool rt_left_st, const bool rt_right_st,
               const two_by_two &horiz_trans_prob,
               const vector<FelsHelper> &fh,
@@ -356,7 +356,7 @@ proposal_prob(const vector<double> &triplet_rates, const TreeHelper &th,
 
 
 static double
-log_likelihood(const vector<double> &rates,
+log_likelihood(const double(&rates)[8],
                const vector<double> &J, const vector<double> &D) {
   static const size_t n_triples = 8;
   double r = 0.0;

@@ -38,6 +38,8 @@ using std::transform;
 using std::bitset;
 using std::bind;
 using std::placeholders::_1;
+using std::begin;
+using std::end;
 
 using std::cerr;
 using std::endl;
@@ -96,7 +98,7 @@ horiz_trans_prob_to_horiz_potential(const two_by_two &T,
  * might be expected.
  */
 void
-triplet_rates_to_horiz_potential(const vector<double> &triplet_rates,
+triplet_rates_to_horiz_potential(const double(&triplet_rates)[8],
                                  two_by_two &Q) {
   // pair-wise potentials Q from rates lambda_ijk
   Q = two_by_two (1.0, 1.0, 1.0, 1.0);
@@ -131,7 +133,7 @@ horiz_potential_to_horiz_trans_prob(const two_by_two &Q,
 
 
 void
-triplet_rates_to_horiz_trans_prob(const vector<double> &triplet_rates,
+triplet_rates_to_horiz_trans_prob(const double(&triplet_rates)[8],
                                   two_by_two &T) {
 
   // first compute approximation to pair-wise potentials Q from the triplet rates
@@ -155,10 +157,10 @@ horiz_trans_prob_to_horiz_stationary(const two_by_two &T,
 double
 rate_scaling_factor(const vector<double> &pi,
                     const two_by_two &T,
-                    const vector<double> &triplet_rates) {
+                    const double(&triplet_rates)[8]) {
 
   double mu_rate_value = 0.0;
-  for (size_t i = 0; i < triplet_rates.size(); ++i) {
+  for (size_t i = 0; i < 8; ++i) {
     const size_t l = get_left_bit(i);
     const size_t m = get_mid_bit(i);
     const size_t r = get_right_bit(i);
@@ -167,9 +169,8 @@ rate_scaling_factor(const vector<double> &pi,
   return mu_rate_value;
 }
 
-
 double
-rate_scaling_factor(const vector<double> &triplet_rates) {
+rate_scaling_factor(const double(&triplet_rates)[8]) {
 
   // first compute approximation to pair-wise potentials Q from the triplet rates
   two_by_two Q_proportional;
@@ -210,7 +211,8 @@ EpiEvoModel::tostring() const {
       << format_two_by_two(Q) << '\n'
       << "[TRIPLE RATES]\n";
   oss << bitset<3>(0) << '\t' << triplet_rates[0];
-  for (size_t i = 1; i < triplet_rates.size(); ++i)
+
+  for (auto i = 1; i < n_triplets; ++i)
     oss << '\n' << bitset<3>(i) << '\t' << triplet_rates[i];
 
   const double mu = rate_scaling_factor(triplet_rates);
@@ -257,23 +259,6 @@ compute_stationary_triplet_proportions(const two_by_two &T,
 void
 EpiEvoModel::get_stationary_triplet_proportions(vector<double> &props) const {
   compute_stationary_triplet_proportions(T, props);
-}
-
-
-void
-scale_rates(const vector<double> &rates, const vector<double> &branches,
-            vector<double> &scaled_rates, vector<double> &scaled_branches) {
-
-  double unit = rate_scaling_factor(rates);
-
-  scaled_rates = rates;
-  transform(scaled_rates.begin(), scaled_rates.end(), scaled_rates.begin(),
-            std::bind(std::divides<double>(), std::placeholders::_1, unit));
-
-  scaled_branches = branches;
-  transform(scaled_branches.begin(), scaled_branches.end(),
-            scaled_branches.begin(),
-            std::bind(std::multiplies<double>(), std::placeholders::_1, unit));
 }
 
 
@@ -349,8 +334,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
     m.stationary_baseline.reset();
 
     /* read triplet transition rates */
-    vector<double> rates;
-    rates.resize(8, 0.0);
+    double rates[8];
     in >> rates[0];
     for (size_t i = 1; i < 8; i++)
       in >> dummy_label >> rates[i];
@@ -397,7 +381,7 @@ EpiEvoModel::initialize() {
 
 void
 EpiEvoModel::compute_triplet_rates() {
-  triplet_rates.resize(n_triplets, 0.0);
+  std::fill_n(begin(triplet_rates), 8, 0.0);
 
   double exp_stat_bl = exp(stationary_baseline(0,0));
   triplet_rates[triple2idx(0,0,0)] = Q(0,1)*Q(1,0)*exp_stat_bl;
@@ -424,12 +408,11 @@ EpiEvoModel::compute_triplet_rates() {
 
 
 void
-EpiEvoModel::rebuild_from_triplet_rates(const vector<double> &updated_rates) {
-  assert(updated_rates.size() == n_triplets);
+EpiEvoModel::rebuild_from_triplet_rates(const double(&updated_rates)[8]) {
   assert(updated_rates[1] == updated_rates[4]);
   assert(updated_rates[3] == updated_rates[6]);
 
-  triplet_rates = updated_rates;
+  std::copy(begin(updated_rates), end(updated_rates), triplet_rates);
 
   // recompute T using the updated triplet rates
   triplet_rates_to_horiz_trans_prob(triplet_rates, T);
