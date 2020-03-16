@@ -47,7 +47,7 @@ $(PROGS): $(addprefix $(SMITHLAB_CPP)/, OptionParser.o \
 
 MCMC_test: \
 	$(addprefix $(COMMON_DIR)/, \
-	TripletSampler.o epievo_utils.o SingleSiteSampler.o IntervalSampler.o \
+	TripletSampler.o epievo_utils.o SingleSiteSampler.o \
 	EndCondSampling.o ContinuousTimeMarkovModel.o \
 	EpiEvoModel.o GlobalJump.o ParamEstimation.o)
 
