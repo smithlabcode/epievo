@@ -353,7 +353,7 @@ int main(int argc, const char **argv) {
       const double total_events = accumulate(begin(events), end(events), 0.0);
       cerr << "[TOTAL SAMPLED EVENTS: " << total_events << "]" << endl
            << "[EVENTS PER SITE PER UNIT TIME: " <<
-        total_events/(evolutionary_time*n_sites) << "]" << endl;
+        total_events/(evolutionary_time*(n_sites - 2.0)) << "]" << endl;
     }
 
     if (VERBOSE)
