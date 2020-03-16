@@ -324,7 +324,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
 
   string dummy_label;
   in >> dummy_label;
-  if(dummy_label == "stationary") {
+  if (dummy_label == "stationary") {
     /* read the stationary distribution */
     m.T.reset();
     in >> m.T(0, 0) >> m.T(1, 1);
