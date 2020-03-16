@@ -24,7 +24,3 @@ install:
 clean:
 	@make -C src clean
 .PHONY: clean
-
-distclean: clean
-	@rm -rf $(EPIEVO)/bin
-.PHONY: distclean
