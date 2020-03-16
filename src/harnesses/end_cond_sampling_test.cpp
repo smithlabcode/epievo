@@ -282,7 +282,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << statfile_header << endl;
     if (!statfile.empty()) {
-      std::ofstream outstat(statfile.c_str());
+      std::ofstream outstat(statfile);
       outstat << statfile_header << endl;
     }
 
