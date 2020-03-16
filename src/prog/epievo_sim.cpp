@@ -52,6 +52,7 @@ using std::to_string;
 using std::ostream_iterator;
 using std::numeric_limits;
 using std::istringstream;
+using std::ifstream;
 
 
 bool
@@ -158,8 +159,8 @@ int main(int argc, const char **argv) {
     string tree_file;
     string root_states_file;
     bool VERBOSE = false;
-    bool SCALE = true;
-    bool SCALE_TIME = false;
+    bool unscaled_model_params = false;
+    bool scale_time = false;
     bool TRPARAM = false;
     bool write_only_leaves = false;
     size_t n_sites = 100;
@@ -171,10 +172,10 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "simulate epigenome evolution",
                            "<params-file> <outfile>");
-    opt_parse.add_opt("n-sites", 'n', "length of sequence to simulate "
-                      "(default: " + to_string(n_sites) + ")", false, n_sites);
+    opt_parse.add_opt("n-sites", 'n', "length of sequence to simulate",
+                      false, n_sites);
     opt_parse.add_opt("paths", 'p', "name of output file for evolution paths "
-                      "as sorted jump times (default: stdout)", false, pathfile);
+                      "as sorted jump times", false, pathfile);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("root", 'r', "root states file", false, root_states_file);
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
@@ -182,14 +183,13 @@ int main(int argc, const char **argv) {
                       evolutionary_time);
     opt_parse.add_opt("leaf", 'l', "write only leaf states (default: all nodes)",
                       false, write_only_leaves);
-    opt_parse.add_opt("notscaled", 'S',
-                      "do not scale model parameters (default: scaled)",
-                      false, SCALE);
-    opt_parse.add_opt("scaletime", 'M',
-                      "scale time (default: no scaling)", false, SCALE_TIME);
-    opt_parse.add_opt("rates", 'R', "use triplet transition rates "
-                      "(default: false)", false, TRPARAM);
+    opt_parse.add_opt("unscaled-param", '\0', "do not scale model parameters",
+                      false, unscaled_model_params);
+    opt_parse.add_opt("scale-time", '\0', "scale time", false, scale_time);
+    opt_parse.add_opt("rates", 'R', "use triplet transition rates",
+                      false, TRPARAM);
     opt_parse.add_opt("verbose", 'v', "print more run info", false, VERBOSE);
+    opt_parse.set_show_defaults();
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -236,17 +236,16 @@ int main(int argc, const char **argv) {
       cerr << "reading parameter file: " << param_file << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
-    if (SCALE_TIME) {
+    if (scale_time) {
       const double factor = rate_scaling_factor(the_model.triplet_rates);
       evolutionary_time /= factor;
     }
-    if (SCALE)
+    if (!unscaled_model_params)
       the_model.scale_triplet_rates();
 
-    if (VERBOSE) {
-      cerr << the_model << endl;
-      cerr << the_model.format_for_param_file() << endl;
-    }
+    if (VERBOSE)
+      cerr << the_model << endl
+           << the_model.format_for_param_file() << endl;
 
     size_t n_nodes = 0;
     TreeHelper th;
@@ -254,7 +253,7 @@ int main(int argc, const char **argv) {
       if (VERBOSE)
         cerr << "reading tree file: " << tree_file << endl;
       PhyloTreePreorder the_tree; // tree topology and branch lengths
-      std::ifstream tree_in(tree_file);
+      ifstream tree_in(tree_file);
       if (!tree_in || !(tree_in >> the_tree))
         throw std::runtime_error("bad tree file: " + tree_file);
       n_nodes = the_tree.get_size();
@@ -262,8 +261,8 @@ int main(int argc, const char **argv) {
     }
     else {
       if (VERBOSE)
-        cerr << "initializing two node tree with time: "
-             << evolutionary_time << endl;
+        cerr << "[initializing two node tree with time: "
+             << evolutionary_time << "]" << endl;
       n_nodes = 2;
       th = TreeHelper(evolutionary_time);
     }
@@ -274,10 +273,10 @@ int main(int argc, const char **argv) {
       rng_seed = rd();
     }
     if (VERBOSE)
-      cerr << "rng seed: " << rng_seed << endl;
+      cerr << "[rng seed: " << rng_seed << "]" << endl;
     std::mt19937 gen(rng_seed);
 
-    /* (2) GET THE ROOT SEQUENCE */
+    // get the root sequence
     if (VERBOSE)
       cerr << "[OBTAINING ROOT SEQUENCE]" << endl;
 
@@ -311,7 +310,8 @@ int main(int argc, const char **argv) {
       const double total_rate =
         inner_product(begin(triplet_props), end(triplet_props),
                       begin(the_model.triplet_rates), 0.0);
-      cerr << "mutations per site (at root): " << total_rate << endl;
+      cerr << "[expected mutations per site at root: "
+           << total_rate << "]" << endl;
     }
 
     write_root_to_pathfile_global(pathfile, th.node_names[0], s);
@@ -319,7 +319,7 @@ int main(int argc, const char **argv) {
     vector<state_seq> sequences(n_nodes, s);
     vector<size_t> events(8, 0);
 
-    /* (3) ITERATE OVER THE NODES IN THE TREE */
+    // iterate over the nodes in the tree
     for (size_t node_id = 1; node_id < n_nodes; ++node_id) {
       const double curr_branch_len = th.branches[node_id];
       if (VERBOSE)
@@ -330,12 +330,12 @@ int main(int argc, const char **argv) {
       double time_value = 0;
       vector<GlobalJump> the_path;
 
-      /* (4) SAMPLE CHANGES ALONG THE CURRENT BRANCH */
+      // sample changes along the current branch
       while (time_value < curr_branch_len)
         sample_jump(the_model, curr_branch_len, gen, ts, the_path, time_value,
                     events);
 
-      /* (5) EXTRACT THE SEQUENCE AT THE NODE */
+      // extract the sequence at the node
       ts.get_sequence(sequences[node_id]);
 
       append_to_pathfile_global(pathfile, th.node_names[node_id], the_path);
@@ -350,6 +350,10 @@ int main(int argc, const char **argv) {
       cerr << "[FREQUENCIES OF SAMPLED EVENTS]" << endl;
       for (size_t i = 0; i < 8; ++i)
         cerr << std::bitset<3>(i) << '\t' << events[i] << endl;
+      const double total_events = accumulate(begin(events), end(events), 0.0);
+      cerr << "[TOTAL SAMPLED EVENTS: " << total_events << "]" << endl
+           << "[EVENTS PER SITE PER UNIT TIME: " <<
+        total_events/(evolutionary_time*n_sites) << "]" << endl;
     }
 
     if (VERBOSE)
