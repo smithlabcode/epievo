@@ -104,18 +104,16 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > orig_paths; // [nodes] x [sites]
     vector<vector<Path> > paths; // [sites] x [nodes]
     read_paths(path_file, node_names, orig_paths);
-    
-    ////////// transposing
+
+    // transposing
     const size_t n_sites = orig_paths[1].size();
     const size_t n_nodes = orig_paths.size();
     paths.resize(n_sites);
     for (size_t i = 0; i < n_sites; ++i) {
       paths[i].resize(n_nodes);
-      for (size_t b = 1; b < n_nodes; ++b) {
+      for (size_t b = 1; b < n_nodes; ++b)
         paths[i][b] = orig_paths[b][i];
-      }
     }
-    //////////
 
     /* LOADING (FAKE) TREE */
     if (VERBOSE)
@@ -160,8 +158,6 @@ int main(int argc, const char **argv) {
       the_tree.set_branch_lengths(th.branches);
     }
 
-    estimate_root_distribution(paths, the_model);
-
     if (VERBOSE)
       cerr << "[WRITING PARAMETERS]\n" <<  the_model << endl;
     ofstream out(outfile);
@@ -177,7 +173,7 @@ int main(int argc, const char **argv) {
     }
 
     if (VERBOSE)
-      cerr << "[FINISHED.]" << endl;
+      cerr << "[FINISHED]" << endl;
   }
   catch (const std::exception &e) {
     cerr << e.what() << endl;

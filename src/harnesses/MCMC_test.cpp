@@ -183,7 +183,7 @@ forward_simulation(const EpiEvoModel &the_model,
 
   // sample a root
   vector<bool> root_seq;
-  the_model.sample_state_sequence_init(n_sites, gen, root_seq);
+  the_model.sample_state_sequence(n_sites, gen, root_seq);
   TripletSampler ts(root_seq);
 
   // generate the global path
@@ -230,17 +230,17 @@ static void
 initialize_paths(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
                  const double evo_time, vector<vector<Path> > paths,
                  std::mt19937 &gen) {
-  
+
   paths.resize(root_seq.size());
-  
+
   auto unif =
   bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
-  
+
   for (size_t site_id = 0; site_id < root_seq.size(); ++site_id) {
     paths[site_id].resize(2);
     paths[site_id][1].init_state = root_seq[site_id];
     paths[site_id][1].tot_time = evo_time;
-    
+
     if (root_seq[site_id] != leaf_seq[site_id])
       paths[site_id][1].jumps.push_back(unif() * evo_time);
   }
@@ -353,7 +353,7 @@ int main(int argc, const char **argv) {
     // collect sequences
     vector<bool> root_seq;
     collect_init_sequences(paths, root_seq);
-    
+
     vector<bool> leaf_seq;
     collect_end_sequences(paths, leaf_seq);
     if (VERBOSE) {
@@ -365,7 +365,7 @@ int main(int argc, const char **argv) {
            std::ostream_iterator<int>(cout, ""));
       cout << endl;
     }
-    
+
     /* (5) FORWARD SIMULATION */
     if (VERBOSE)
       cerr << "[FORWARD SIMULATION]" << endl;

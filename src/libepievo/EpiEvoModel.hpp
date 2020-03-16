@@ -30,41 +30,29 @@
 
 struct EpiEvoModel {
 
-  /*********************************************************************
-   * CLASS CONSTANTS
-   */
+  // constant for the number of triplets (avoiding magic)
   static const size_t n_triplets = 8;
 
-  /*********************************************************************
-   * INSTANCE VARIABLES
-   */
   two_by_two stationary_baseline; // symmetric part in J-P model
   two_by_two T;       // horizontal transition probs (stationary)
-  two_by_two init_T;  // horizontal transition probs (initial)
   two_by_two Q;       // pair-wise potential densities (stationary)
 
   std::vector<double> triplet_rates; // rates for triples
 
-  /*********************************************************************
-   * MUTATORS
-   */
+  // mutators
   void rebuild_from_triplet_rates(const std::vector<double> &triplet_rates);
   void scale_triplet_rates();
   void initialize(); // assuming rates are always scaled to one change
                      // per site per unit time
 
-  /*********************************************************************
-   * ACCESSORS
-   */
+  // accessors
   double substitutions_per_site(const std::vector<double> &triplet_props) const;
   bool is_unit_rate() const;
   void get_stationary_state_proportions(std::vector<double> &pi) const;
   void get_stationary_triplet_proportions(std::vector<double> &props) const;
 
-  void sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
-                                  std::vector<bool> &sequence) const;
-  void sample_state_sequence_stationary(const size_t n_sites, std::mt19937 &gen,
-                                        std::vector<bool> &sequence) const;
+  void sample_state_sequence(const size_t n_sites, std::mt19937 &gen,
+                             std::vector<bool> &sequence) const;
 
   std::string tostring() const;
   std::string format_for_param_file() const;

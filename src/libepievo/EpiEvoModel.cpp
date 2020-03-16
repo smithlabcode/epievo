@@ -193,8 +193,7 @@ EpiEvoModel::format_for_param_file() const {
   oss << "stationary\t" << T(0, 0) << '\t' << T(1, 1) << endl
       << "baseline\t"
       << stationary_baseline(0, 0) << '\t'
-      << stationary_baseline(1, 1) << endl
-      << "init\t" << init_T(0, 0) << '\t' << init_T(1, 1);
+      << stationary_baseline(1, 1);
   return oss.str();
 }
 
@@ -203,9 +202,7 @@ string
 EpiEvoModel::tostring() const {
   std::ostringstream oss;
 
-  oss << "[INIT HORIZ TRANSITION PROBS]\n"
-      << format_two_by_two(init_T) << '\n'
-      << "[STATIONARY HORIZ TRANSITION PROBS]\n"
+  oss << "[STATIONARY HORIZ TRANSITION PROBS]\n"
       << format_two_by_two(T) << '\n'
       << "[STATIONARY BASELINE VALUES]\n"
       << format_two_by_two(stationary_baseline) << '\n'
@@ -281,37 +278,24 @@ scale_rates(const vector<double> &rates, const vector<double> &branches,
 
 
 void
-sample_state_sequence(const size_t n_sites,
-                      const two_by_two &trans_prob,
-                      std::mt19937 &gen, vector<bool> &sequence) {
+EpiEvoModel::sample_state_sequence(const size_t n_sites,
+                                   std::mt19937 &gen,
+                                   vector<bool> &sequence) const {
 
-  sequence = vector<bool>(n_sites, true);
+  sequence.clear();
+  sequence.resize(n_sites, true);
 
-  const double pi1 =
-    (1.0 - trans_prob(0, 0))/(2.0 - trans_prob(1, 1) - trans_prob(0, 0));
+  const double pi1 = (1.0 - T(0, 0))/(2.0 - T(1, 1) - T(0, 0));
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   sequence[0] = (unif(gen) < pi1);
   for (size_t i = 1; i < n_sites; ++i) {
     const double r = unif(gen);
-    const double p = sequence[i - 1] ? trans_prob(1, 1) : trans_prob(0, 0);
+    const double p = sequence[i - 1] ? T(1, 1) : T(0, 0);
     sequence[i] = ((r <= p) ? sequence[i - 1] : (!sequence[i - 1]));
   }
 }
 
-
-void
-EpiEvoModel::sample_state_sequence_init(const size_t n_sites, std::mt19937 &gen,
-                                        vector<bool> &sequence) const {
-  sample_state_sequence(n_sites, init_T, gen, sequence);
-}
-
-void
-EpiEvoModel::sample_state_sequence_stationary(const size_t n_sites,
-                                              std::mt19937 &gen,
-                                              vector<bool> &sequence) const {
-  sample_state_sequence(n_sites, T, gen, sequence);
-}
 
 double
 EpiEvoModel::substitutions_per_site(const vector<double> &triplet_props) const {
@@ -334,7 +318,7 @@ EpiEvoModel::is_unit_rate() const {
 void
 read_model(const string &param_file, EpiEvoModel &m) {
 
-  std::ifstream in(param_file.c_str());
+  std::ifstream in(param_file);
   if (!in)
     throw std::runtime_error("Could not open file: " + param_file);
 
@@ -355,18 +339,7 @@ read_model(const string &param_file, EpiEvoModel &m) {
     assert(dummy_label == "baseline");
     m.stationary_baseline.reset();
     in >> m.stationary_baseline(0, 0)
-    >> m.stationary_baseline(1, 1);
-
-    /* read the initial distribution (at root) */
-    in >> dummy_label;
-    assert(dummy_label == "init");
-    m.init_T.reset();
-    in >> m.init_T(0, 0) >> m.init_T(1, 1);
-    m.init_T(1, 0) = 1.0 - m.init_T(1, 1);
-    m.init_T(0, 1) = 1.0 - m.init_T(0, 0);
-
-    assert(is_probability_distribution(m.init_T[0]) &&
-           is_probability_distribution(m.init_T[1]));
+       >> m.stationary_baseline(1, 1);
 
     m.initialize();
   }
@@ -374,7 +347,6 @@ read_model(const string &param_file, EpiEvoModel &m) {
     assert(dummy_label == "000");
     m.T.reset();
     m.stationary_baseline.reset();
-    m.init_T.reset();
 
     /* read triplet transition rates */
     vector<double> rates;
@@ -390,11 +362,10 @@ read_model(const string &param_file, EpiEvoModel &m) {
     rates[6] = rates[3];
     // B * C^2 * M = D * E^2 * S
     // load B,D,E,C,M, compute S
-    rates[7] = (rates[0] * rates[6] * rates[6] * rates[5]) /
-    (rates[2] * rates[4] * rates[4]);
+    rates[7] = (rates[0]*rates[6]*rates[6]*rates[5]) /
+      (rates[2]*rates[4]*rates[4]);
 
     m.rebuild_from_triplet_rates(rates);
-    m.init_T = m.T;
   }
 }
 
@@ -406,9 +377,8 @@ EpiEvoModel::scale_triplet_rates() {
 }
 
 /* This function takes the parameter values for the model, which were
-   most likely read from a parameter file, and computes the initial
-   horizontal transitions (init_T), the stationary horizontal
-   transitions (T), the stationary rates (Q), and the rates
+   most likely read from a parameter file, and computes the stationary
+   horizontal transitions (T), the stationary rates (Q), and the rates
    for triples */
 void
 EpiEvoModel::initialize() {

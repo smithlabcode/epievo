@@ -23,12 +23,9 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <cmath>   /* exp, sqrt, pow fabs*/
-#include <numeric>  /* std::inner_product, accumulate*/
+#include <cmath>
+#include <numeric>
 #include <functional>
-
-// #include "smithlab_utils.hpp"
-// #include "smithlab_os.hpp"
 
 #include "PhyloTreePreorder.hpp"
 #include "Path.hpp"
@@ -444,25 +441,4 @@ estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
   get_sufficient_statistics(all_paths, J, D);
 
   return estimate_rates_and_branches(VERBOSE, param_tol, J, D, th, the_model);
-}
-
-
-void
-estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model) {
-  the_model.init_T(0, 0) = counts(0, 0)/(counts(0, 0) + counts(0, 1));
-  the_model.init_T(0, 1) = 1.0 - the_model.init_T(0, 0);
-  the_model.init_T(1, 1) = counts(1, 1)/(counts(1, 1) + counts(1, 0));
-  the_model.init_T(1, 0) = 1.0 - the_model.init_T(1, 1);
-}
-
-
-void
-estimate_root_distribution(const vector<vector<Path> > &all_paths,
-                           EpiEvoModel &the_model) {
-
-  assert(all_paths.size() >= 2 && !all_paths[1].empty());
-
-  two_by_two counts;
-  get_root_frequencies(all_paths, counts);
-  estimate_root_distribution(counts, the_model);
 }

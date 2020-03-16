@@ -58,14 +58,6 @@ estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
                             std::vector<std::vector<Path> > &all_paths,
                             TreeHelper &th, EpiEvoModel &the_model);
 
-void
-estimate_root_distribution(const two_by_two &counts, EpiEvoModel &the_model);
-
-void
-estimate_root_distribution(const std::vector<std::vector<Path> > &all_paths,
-                           EpiEvoModel &the_model);
-
-
 // get sufficient statistics from the whole tree
 void
 get_sufficient_statistics(const std::vector<std::vector<Path> > &all_paths,

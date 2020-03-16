@@ -349,10 +349,8 @@ double
 indep_rate_scaling_factor(const vector<double> &rates) {
 
   // stationary rates pi from T
-  vector<double> pi (2, 0.0);
-  pi[0] = rates[1] / (rates[0] + rates[1]);
-  pi[1] = rates[0] / (rates[0] + rates[1]);
-
+  vector<double> pi{rates[1]/(rates[0] + rates[1]),
+                    rates[0]/(rates[0] + rates[1])};
   return pi[0] * rates[0] + pi[1] * rates[1];
 }
 
@@ -391,21 +389,4 @@ estimate_rates_and_branches(const vector<vector<double> > &J,
       paths[i][b].tot_time = th.branches[b];
     }
   }
-}
-
-
-void
-estimate_root_distribution(const vector<vector<Path> > &paths,
-                           vector<double> &init_pi) {
-
-  assert(!paths.empty() && paths[0].size() > 1);
-
-  init_pi.resize(2);
-
-  double N1 = 0.0;
-  for(size_t site_id = 0; site_id < paths.size(); site_id++)
-    N1 += paths[site_id][1].init_state;
-
-  init_pi[1] = N1 / paths.size();
-  init_pi[0] = 1 - init_pi[1];
 }

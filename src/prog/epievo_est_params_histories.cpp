@@ -233,9 +233,7 @@ int main(int argc, const char **argv) {
       cerr << "0" << "\t" << the_model.T(0, 0) << "\t"
       << the_model.T(1, 1) << "\t"
       << the_model.stationary_baseline(0, 0) << "\t"
-      << the_model.stationary_baseline(1, 1) << "\t"
-      << the_model.init_T(0, 0) << "\t"
-      << the_model.init_T(1, 1) << endl;
+      << the_model.stationary_baseline(1, 1) << endl;
     }
 
     size_t current_batch = batch;
@@ -308,16 +306,13 @@ int main(int argc, const char **argv) {
         scale_jump_times(paths, th);
         the_tree.set_branch_lengths(th.branches);
       }
-      estimate_root_distribution(root_accum, the_model);
 
       if (VERBOSE)
         cerr << itr+1 << "\t" << the_model.T(0, 0) << "\t"
              << the_model.T(1, 1) << "\t"
              << the_model.stationary_baseline(0, 0) << "\t"
              << the_model.stationary_baseline(1, 1) << "\t"
-             << the_model.init_T(0, 0) << "\t"
-             << the_model.init_T(1, 1) << "\t"
-             << static_cast<double>(n_accepted) / (current_batch * (n_sites - 2))
+             << static_cast<double>(n_accepted)/(current_batch*(n_sites - 2))
              << "\t" << llh << endl;
 
       /* WRITE PARAMETER FILE */

@@ -284,7 +284,7 @@ int main(int argc, const char **argv) {
     if (root_states_file.empty()) {
       if (VERBOSE)
         cerr << "[SIMULATING: " << th.node_names[0] << " (ROOT)]" << endl;
-      the_model.sample_state_sequence_init(n_sites, gen, root_seq);
+      the_model.sample_state_sequence(n_sites, gen, root_seq);
       if (VERBOSE)
         cerr << "[ROOT LENGTH: " << n_sites << "]" << endl;
     }

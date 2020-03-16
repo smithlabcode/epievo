@@ -253,7 +253,7 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
 
   // compute posterior probability at root node
   const double root_p0 = root_post_prob0(left_root_state, right_root_state,
-                                         mod.init_T, fh[0].q);
+                                         mod.T, fh[0].q);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   proposed_path.front().init_state = (unif(gen) > root_p0); // sampling root
 
@@ -368,8 +368,8 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
   vector<double> D(n_triples, 0.0), J(n_triples, 0.0);
 
   /* calculate likelihood involving root states */
-  double llh = root_prior_lh(l[1].init_state, m[1].init_state, r[1].init_state,
-                             mod.init_T);
+  double llh = root_prior_lh(l[1].init_state,
+                             m[1].init_state, r[1].init_state, mod.T);
 
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
@@ -387,8 +387,8 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
   fill_n(begin(J), n_triples, 0.0);
 
   /* calculate likelihood involving root states */
-  double llh = root_prior_lh(l[1].init_state, m[1].init_state, r[1].init_state,
-                             mod.init_T);
+  double llh =
+    root_prior_lh(l[1].init_state, m[1].init_state, r[1].init_state, mod.T);
 
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
@@ -416,12 +416,12 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 
   const double orig_proposal = proposal_prob(mod.triplet_rates, th,
                                              rt_left_st, rt_right_st,
-                                             mod.init_T, fh, seg_info,
+                                             mod.T, fh, seg_info,
                                              paths[site_id]);
 
   const double update_proposal = proposal_prob(mod.triplet_rates, th,
                                                rt_left_st, rt_right_st,
-                                               mod.init_T, fh, seg_info,
+                                               mod.T, fh, seg_info,
                                                proposed_path);
 
   double llr = orig_proposal - update_proposal;

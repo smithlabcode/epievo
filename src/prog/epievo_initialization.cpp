@@ -76,7 +76,7 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
   if (node_names_in.front()[0] == '#') {
     if (node_names_in.front().length() == 1)
       node_names_in = vector<string>(node_names_in.begin() + 1,
-                                      node_names_in.end());
+                                     node_names_in.end());
     else node_names_in.front() = node_names_in.front().substr(1);
   }
 
@@ -195,13 +195,12 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
 
   the_model.stationary_baseline.reset();
   the_model.T.reset();
-  the_model.init_T.reset();
   the_model.Q.reset();
 
   // set r_0_ = r0, r_1_ = r1
-  vector<double> triplet_rates (the_model.n_triplets);
+  vector<double> triplet_rates(the_model.n_triplets);
   for (size_t i = 0; i < the_model.n_triplets; i++)
-    triplet_rates[i] = rates[i / 2 % 2];
+    triplet_rates[i] = rates[(i/2) % 2];
 
   the_model.rebuild_from_triplet_rates(triplet_rates);
 }
@@ -235,12 +234,12 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
 static void
 write_mcmc_verbose_header(std::ostream &out) {
   vector<string> header_tokens = {
-    "itr",
-    "rate0",
-    "rate1",
-    "init0",
-    "init1",
-    "tree",
+                                  "itr",
+                                  "rate0",
+                                  "rate1",
+                                  "init0",
+                                  "init1",
+                                  "tree",
   };
   copy(begin(header_tokens), end(header_tokens),
        std::ostream_iterator<string>(out, "\t"));
@@ -319,7 +318,8 @@ int main(int argc, const char **argv) {
       if (VERBOSE)
         cerr << "initializing two node tree with time: " << tree << endl;
       th = TreeHelper(std::stod(tree));
-    } else {
+    }
+    else {
       cerr << "reading tree file: " << tree << endl;
       std::ifstream tree_in(tree.c_str());
       if (!tree_in || !(tree_in >> the_tree))
@@ -349,16 +349,14 @@ int main(int argc, const char **argv) {
     /* Run EM to learn a site-independent model */
     vector<double> rates(2, 0.0);
     vector<double> init_pi(2, 0.0);
-    vector<double> init_pi_post(2, 0.0);
     vector<vector<double> > J, D;
     compute_sufficient_statistics(paths, J, D);
-    estimate_root_distribution(paths, init_pi);
 
-    if (VERBOSE)
+    if (VERBOSE) {
       write_mcmc_verbose_header(cerr);
-    if (VERBOSE)
       cerr << "0" << "\t" << rates[0] << "\t" << rates[1] << "\t"
-      << init_pi[0] << "\t" << init_pi[1] << endl;
+           << init_pi[0] << "\t" << init_pi[1] << endl;
+    }
 
     for (size_t itr = 0; itr < iterations; itr++) {
       if (!OPTBRANCH)
@@ -368,15 +366,12 @@ int main(int argc, const char **argv) {
         the_tree.set_branch_lengths(th.branches);
       }
 
-      expectation_sufficient_statistics(rates, init_pi, th, paths, J, D,
-                                        init_pi_post);
-
-      init_pi = init_pi_post;
-
+      expectation_sufficient_statistics(rates, init_pi, th,
+                                        paths, J, D, init_pi);
       // Report
       if (VERBOSE)
         cerr << itr+1 << "\t" << rates[0] << "\t" << rates[1] << "\t"
-        << init_pi[0] << "\t" << init_pi[1] << endl;
+             << init_pi[0] << "\t" << init_pi[1] << endl;
     }
 
     /* Re-sample a better initial path */
@@ -393,9 +388,6 @@ int main(int argc, const char **argv) {
     // initialize a EpievoModel
     EpiEvoModel the_model;
     initialize_model_from_indep_rates(the_model, rates);
-
-    // set init_T
-    estimate_root_distribution(sampled_paths, the_model);
 
     // re-estimate triplet rates from paths
     if (!OPTBRANCH)
@@ -417,7 +409,8 @@ int main(int argc, const char **argv) {
 
     // write parameters
     if (VERBOSE)
-      cerr << "[WRITING PARAMETERS]\n" << the_model << "\n" << the_tree << endl;
+      cerr << "[WRITING PARAMETERS]\n"
+           << the_model << "\n" << the_tree << endl;
 
     std::ofstream of_param;
     if (!paramfile.empty()) of_param.open(paramfile.c_str());

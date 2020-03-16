@@ -70,8 +70,3 @@ estimate_rates_and_branches(const std::vector<std::vector<double> > &J,
                             std::vector<double> &rates,
                             TreeHelper &th,
                             std::vector<std::vector<Path> > &paths);
-
-
-void
-estimate_root_distribution(const std::vector<std::vector<Path> > &paths,
-                           std::vector<double> &init_pi);
