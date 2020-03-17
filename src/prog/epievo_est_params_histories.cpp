@@ -27,6 +27,7 @@
 #include <bitset>
 #include <random>
 #include <functional>
+#include <cmath> /* log */
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -241,17 +242,25 @@ int main(int argc, const char **argv) {
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {
 
+      // pre-compute log(rates)
+      double log_rates[8];
+      std::transform(std::begin(the_model.triplet_rates),
+                     std::end(the_model.triplet_rates),
+                     std::begin(log_rates),
+                     static_cast<double(*)(double)>(log));
+
       // pre-compute triplet log-likelihood on each site
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
         tri_llh[site_id] = path_log_likelihood(the_model, paths[site_id-1],
-                                               paths[site_id], paths[site_id+1]);
+                                               paths[site_id], paths[site_id+1],
+                                               log_rates);
 
       // Burning
       for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
                                         tri_llh[site_id-1], tri_llh[site_id],
-                                        tri_llh[site_id+1], gen);
+                                        tri_llh[site_id+1], gen, log_rates);
         }
       }
 
@@ -270,7 +279,7 @@ int main(int argc, const char **argv) {
                                                       tri_llh[site_id-1],
                                                       tri_llh[site_id],
                                                       tri_llh[site_id+1],
-                                                      gen);
+                                                      gen, log_rates);
         /* CALCULATE SUFFICIENT STATS */
         get_sufficient_statistics(paths, J, D);
         get_root_frequencies(paths, root_frequencies);

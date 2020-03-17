@@ -357,11 +357,12 @@ proposal_prob(const double(&triplet_rates)[8], const TreeHelper &th,
 
 static double
 log_likelihood(const double(&rates)[8],
-               const vector<double> &J, const vector<double> &D) {
+               const vector<double> &J, const vector<double> &D,
+               const double(&log_rates)[8]) {
   static const size_t n_triples = 8;
   double r = 0.0;
   for (size_t i = 0; i < n_triples; ++i) {
-    r += J[i]*log(rates[i]) - D[i]*rates[i];
+    r += J[i]*log_rates[i] - D[i]*rates[i];
   }
   return r;
 }
@@ -370,7 +371,8 @@ log_likelihood(const double(&rates)[8],
 /* Currently, emission probabilities are not considered. */
 double
 path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
-                    const vector<Path> &m, const vector<Path> &r) {
+                    const vector<Path> &m, const vector<Path> &r,
+                    const double(&log_rates)[8]) {
   vector<double> D(n_triples, 0.0), J(n_triples, 0.0);
 
   /* calculate likelihood involving root states */
@@ -379,7 +381,7 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
 
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
-  llh += log_likelihood(mod.triplet_rates, J, D);
+  llh += log_likelihood(mod.triplet_rates, J, D, log_rates);
 
   return llh;
 }
@@ -388,7 +390,8 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
 static double
 path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
                     const vector<Path> &m, const vector<Path> &r,
-                    vector<double> &J, vector<double> &D) {
+                    vector<double> &J, vector<double> &D,
+                    const double(&log_rates)[8]) {
   fill_n(begin(D), n_triples, 0.0);
   fill_n(begin(J), n_triples, 0.0);
 
@@ -398,7 +401,7 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
 
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
-  llh += log_likelihood(mod.triplet_rates, J, D);
+  llh += log_likelihood(mod.triplet_rates, J, D, log_rates);
 
   return llh;
 }
@@ -414,7 +417,8 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 const vector<FelsHelper> &fh,
                 const vector<vector<SegmentInfo> > &seg_info,
                 const vector<Path> &proposed_path,
-                const double update_proposal, const bool sample_root) {
+                const double update_proposal, const bool sample_root,
+                const double(&log_rates)[8]) {
 
   assert(site_id > 0 && site_id < paths.size());
 
@@ -434,12 +438,12 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 
   if (site_id > 1)
     llh_l = path_log_likelihood(mod, paths[site_id-2], paths[site_id-1],
-                                proposed_path, J, D);
+                                proposed_path, J, D, log_rates);
   llh_m = path_log_likelihood(mod, paths[site_id-1], proposed_path,
-                              paths[site_id+1], J, D);
+                              paths[site_id+1], J, D, log_rates);
   if (site_id < paths.size() - 2)
     llh_r = path_log_likelihood(mod, proposed_path, paths[site_id+1],
-                                paths[site_id+2], J, D);
+                                paths[site_id+2], J, D, log_rates);
 
   llr += (llh_l + llh_m + llh_r - llh_l_orig - llh_m_orig - llh_r_orig);
 
@@ -458,7 +462,8 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
                                             vector<vector<Path> > &paths,
                                             double &llh_l, double &llh_m,
                                             double &llh_r,
-                                            std::mt19937 &gen) {
+                                            std::mt19937 &gen,
+                                            const double(&log_rates)[8]) {
 
   // get rates and lengths each interval [seg_info: node x segs]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
@@ -489,7 +494,7 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
     log_accept_rate(the_model, th, site_id, paths,
                     llh_l_prop, llh_m_prop, llh_r_prop, J, D,
                     fh, seg_info, proposed_path, proposal_log_prob,
-                    SAMPLE_ROOT);
+                    SAMPLE_ROOT, log_rates);
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   const double u = unif(gen);

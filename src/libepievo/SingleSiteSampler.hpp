@@ -41,7 +41,7 @@ public:
                            const size_t site_id,
                            std::vector<std::vector<Path> > &paths,
                            double &llh_l, double &llh_m, double &llh_r,
-                           std::mt19937 &gen);
+                           std::mt19937 &gen, const double(&log_rates)[8]);
 
   bool SAMPLE_ROOT;
 
@@ -55,6 +55,7 @@ private:
 
 double
 path_log_likelihood(const EpiEvoModel &the_model, const std::vector<Path> &l,
-                    const std::vector<Path> &m, const std::vector<Path> &r);
+                    const std::vector<Path> &m, const std::vector<Path> &r,
+                    const double(&log_rates)[8]);
 
 #endif

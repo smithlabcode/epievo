@@ -401,12 +401,19 @@ int main(int argc, const char **argv) {
     vector<vector<Path> > mcmc_paths(2); // [sites] x [nodes]
     initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths, gen);
     const TreeHelper th(evolutionary_time);
-    vector<double> tri_llh(n_sites, 0.0);
+
+    // pre-compute log(rates)
+    double log_rates[8];
+    std::transform(std::begin(log_rates), std::end(log_rates),
+                   std::begin(log_rates),
+                   static_cast<double(*)(double)>(log));
+
     // pre-compute triplet log-likelihood on each site
+    vector<double> tri_llh(n_sites, 0.0);
     for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
       tri_llh[site_id] = path_log_likelihood(the_model, mcmc_paths[site_id-1],
                                              mcmc_paths[site_id],
-                                             mcmc_paths[site_id+1]);
+                                             mcmc_paths[site_id+1], log_rates);
 
     SingleSiteSampler mcmc(th.n_nodes);
 
@@ -415,7 +422,7 @@ int main(int argc, const char **argv) {
         for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
           mcmc.Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths,
                                         tri_llh[site_id-1], tri_llh[site_id],
-                                        tri_llh[site_id+1], gen);
+                                        tri_llh[site_id+1], gen, log_rates);
         }
 
         // write stats
