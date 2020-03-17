@@ -34,28 +34,45 @@ struct FelsHelper;
 class SingleSiteSampler {
 public:
 
-  SingleSiteSampler(const size_t n_nodes);
+  SingleSiteSampler(const size_t n_burn_in, const size_t n_batch);
+
+  void
+  reset(const EpiEvoModel &the_model, std::vector<std::vector<Path> > &paths);
 
   bool
   Metropolis_Hastings_site(const EpiEvoModel &the_model, const TreeHelper &th,
                            const size_t site_id,
                            std::vector<std::vector<Path> > &paths,
-                           double &llh_l, double &llh_m, double &llh_r,
-                           std::mt19937 &gen, const double(&log_rates)[8]);
+                           std::mt19937 &gen);
 
+  void
+  run_mcmc(const EpiEvoModel &the_model, const TreeHelper &th,
+           std::vector<std::vector<Path> > &paths,
+           std::mt19937 &gen,
+           std::vector<std::vector<double> > &J_all_sites,
+           std::vector<std::vector<double> > &D_all_sites,
+           double &acceptance_rate);
+
+  // MCMC parameter constants
   bool SAMPLE_ROOT;
+  size_t burn_in;
+  size_t batch;
 
 private:
 
+  size_t
+  single_iteration(const EpiEvoModel &the_model, const TreeHelper &th,
+                   std::vector<std::vector<Path> > &paths,
+                   std::mt19937 &gen);
+
+  // internal variables for faster computation
+  std::vector<double> tri_llh;
+  double log_rates[8];
+  
   // scratch variables
   std::vector<double> J;
   std::vector<double> D;
   std::vector<Path> proposed_path;
 };
-
-double
-path_log_likelihood(const EpiEvoModel &the_model, const std::vector<Path> &l,
-                    const std::vector<Path> &m, const std::vector<Path> &r,
-                    const double(&log_rates)[8]);
 
 #endif

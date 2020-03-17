@@ -258,10 +258,10 @@ write_statistics_header(const string outfile) {
 
 
 static void
-write_statistics(const string outfile, const size_t itr, const size_t sample,
+write_statistics(const string outfile, const size_t sample,
                  const vector<double> &J, const vector<double> &D) {
   std::ofstream out(outfile, std::ofstream::app);
-  out << itr << "\t" << sample << "\t";
+  out << "\t" << sample << "\t";
   copy(begin(J), begin(J) + 8, std::ostream_iterator<double>(out, "\t"));
   copy(begin(D), begin(D) + 8, std::ostream_iterator<double>(out, "\t"));
   out << endl;
@@ -280,7 +280,6 @@ int main(int argc, const char **argv) {
 
     size_t n_sites = 5;
     size_t batch = 100;
-    size_t n_mcmc_batches = 100;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
@@ -291,8 +290,6 @@ int main(int argc, const char **argv) {
                            "test MCMC against forward-simulation summary stats",
                            "<param>");
     opt_parse.add_opt("n_sites", 'n', "number of sites", false, n_sites);
-    opt_parse.add_opt("mcmc_itr", 'i', "number of MCMC iterations",
-                      false, n_mcmc_batches);
     opt_parse.add_opt("batch", 'B', "batch size",
                       false, batch);
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
@@ -326,7 +323,7 @@ int main(int argc, const char **argv) {
     const string param_file(leftover_args[0]);
     ///////////////////////////////////////////////////////////////////////////
 
-    /* (1) READING PARAMETERS FROM FILE */
+    /* READING PARAMETERS FROM FILE */
     if (VERBOSE)
       cerr << "[READING PARAMETERS: " << param_file << "]" << endl;
     EpiEvoModel the_model;
@@ -335,7 +332,7 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << the_model << endl;
 
-    /* (3) INITIALIZING THE RANDOM NUMBER GENERATOR */
+    /* INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
       rng_seed = rd();
@@ -345,7 +342,7 @@ int main(int argc, const char **argv) {
       cerr << "[INITIALIZED RNG (seed=" << rng_seed << ")]" << endl;
 
 
-    /* (4) GENERATE ONE PATH */
+    /* GENERATE ONE PATH */
     if (VERBOSE)
       cerr << "[GENERATE A SAMPLE PATH]"<< endl;
     vector<Path> paths; // paths on single branch
@@ -385,7 +382,7 @@ int main(int argc, const char **argv) {
       if (success) {
         vector<double> J(8), D(8);
         add_sufficient_statistics(sampled_paths, J, D);
-        write_statistics(fstat, 0, n_forward_samples_collected, J, D);
+        write_statistics(fstat, n_forward_samples_collected, J, D);
         n_forward_samples_collected++;
       }
     }
@@ -402,34 +399,17 @@ int main(int argc, const char **argv) {
     initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths, gen);
     const TreeHelper th(evolutionary_time);
 
-    // pre-compute log(rates)
-    double log_rates[8];
-    std::transform(std::begin(log_rates), std::end(log_rates),
-                   std::begin(log_rates),
-                   static_cast<double(*)(double)>(log));
+    SingleSiteSampler mcmc(0, batch);
+    mcmc.reset(the_model, mcmc_paths);
 
-    // pre-compute triplet log-likelihood on each site
-    vector<double> tri_llh(n_sites, 0.0);
-    for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-      tri_llh[site_id] = path_log_likelihood(the_model, mcmc_paths[site_id-1],
-                                             mcmc_paths[site_id],
-                                             mcmc_paths[site_id+1], log_rates);
+    for (size_t sample_id = 0; sample_id < batch; sample_id++) {
+      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
+        mcmc.Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths, gen);
 
-    SingleSiteSampler mcmc(th.n_nodes);
-
-    for (size_t batch_id = 0; batch_id < n_mcmc_batches; batch_id++) {
-      for (size_t sample_id = 0; sample_id < batch; sample_id++) {
-        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-          mcmc.Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths,
-                                        tri_llh[site_id-1], tri_llh[site_id],
-                                        tri_llh[site_id+1], gen, log_rates);
-        }
-
-        // write stats
-        vector<double> J(8), D(8);
-        add_sufficient_statistics(mcmc_paths, J, D);
-        write_statistics(mcmc_stat, batch_id, sample_id, J, D);
-      }
+      // write stats
+      vector<double> J(8), D(8);
+      add_sufficient_statistics(mcmc_paths, J, D);
+      write_statistics(mcmc_stat, sample_id, J, D);
     }
 
   }

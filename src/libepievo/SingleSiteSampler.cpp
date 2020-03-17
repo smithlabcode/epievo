@@ -55,17 +55,6 @@ using std::exponential_distribution;
 static const size_t n_triples = 8;
 
 ////////////////////////////////////////////////////////////////////////////////
-///////////////               MCMC setup               /////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-SingleSiteSampler::SingleSiteSampler(const size_t n_nodes) {
-  J.resize(n_triples, 0.0);
-  D.resize(n_triples, 0.0);
-  proposed_path.resize(n_nodes);
-  SAMPLE_ROOT = false;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 ///////////////////           HELPER CLASSES           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -329,7 +318,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
 
 /* compute proposal prob with a single path (along all nodes) as input*/
-static double
+double
 proposal_prob(const double(&triplet_rates)[8], const TreeHelper &th,
               const bool rt_left_st, const bool rt_right_st,
               const two_by_two &horiz_trans_prob,
@@ -451,6 +440,40 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+///////////////               MCMC setup               /////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+SingleSiteSampler::SingleSiteSampler(const size_t n_burn_in,
+                                     const size_t n_batch) {
+  SAMPLE_ROOT = false;
+  burn_in = n_burn_in;
+  batch = n_batch;
+}
+
+void
+SingleSiteSampler::reset(const EpiEvoModel &the_model,
+                         vector<vector<Path> > &paths) {
+  const size_t n_sites = paths.size();
+  const size_t n_nodes = paths.front().size();
+  
+  J.resize(n_triples, 0.0);
+  D.resize(n_triples, 0.0);
+  proposed_path.resize(n_nodes);
+  tri_llh.resize(n_sites, 0.0);
+
+  // pre-compute log(rates)
+  std::transform(std::begin(the_model.triplet_rates),
+                 std::end(the_model.triplet_rates),
+                 std::begin(log_rates),
+                 static_cast<double(*)(double)>(log));
+
+  for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
+    tri_llh[site_id] = path_log_likelihood(the_model, paths[site_id-1],
+                                           paths[site_id], paths[site_id+1],
+                                           log_rates);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ///////////////          single MCMC iteration         /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -460,10 +483,7 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
                                             const TreeHelper &th,
                                             const size_t site_id,
                                             vector<vector<Path> > &paths,
-                                            double &llh_l, double &llh_m,
-                                            double &llh_r,
-                                            std::mt19937 &gen,
-                                            const double(&log_rates)[8]) {
+                                            std::mt19937 &gen) {
 
   // get rates and lengths each interval [seg_info: node x segs]
   vector<vector<SegmentInfo> > seg_info(th.n_nodes);
@@ -486,9 +506,9 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
                     proposed_path, proposal_log_prob);
 
   // acceptance rate
-  double llh_l_prop = llh_l;
-  double llh_m_prop = llh_m;
-  double llh_r_prop = llh_r;
+  double llh_l_prop = tri_llh[site_id - 1];
+  double llh_m_prop = tri_llh[site_id];
+  double llh_r_prop = tri_llh[site_id + 1];
 
   const double log_acc_rate =
     log_accept_rate(the_model, th, site_id, paths,
@@ -506,10 +526,74 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
   // if accepted, replace old path with proposed one.
   if (accepted) {
     std::swap(paths[site_id], proposed_path);
-    llh_l = llh_l_prop;
-    llh_m = llh_m_prop;
-    llh_r = llh_r_prop;
+    tri_llh[site_id - 1] = llh_l_prop;
+    tri_llh[site_id] = llh_m_prop;
+    tri_llh[site_id + 1] = llh_r_prop;
   }
 
   return accepted;
+}
+
+size_t
+SingleSiteSampler::single_iteration(const EpiEvoModel &the_model,
+                                    const TreeHelper &th,
+                                    vector<vector<Path> > &paths,
+                                    std::mt19937 &gen) {
+
+  size_t n_accepted = 0;
+
+  for (size_t site_id = 1; site_id < paths.size() - 1; ++site_id)
+    n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths, gen);
+  return n_accepted = 0;
+}
+
+void
+SingleSiteSampler::run_mcmc(const EpiEvoModel &the_model,
+                            const TreeHelper &th,
+                            vector<std::vector<Path> > &paths,
+                            std::mt19937 &gen,
+                            vector<vector<double> > &J_all_sites,
+                            vector<vector<double> > &D_all_sites,
+                            double &acc_rate) {
+  // Burning
+  for(size_t burnin_itr = 0; burnin_itr < burn_in; burnin_itr++)
+    single_iteration(the_model, th, paths, gen);
+
+  // Prepare for taking MCMC samples
+  J_all_sites.resize(th.n_nodes);
+  D_all_sites.resize(th.n_nodes);
+  for(size_t b = 1; b < th.n_nodes; ++b) {
+    J_all_sites[b].clear();
+    J_all_sites[b].resize(n_triples, 0.0);
+    D_all_sites[b].clear();
+    D_all_sites[b].resize(n_triples, 0.0);
+  }
+
+  size_t n_accepted = 0;
+  vector<vector<double> > J_one_site, D_one_site;
+
+  for (size_t mcmc_itr = 0; mcmc_itr < batch; mcmc_itr++) {
+    n_accepted += single_iteration(the_model, th, paths, gen);
+
+    /* CALCULATE SUFFICIENT STATS */
+    get_sufficient_statistics(paths, J_one_site, D_one_site);
+    for (size_t b = 1; b < th.n_nodes; b++) {
+      for (size_t i = 0; i < n_triples; i++) {
+        J_all_sites[b][i] += J_one_site[b][i];
+        D_all_sites[b][i] += D_one_site[b][i];
+      }
+    }
+  }
+  
+
+  /* CALCULATE BATCH AVERAGE */
+  for (size_t b = 1; b < th.n_nodes; ++b) {
+    for (size_t i = 0; i < n_triples; i++) {
+      J_all_sites[b][i] /= batch;
+      D_all_sites[b][i] /= batch;
+    }
+  }
+
+  /* CALCULATE ACCEPTANCE RATE */
+  acc_rate = static_cast<double>(n_accepted)/(batch*(paths.size() - 2));
 }

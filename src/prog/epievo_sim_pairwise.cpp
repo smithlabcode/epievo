@@ -238,30 +238,18 @@ int main(int argc, const char **argv) {
     //////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////
 
-    SingleSiteSampler mcmc(th.n_nodes);
+    SingleSiteSampler mcmc(burnin, 1);
+    mcmc.reset(the_model, paths);
 
-    // pre-compute log(rates)
-    double log_rates[8];
-    std::transform(std::begin(log_rates), std::end(log_rates),
-                   std::begin(log_rates),
-                   static_cast<double(*)(double)>(log));
-
-    vector<double> tri_llh(n_sites, 0.0); // log-likelihood over three triplets
-    // pre-compute triplet log-likelihood on each site
-    for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-      tri_llh[site_id] = path_log_likelihood(the_model, paths[site_id-1],
-                                             paths[site_id], paths[site_id+1],
-                                             log_rates);
     /* METROPOLIS-HASTINGS ALGORITHM */
     // Burning
     for (size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
         mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                      tri_llh[site_id-1], tri_llh[site_id],
-                                      tri_llh[site_id+1],
-                                      gen, log_rates);
+                                      gen);
       }
     }
+
     write_root_to_pathfile_local(outfile, th.node_names.front());
     append_to_pathfile_local(outfile, th.node_names[1], paths, 1);
 
