@@ -90,10 +90,10 @@ upward_process(const TreeHelper &th, const size_t site_id,
 
 
 static double
-root_post_prob0(const vector<double> &init_pi, const vector<double> &q) {
-
-  const double p0 = init_pi[0]*q[0];
-  const double p1 = init_pi[1]*q[1];
+root_post_prob0(const vector<double> &rates, const vector<double> &q) {
+  const double pi_0 = rates[1] / (rates[0] + rates[1]); // stationary
+  const double p0 = pi_0 * q[0];
+  const double p1 = (1 - pi_0) * q[1];
 
   return p0/(p0 + p1);
 }
@@ -159,17 +159,14 @@ weighted_J_D_branch(const vector<double> &rates, const double T,
 static void
 downward_process(const TreeHelper &th, const size_t site_id,
                  const vector<vector<Path> > &paths,
-                 const vector<double> &init_pi, const vector<double> &rates,
+                 const vector<double> &rates,
                  const vector<FelsHelper> &fh,
-                 vector<vector<double> > &J, vector<vector<double> > &D,
-                 vector<double> &init_pi_post) {
+                 vector<vector<double> > &J, vector<vector<double> > &D) {
 
   vector<double> p0_margin(th.n_nodes);
 
   // marginalize at root node
-  p0_margin[0] = root_post_prob0(init_pi, fh[0].q);
-  init_pi_post[0] += p0_margin[0];
-  init_pi_post[1] += 1 - init_pi[0];
+  p0_margin[0] = root_post_prob0(rates, fh[0].q);
 
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id)
     weighted_J_D_branch(rates, paths[site_id][node_id].tot_time, fh[node_id],
@@ -183,15 +180,14 @@ downward_process(const TreeHelper &th, const size_t site_id,
  */
 static void
 sampling_downward(const TreeHelper &th,const vector<Path> &path,
-                  const vector<double> &init_pi, const vector<double> &rates,
-                  const vector<FelsHelper> &fh,
+                  const vector<double> &rates, const vector<FelsHelper> &fh,
                   std::mt19937 &gen, vector<Path> &sampled_path) {
 
   vector<double> p0_margin(th.n_nodes);
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
   // marginalize at root node
-  p0_margin[0] = root_post_prob0(init_pi, fh[0].q);
+  p0_margin[0] = root_post_prob0(rates, fh[0].q);
   sampled_path = vector<Path>(th.n_nodes);
   sampled_path.front() = Path(path[1].init_state, 0.0);
   //sampled_path.front() = Path(unif(gen) > p0_margin[0], 0.0);
@@ -224,15 +220,12 @@ sampling_downward(const TreeHelper &th,const vector<Path> &path,
 /* Obtain conditional means of sufficient statistics */
 void
 expectation_sufficient_statistics(const vector<double> &rates,
-                                  const vector<double> &init_pi,
                                   const TreeHelper &th,
                                   const vector<vector<Path> > &paths,
                                   vector<vector<double> > &J,
-                                  vector<vector<double> > &D,
-                                  vector<double> &init_pi_post) {
+                                  vector<vector<double> > &D) {
 
   assert(!paths.empty() && paths[0].size() > 1);
-  init_pi_post = {0, 0};
 
   /* sufficient statistics: J - jump counts, D - spent time */
   J = vector<vector<double> > (th.n_nodes, vector<double> (2, 0.0));
@@ -241,19 +234,14 @@ expectation_sufficient_statistics(const vector<double> &rates,
   for (size_t site_id = 0; site_id < paths.size(); site_id++) {
     vector<FelsHelper> fh(th.n_nodes);
     upward_process(th, site_id, paths, rates, fh);
-    downward_process(th, site_id, paths, init_pi, rates, fh, J, D,
-                     init_pi_post);
+    downward_process(th, site_id, paths, rates, fh, J, D);
   }
-
-  init_pi_post[0] /= paths.size();
-  init_pi_post[1] /= paths.size();
 }
 
 
 /* Sample new evolution history */
 void
-sample_paths(const vector<double> &rates, const vector<double> &init_pi,
-             const TreeHelper &th,
+sample_paths(const vector<double> &rates, const TreeHelper &th,
              const vector<vector<Path> > &paths,
              std::mt19937 &gen, vector<vector<Path> > &sampled_paths) {
 
@@ -268,7 +256,7 @@ sample_paths(const vector<double> &rates, const vector<double> &init_pi,
     upward_process(th, site_id, paths, rates, fh);
 
     vector<Path> site_path;
-    sampling_downward(th, paths[site_id], init_pi, rates, fh, gen, site_path);
+    sampling_downward(th, paths[site_id], rates, fh, gen, site_path);
 
     for (size_t node_id = 0; node_id < th.n_nodes; ++node_id)
       sampled_paths[site_id][node_id] = site_path[node_id];
@@ -389,4 +377,21 @@ estimate_rates_and_branches(const vector<vector<double> > &J,
       paths[i][b].tot_time = th.branches[b];
     }
   }
+}
+
+
+void
+estimate_root_stationary(const vector<vector<Path> > &paths,
+                         vector<double> &pi) {
+  
+  assert(!paths.empty() && paths[0].size() > 1);
+  
+  pi.resize(2);
+  
+  double N1 = 0.0;
+  for(size_t site_id = 0; site_id < paths.size(); site_id++)
+    N1 += paths[site_id][1].init_state;
+  
+  pi[1] = N1 / paths.size();
+  pi[0] = 1 - pi[1];
 }
