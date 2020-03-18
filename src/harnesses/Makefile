@@ -19,8 +19,6 @@ CXX = g++
 CXXFLAGS = -Wall -std=c++11
 OPTFLAGS = -O2
 DEBUGFLAGS = -g
-LIBS = -lgsl -lgslcblas
-
 
 ifdef DEBUG
 CXXFLAGS += $(DEBUGFLAGS)
