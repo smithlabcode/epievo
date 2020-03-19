@@ -128,6 +128,25 @@ append_to_pathfile_local(const string &pathfile, const string &node_name,
     out << i << '\t' << paths[i][node_id] << '\n';
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+/// PROGRESS BAR
+////////////////////////////////////////////////////////////////////////////////
+
+static void
+progress_bar(std::ostream &out, const float progress) {
+  static int bar_width = 50;
+  out << "[";
+  int pos = bar_width * progress;
+  for (int i = 0; i < bar_width; ++i) {
+    if (i < pos) out << "=";
+    else if (i == pos) out << ">";
+    else out << " ";
+  }
+  out << "] " << int(progress * 100.0) << " %\r";
+  out.flush();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -248,10 +267,16 @@ int main(int argc, const char **argv) {
         mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
                                       gen);
       }
+      if (VERBOSE & (burnin_itr * 20 % burnin == 0))
+        progress_bar(cerr, static_cast<double>(burnin_itr + 1.0) / burnin);
     }
 
+    if (VERBOSE)
+      cerr << "\n[WRITING PATHS]" << endl;
     write_root_to_pathfile_local(outfile, th.node_names.front());
     append_to_pathfile_local(outfile, th.node_names[1], paths, 1);
+    if (VERBOSE)
+      cerr << "[DONE]" << endl;
 
     /* (6) OUTPUT */
     if (VERBOSE)
