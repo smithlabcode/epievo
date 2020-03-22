@@ -35,17 +35,14 @@ struct FelsHelper {
 
 void
 expectation_sufficient_statistics(const std::vector<double> &rates,
-                                  const std::vector<double> &init_pi,
                                   const TreeHelper &th,
                                   const std::vector<std::vector<Path> > &paths,
                                   std::vector<std::vector<double> > &J,
-                                  std::vector<std::vector<double> > &D,
-                                  std::vector<double> &init_pi_post);
+                                  std::vector<std::vector<double> > &D);
 
 
 void
-sample_paths(const std::vector<double> &rates,
-             const std::vector<double> &init_pi, const TreeHelper &th,
+sample_paths(const std::vector<double> &rates, const TreeHelper &th,
              const std::vector<std::vector<Path> > &paths,
              std::mt19937 &gen,
              std::vector<std::vector<Path> > &sampled_paths);
@@ -70,3 +67,7 @@ estimate_rates_and_branches(const std::vector<std::vector<double> > &J,
                             std::vector<double> &rates,
                             TreeHelper &th,
                             std::vector<std::vector<Path> > &paths);
+
+void
+estimate_root_stationary(const std::vector<std::vector<Path> > &paths,
+                         std::vector<double> &pi);

@@ -55,17 +55,6 @@ using std::exponential_distribution;
 static const size_t n_triples = 8;
 
 ////////////////////////////////////////////////////////////////////////////////
-///////////////               MCMC setup               /////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-SingleSiteSampler::SingleSiteSampler(const size_t n_nodes) {
-  J.resize(n_triples, 0.0);
-  D.resize(n_triples, 0.0);
-  proposed_path.resize(n_nodes);
-  SAMPLE_ROOT = false;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 ///////////////////           HELPER CLASSES           /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -190,7 +179,7 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                          const size_t start_state,
                          const double branch_length,
                          std::mt19937 &gen,
-                         Path &sampled_path) {
+                         Path &sampled_path, double &log_prob) {
 
   sampled_path.init_state = start_state;
   sampled_path.tot_time = branch_length;
@@ -199,7 +188,8 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
   std::uniform_real_distribution<double> unif(0.0, 1.0);
 
   size_t prev_state = sampled_path.init_state;
-  double time_passed = 0;
+  double time_passed = 0.0;
+  size_t jump_idx = 0;
   const size_t n_intervals = seg_info.size();
   for (size_t i = 0; i < n_intervals; ++i) {
 
@@ -216,8 +206,15 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                                       seg_info[i].len, gen, sampled_path.jumps,
                                       time_passed);
 
+    log_prob += end_cond_sample_prob(ctmm, sampled_path.jumps,
+                                     prev_state, sampled_state,
+                                     time_passed, time_passed + seg_info[i].len,
+                                     jump_idx, sampled_path.jumps.size());
+    log_prob += (sampled_state == 0) ? log(p0) : log(1.0 - p0);
+
     // prepare for next interval
     time_passed += seg_info[i].len;
+    jump_idx = sampled_path.jumps.size();
     prev_state = sampled_state;
   }
 }
@@ -226,38 +223,33 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 /* Iterates over all nodes in pre-order, and for each branch it samples new
  * paths from top to bottom, requiring starting state has been determined.
  */
-// Assume proposed_path has proper size
-// Case1: Not sampling the root state
 void
 downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
+                  const bool left_root_state, const bool mid_root_state,
+                  const bool right_root_state,
                   const vector<vector<SegmentInfo> > &seg_info,
                   const vector<FelsHelper> &fh,
-                  std::mt19937 &gen,
-                  vector<Path> &proposed_path) {
-
-  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
-    const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
-    downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
-                             th.branches[node_id], gen, proposed_path[node_id]);
-  }
-}
-
-// Case2: Sampling the root state
-void
-downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
-                  const bool left_root_state, const bool right_root_state,
-                  const vector<vector<SegmentInfo> > &seg_info,
-                  const vector<FelsHelper> &fh,
-                  std::mt19937 &gen,
-                  vector<Path> &proposed_path) {
+                  std::mt19937 &gen, const bool sample_root,
+                  vector<Path> &proposed_path, double &log_prob) {
 
   // compute posterior probability at root node
   const double root_p0 = root_post_prob0(left_root_state, right_root_state,
                                          mod.T, fh[0].q);
-  std::uniform_real_distribution<double> unif(0.0, 1.0);
-  proposed_path.front().init_state = (unif(gen) > root_p0); // sampling root
+  if (sample_root) {
+    std::uniform_real_distribution<double> unif(0.0, 1.0);
+    proposed_path.front().init_state = (unif(gen) > root_p0);
+    log_prob = proposed_path.front().init_state ?
+      log(1.0 - root_p0) : log(root_p0);
+  } else {
+    proposed_path.front().init_state = mid_root_state;
+  }
 
-  downward_sampling(mod, th, seg_info, fh,  gen, proposed_path);
+  for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
+    const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
+    downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
+                             th.branches[node_id], gen, proposed_path[node_id],
+                             log_prob);
+  }
 }
 
 
@@ -326,18 +318,21 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
 
 /* compute proposal prob with a single path (along all nodes) as input*/
-static double
-proposal_prob(const vector<double> &triplet_rates, const TreeHelper &th,
+double
+proposal_prob(const double(&triplet_rates)[8], const TreeHelper &th,
               const bool rt_left_st, const bool rt_right_st,
               const two_by_two &horiz_trans_prob,
               const vector<FelsHelper> &fh,
               const vector<vector<SegmentInfo> > &seg_info,
-              const vector<Path> &the_path) {
+              const vector<Path> &the_path, const bool sample_root) {
 
   // compute posterior probability of state 0 at root node
-  const double root_p0 =
+  double log_prob = 0.0;
+  if (sample_root) {
+    const double root_p0 =
     root_post_prob0(rt_left_st, rt_right_st, horiz_trans_prob, fh[0].q);
-  double log_prob = the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
+    log_prob += the_path[1].init_state ? log(1.0 - root_p0) : log(root_p0);
+  }
 
   // process the paths above each node (except the root)
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
@@ -350,12 +345,13 @@ proposal_prob(const vector<double> &triplet_rates, const TreeHelper &th,
 
 
 static double
-log_likelihood(const vector<double> &rates,
-               const vector<double> &J, const vector<double> &D) {
+log_likelihood(const double(&rates)[8],
+               const vector<double> &J, const vector<double> &D,
+               const double(&log_rates)[8]) {
   static const size_t n_triples = 8;
   double r = 0.0;
   for (size_t i = 0; i < n_triples; ++i) {
-    r += J[i]*log(rates[i]) - D[i]*rates[i];
+    r += J[i]*log_rates[i] - D[i]*rates[i];
   }
   return r;
 }
@@ -364,7 +360,8 @@ log_likelihood(const vector<double> &rates,
 /* Currently, emission probabilities are not considered. */
 double
 path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
-                    const vector<Path> &m, const vector<Path> &r) {
+                    const vector<Path> &m, const vector<Path> &r,
+                    const double(&log_rates)[8]) {
   vector<double> D(n_triples, 0.0), J(n_triples, 0.0);
 
   /* calculate likelihood involving root states */
@@ -373,7 +370,7 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
 
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
-  llh += log_likelihood(mod.triplet_rates, J, D);
+  llh += log_likelihood(mod.triplet_rates, J, D, log_rates);
 
   return llh;
 }
@@ -382,7 +379,8 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
 static double
 path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
                     const vector<Path> &m, const vector<Path> &r,
-                    vector<double> &J, vector<double> &D) {
+                    vector<double> &J, vector<double> &D,
+                    const double(&log_rates)[8]) {
   fill_n(begin(D), n_triples, 0.0);
   fill_n(begin(J), n_triples, 0.0);
 
@@ -392,7 +390,7 @@ path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
 
   for (size_t i = 1; i < m.size(); ++i)
     add_sufficient_statistics(l[i], m[i], r[i], J, D);
-  llh += log_likelihood(mod.triplet_rates, J, D);
+  llh += log_likelihood(mod.triplet_rates, J, D, log_rates);
 
   return llh;
 }
@@ -407,7 +405,9 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 vector<double> &J, vector<double> &D,
                 const vector<FelsHelper> &fh,
                 const vector<vector<SegmentInfo> > &seg_info,
-                const vector<Path> &proposed_path) {
+                const vector<Path> &proposed_path,
+                const double update_proposal, const bool sample_root,
+                const double(&log_rates)[8]) {
 
   assert(site_id > 0 && site_id < paths.size());
 
@@ -417,12 +417,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   const double orig_proposal = proposal_prob(mod.triplet_rates, th,
                                              rt_left_st, rt_right_st,
                                              mod.T, fh, seg_info,
-                                             paths[site_id]);
-
-  const double update_proposal = proposal_prob(mod.triplet_rates, th,
-                                               rt_left_st, rt_right_st,
-                                               mod.T, fh, seg_info,
-                                               proposed_path);
+                                             paths[site_id], sample_root);
 
   double llr = orig_proposal - update_proposal;
 
@@ -432,16 +427,50 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 
   if (site_id > 1)
     llh_l = path_log_likelihood(mod, paths[site_id-2], paths[site_id-1],
-                                proposed_path, J, D);
+                                proposed_path, J, D, log_rates);
   llh_m = path_log_likelihood(mod, paths[site_id-1], proposed_path,
-                              paths[site_id+1], J, D);
+                              paths[site_id+1], J, D, log_rates);
   if (site_id < paths.size() - 2)
     llh_r = path_log_likelihood(mod, proposed_path, paths[site_id+1],
-                                paths[site_id+2], J, D);
+                                paths[site_id+2], J, D, log_rates);
 
   llr += (llh_l + llh_m + llh_r - llh_l_orig - llh_m_orig - llh_r_orig);
 
   return llr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+///////////////               MCMC setup               /////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+SingleSiteSampler::SingleSiteSampler(const size_t n_burn_in,
+                                     const size_t n_batch) {
+  SAMPLE_ROOT = false;
+  burn_in = n_burn_in;
+  batch = n_batch;
+}
+
+void
+SingleSiteSampler::reset(const EpiEvoModel &the_model,
+                         vector<vector<Path> > &paths) {
+  const size_t n_sites = paths.size();
+  const size_t n_nodes = paths.front().size();
+  
+  J.resize(n_triples, 0.0);
+  D.resize(n_triples, 0.0);
+  proposed_path.resize(n_nodes);
+  tri_llh.resize(n_sites, 0.0);
+
+  // pre-compute log(rates)
+  std::transform(std::begin(the_model.triplet_rates),
+                 std::end(the_model.triplet_rates),
+                 std::begin(log_rates),
+                 static_cast<double(*)(double)>(log));
+
+  for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
+    tri_llh[site_id] = path_log_likelihood(the_model, paths[site_id-1],
+                                           paths[site_id], paths[site_id+1],
+                                           log_rates);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -454,8 +483,6 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
                                             const TreeHelper &th,
                                             const size_t site_id,
                                             vector<vector<Path> > &paths,
-                                            double &llh_l, double &llh_m,
-                                            double &llh_r,
                                             std::mt19937 &gen) {
 
   // get rates and lengths each interval [seg_info: node x segs]
@@ -470,27 +497,24 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
   vector<FelsHelper> fh;
   pruning(th, site_id, paths, seg_info, fh);
 
-  if (SAMPLE_ROOT)
-    downward_sampling(the_model, th,
-                      paths[site_id-1][1].init_state,
-                      paths[site_id+1][1].init_state,
-                      seg_info, fh, gen, proposed_path);
-  else {
-    // paths[site_id][0].init_state may not be defined
-    proposed_path.front().init_state = paths[site_id][1].init_state;
-    downward_sampling(the_model, th, seg_info, fh, gen, proposed_path);
-  }
-
+  double proposal_log_prob = 0.0;
+  downward_sampling(the_model, th,
+                    paths[site_id-1][1].init_state,
+                    paths[site_id][1].init_state,
+                    paths[site_id+1][1].init_state,
+                    seg_info, fh, gen, SAMPLE_ROOT,
+                    proposed_path, proposal_log_prob);
 
   // acceptance rate
-  double llh_l_prop = llh_l;
-  double llh_m_prop = llh_m;
-  double llh_r_prop = llh_r;
+  double llh_l_prop = tri_llh[site_id - 1];
+  double llh_m_prop = tri_llh[site_id];
+  double llh_r_prop = tri_llh[site_id + 1];
 
   const double log_acc_rate =
     log_accept_rate(the_model, th, site_id, paths,
                     llh_l_prop, llh_m_prop, llh_r_prop, J, D,
-                    fh, seg_info, proposed_path);
+                    fh, seg_info, proposed_path, proposal_log_prob,
+                    SAMPLE_ROOT, log_rates);
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   const double u = unif(gen);
@@ -502,10 +526,74 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
   // if accepted, replace old path with proposed one.
   if (accepted) {
     std::swap(paths[site_id], proposed_path);
-    llh_l = llh_l_prop;
-    llh_m = llh_m_prop;
-    llh_r = llh_r_prop;
+    tri_llh[site_id - 1] = llh_l_prop;
+    tri_llh[site_id] = llh_m_prop;
+    tri_llh[site_id + 1] = llh_r_prop;
   }
 
   return accepted;
+}
+
+size_t
+SingleSiteSampler::single_iteration(const EpiEvoModel &the_model,
+                                    const TreeHelper &th,
+                                    vector<vector<Path> > &paths,
+                                    std::mt19937 &gen) {
+
+  size_t n_accepted = 0;
+
+  for (size_t site_id = 1; site_id < paths.size() - 1; ++site_id)
+    n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths, gen);
+  return n_accepted = 0;
+}
+
+void
+SingleSiteSampler::run_mcmc(const EpiEvoModel &the_model,
+                            const TreeHelper &th,
+                            vector<std::vector<Path> > &paths,
+                            std::mt19937 &gen,
+                            vector<vector<double> > &J_all_sites,
+                            vector<vector<double> > &D_all_sites,
+                            double &acc_rate) {
+  // Burning
+  for(size_t burnin_itr = 0; burnin_itr < burn_in; burnin_itr++)
+    single_iteration(the_model, th, paths, gen);
+
+  // Prepare for taking MCMC samples
+  J_all_sites.resize(th.n_nodes);
+  D_all_sites.resize(th.n_nodes);
+  for(size_t b = 1; b < th.n_nodes; ++b) {
+    J_all_sites[b].clear();
+    J_all_sites[b].resize(n_triples, 0.0);
+    D_all_sites[b].clear();
+    D_all_sites[b].resize(n_triples, 0.0);
+  }
+
+  size_t n_accepted = 0;
+  vector<vector<double> > J_one_site, D_one_site;
+
+  for (size_t mcmc_itr = 0; mcmc_itr < batch; mcmc_itr++) {
+    n_accepted += single_iteration(the_model, th, paths, gen);
+
+    /* CALCULATE SUFFICIENT STATS */
+    get_sufficient_statistics(paths, J_one_site, D_one_site);
+    for (size_t b = 1; b < th.n_nodes; b++) {
+      for (size_t i = 0; i < n_triples; i++) {
+        J_all_sites[b][i] += J_one_site[b][i];
+        D_all_sites[b][i] += D_one_site[b][i];
+      }
+    }
+  }
+  
+
+  /* CALCULATE BATCH AVERAGE */
+  for (size_t b = 1; b < th.n_nodes; ++b) {
+    for (size_t i = 0; i < n_triples; i++) {
+      J_all_sites[b][i] /= batch;
+      D_all_sites[b][i] /= batch;
+    }
+  }
+
+  /* CALCULATE ACCEPTANCE RATE */
+  acc_rate = static_cast<double>(n_accepted)/(batch*(paths.size() - 2));
 }

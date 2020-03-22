@@ -200,7 +200,7 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
   the_model.Q.reset();
 
   // set r_0_ = r0, r_1_ = r1
-  vector<double> triplet_rates(the_model.n_triplets);
+  double triplet_rates[8];
   for (size_t i = 0; i < the_model.n_triplets; i++)
     triplet_rates[i] = rates[(i/2) % 2];
 
@@ -239,8 +239,6 @@ write_mcmc_verbose_header(std::ostream &out) {
                                   "itr",
                                   "rate0",
                                   "rate1",
-                                  "init0",
-                                  "init1",
                                   "tree",
   };
   copy(begin(header_tokens), end(header_tokens),
@@ -355,14 +353,12 @@ int main(int argc, const char **argv) {
 
     /* Run EM to learn a site-independent model */
     vector<double> rates(2, 0.0);
-    vector<double> init_pi(2, 0.0);
     vector<vector<double> > J, D;
     compute_sufficient_statistics(paths, J, D);
 
     if (VERBOSE) {
       write_mcmc_verbose_header(cerr);
-      cerr << "0" << "\t" << rates[0] << "\t" << rates[1] << "\t"
-           << init_pi[0] << "\t" << init_pi[1] << endl;
+      cerr << "0" << "\t" << rates[0] << "\t" << rates[1] << endl;
     }
 
     for (size_t itr = 0; itr < iterations; itr++) {
@@ -373,17 +369,15 @@ int main(int argc, const char **argv) {
         the_tree.set_branch_lengths(th.branches);
       }
 
-      expectation_sufficient_statistics(rates, init_pi, th,
-                                        paths, J, D, init_pi);
+      expectation_sufficient_statistics(rates, th, paths, J, D);
       // Report
       if (VERBOSE)
-        cerr << itr+1 << "\t" << rates[0] << "\t" << rates[1] << "\t"
-             << init_pi[0] << "\t" << init_pi[1] << endl;
+        cerr << itr+1 << "\t" << rates[0] << "\t" << rates[1] << endl;
     }
 
     /* Re-sample a better initial path */
     vector<vector<Path> > sampled_paths(paths);
-    sample_paths(rates, init_pi, th, paths, gen, sampled_paths);
+    sample_paths(rates, th, paths, gen, sampled_paths);
 
     /*******************************************************/
     /* Generate initial parameters of context-dependent model */
@@ -416,8 +410,9 @@ int main(int argc, const char **argv) {
 
     // write parameters
     if (VERBOSE)
-      cerr << "[WRITING PARAMETERS]\n"
-           << the_model << "\n" << the_tree << endl;
+      cerr << "[WRITING PARAMETERS]\n" << the_model << endl;
+    if (VERBOSE && !ONEBRANCH)
+      cerr << the_tree << endl;
 
     std::ofstream of_param;
     if (!paramfile.empty()) of_param.open(paramfile.c_str());

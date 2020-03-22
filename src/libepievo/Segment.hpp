@@ -38,7 +38,7 @@ struct SegmentInfo {
 };
 
 void
-collect_segment_info(const std::vector<double> &rates,
+collect_segment_info(const double(&rates)[8],
                      const Path &l, const Path &r,
                      std::vector<SegmentInfo> &seg_info);
 #endif

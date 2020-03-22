@@ -27,6 +27,7 @@
 #include <bitset>
 #include <random>
 #include <functional>
+#include <cmath> /* log */
 
 #include "OptionParser.hpp"
 #include "smithlab_utils.hpp"
@@ -103,7 +104,6 @@ int main(int argc, const char **argv) {
     size_t iteration = 10;           // MCMC-EM iterations
     size_t batch = 10;              // MCMC iterations
     size_t burnin = 10;           // burn-in MCMC iterations
-    double increment_k = 0.0;           // batch increment controller
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
@@ -115,8 +115,6 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("iteration", 'i', "number of MCMC-EM iteration",
                       false, iteration);
     opt_parse.add_opt("batch", 'B', "number of MCMC iteration", false, batch);
-    opt_parse.add_opt("increment", 'k', "batch increment controller",
-                      false, increment_k);
     opt_parse.add_opt("burnin", 'L', "MCMC burn-in length",
                       false, burnin);
     opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
@@ -157,7 +155,7 @@ int main(int argc, const char **argv) {
     const string input_file(leftover_args[2]);
 
     ///////////////////////////////////////////////////////////////////////////
-    /* (1) LOADING (FAKE) TREE */
+    /* LOADING (FAKE) TREE */
     if (VERBOSE)
       cerr << "[READING TREE: " << tree << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
@@ -175,15 +173,16 @@ int main(int argc, const char **argv) {
       th = TreeHelper(the_tree);
     }
 
-    /* (2) READING PARAMETERS FROM FILE */
+    /* READING PARAMETERS FROM FILE */
     if (VERBOSE)
       cerr << "[READING PARAMETERS: " << param_file << "]" << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
+    the_model.scale_triplet_rates();
     if (VERBOSE)
       cerr << the_model << endl;
 
-    /* (3) LOADING PATHS */
+    /* LOADING PATHS */
     if (VERBOSE)
       cerr << "[READING PATHS FILE: " << input_file << "]" << endl;
     vector<string> node_names;
@@ -203,7 +202,7 @@ int main(int argc, const char **argv) {
     }
     //////////
 
-    /* (4) INITIALIZING THE RANDOM NUMBER GENERATOR */
+    /* INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
       std::random_device rd;
       rng_seed = rd();
@@ -211,22 +210,6 @@ int main(int argc, const char **argv) {
     if (VERBOSE)
       cerr << "rng seed: " << rng_seed << endl;
     std::mt19937 gen(rng_seed);
-
-    /* (5) MCMC */
-
-    /* MCMC PARAMETERS AND DATA*/
-    vector<vector<double> > J;
-    vector<vector<double> > D;
-    two_by_two root_frequencies;
-    vector<double> tri_llh(n_sites, 0.0);
-
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    /////// START MCMC-EM
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-
-    SingleSiteSampler mcmc(th.n_nodes);
 
     if (VERBOSE) {
       write_mcmc_verbose_header(cerr);
@@ -236,65 +219,27 @@ int main(int argc, const char **argv) {
       << the_model.stationary_baseline(1, 1) << endl;
     }
 
-    size_t current_batch = batch;
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    /////// START MCMC-EM
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    
+    SingleSiteSampler mcmc(burnin, batch);
 
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {
 
-      // pre-compute triplet log-likelihood on each site
-      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-        tri_llh[site_id] = path_log_likelihood(the_model, paths[site_id-1],
-                                               paths[site_id], paths[site_id+1]);
+      mcmc.reset(the_model, paths);
 
-      // Burning
-      for(size_t burnin_itr = 0; burnin_itr < burnin; burnin_itr++) {
-        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
-          mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
-                                        tri_llh[site_id-1], tri_llh[site_id],
-                                        tri_llh[site_id+1], gen);
-        }
-      }
+      // MCMC batch statistics
+      double acceptance_rate;
+      vector<vector<double> > J_accum, D_accum;
 
-      // MCMC samples
-      current_batch += (itr + 1)*increment_k;
-      size_t n_accepted = 0;
-      vector<vector<double> > J_accum(th.n_nodes, vector<double>(8, 0.0));
-      vector<vector<double> > D_accum(th.n_nodes, vector<double>(8, 0.0));
+      // Run MCMC
+      mcmc.run_mcmc(the_model, th, paths, gen, J_accum, D_accum,
+                    acceptance_rate);
 
-      two_by_two root_accum;
-
-      for (size_t mcmc_itr = 0; mcmc_itr < current_batch; mcmc_itr++) {
-        for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-          n_accepted += mcmc.Metropolis_Hastings_site(the_model, th, site_id,
-                                                      paths,
-                                                      tri_llh[site_id-1],
-                                                      tri_llh[site_id],
-                                                      tri_llh[site_id+1],
-                                                      gen);
-        /* CALCULATE SUFFICIENT STATS */
-        get_sufficient_statistics(paths, J, D);
-        get_root_frequencies(paths, root_frequencies);
-        /* RECORD STATS (POST-BURN-IN) */
-        for (size_t b = 1; b < J.size(); b++) {
-          for (size_t i = 0; i < 8; i++) {
-            J_accum[b][i] += J[b][i];
-            D_accum[b][i] += D[b][i];
-          }
-        }
-        root_accum += root_frequencies;
-      }
-
-      //////////////////////////////////////////////////////////////////////////
-      ///////////               POST-MCMC PROCESSING                 ///////////
-      //////////////////////////////////////////////////////////////////////////
-      /* CALCULATE/OUTPUT BATCH AVERAGE */
-      for (size_t b = 1; b < J.size(); ++b) {
-        for (size_t i = 0; i < 8; i++) {
-          J_accum[b][i] /= current_batch;
-          D_accum[b][i] /= current_batch;
-        }
-      }
-      root_accum.divide_all(current_batch);
 
       /* PARAMETER ESTIMATION */
       double llh = 0.0;
@@ -312,8 +257,7 @@ int main(int argc, const char **argv) {
              << the_model.T(1, 1) << "\t"
              << the_model.stationary_baseline(0, 0) << "\t"
              << the_model.stationary_baseline(1, 1) << "\t"
-             << static_cast<double>(n_accepted)/(current_batch*(n_sites - 2))
-             << "\t" << llh << endl;
+             << acceptance_rate << "\t" << llh << endl;
 
       /* WRITE PARAMETER FILE */
       if (!param_file_updated.empty()) {

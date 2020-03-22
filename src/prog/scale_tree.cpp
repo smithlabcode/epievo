@@ -39,7 +39,8 @@ using std::cerr;
 using std::cout;
 using std::string;
 using std::runtime_error;
-
+using std::begin;
+using std::end;
 
 int main(int argc, const char **argv) {
 
@@ -102,8 +103,8 @@ int main(int argc, const char **argv) {
       const double rates_scale_factor =
         rate_scaling_factor(the_model.triplet_rates);
       // scale rates
-      transform(the_model.triplet_rates.begin(), the_model.triplet_rates.end(),
-                the_model.triplet_rates.begin(),
+      transform(begin(the_model.triplet_rates), end(the_model.triplet_rates),
+                begin(the_model.triplet_rates),
                 std::bind(std::divides<double>(), std::placeholders::_1,
                           rates_scale_factor));
       // scale tree

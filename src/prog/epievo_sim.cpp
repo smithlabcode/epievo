@@ -53,7 +53,8 @@ using std::ostream_iterator;
 using std::numeric_limits;
 using std::istringstream;
 using std::ifstream;
-
+using std::begin;
+using std::end;
 
 bool
 file_is_readable(const string &param_file) {

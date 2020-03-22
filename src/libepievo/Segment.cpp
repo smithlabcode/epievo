@@ -31,7 +31,7 @@ using std::vector;
 
 /* collect rates and interval lengths */
 void
-collect_segment_info(const vector<double> &rates,
+collect_segment_info(const double(&rates)[8],
                      const Path &l, const Path &r,
                      vector<SegmentInfo> &seg_info) {
   seg_info.clear();

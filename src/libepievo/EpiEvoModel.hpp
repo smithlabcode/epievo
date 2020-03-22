@@ -37,10 +37,11 @@ struct EpiEvoModel {
   two_by_two T;       // horizontal transition probs (stationary)
   two_by_two Q;       // pair-wise potential densities (stationary)
 
-  std::vector<double> triplet_rates; // rates for triples
+  double triplet_rates[n_triplets];
+  //std::vector<double> triplet_rates; // rates for triples
 
   // mutators
-  void rebuild_from_triplet_rates(const std::vector<double> &triplet_rates);
+  void rebuild_from_triplet_rates(const double(&updated_rates)[n_triplets]);
   void scale_triplet_rates();
   void initialize(); // assuming rates are always scaled to one change
                      // per site per unit time
@@ -71,14 +72,8 @@ read_model(const bool SCALE, const std::string &param_file, EpiEvoModel &m);
 void
 read_model(const std::string &param_file, EpiEvoModel &m);
 
-void
-scale_rates(const std::vector<double> &rates,
-            const std::vector<double> &branches,
-            std::vector<double> &scaled_rates,
-            std::vector<double> &scaled_branches);
-
 double
-rate_scaling_factor(const std::vector<double> &triplet_rates);
+rate_scaling_factor(const double(&triplet_rates)[8]);
 
 
 void
