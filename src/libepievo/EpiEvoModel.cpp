@@ -212,7 +212,7 @@ EpiEvoModel::tostring() const {
       << "[TRIPLE RATES]\n";
   oss << bitset<3>(0) << '\t' << triplet_rates[0];
 
-  for (auto i = 1; i < n_triplets; ++i)
+  for (size_t i = 1; i < n_triplets; ++i)
     oss << '\n' << bitset<3>(i) << '\t' << triplet_rates[i];
 
   const double mu = rate_scaling_factor(triplet_rates);

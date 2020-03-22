@@ -411,7 +411,7 @@ int main(int argc, const char **argv) {
     // write parameters
     if (VERBOSE)
       cerr << "[WRITING PARAMETERS]\n" << the_model << endl;
-    if (VERBOSE && !ONEBRANCH)
+    if (VERBOSE && evolutionary_time == 0.0)
       cerr << the_tree << endl;
 
     std::ofstream of_param;
