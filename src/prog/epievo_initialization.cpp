@@ -47,6 +47,7 @@ using std::runtime_error;
 using std::to_string;
 using std::numeric_limits;
 using std::ostream_iterator;
+using std::ifstream;
 
 
 template <class T>
@@ -54,7 +55,7 @@ size_t
 read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
                  const TreeHelper &th) {
 
-  std::ifstream in(statesfile.c_str());
+  std::ifstream in(statesfile);
   if (!in)
     throw std::runtime_error("bad states file: " + statesfile);
 
@@ -136,10 +137,11 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
 ////////////////////////////////////////////////////////////////////////////////
 
 /* generate initial paths by heuristics */
-template <class T>
+template <typename RandEngine,
+          typename StateType>
 static void
-initialize_paths(std::mt19937 &gen, const TreeHelper &th,
-                 vector<vector<T> > &state_sequences,
+initialize_paths(RandEngine &gen, const TreeHelper &th,
+                 vector<vector<StateType> > &state_sequences,
                  vector<vector<Path> > &paths) {
 
   const size_t n_sites = state_sequences.front().size();
@@ -153,7 +155,7 @@ initialize_paths(std::mt19937 &gen, const TreeHelper &th,
   auto unif =
     bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
 
-  vector<T> child_states = {0, 0}; // two child states
+  vector<StateType> child_states = {0, 0}; // two child states
 
   for (size_t i = th.n_nodes; i > 0; --i) {
 
@@ -255,7 +257,7 @@ int main(int argc, const char **argv) {
 
     bool VERBOSE = false;
     bool OPTBRANCH = false;
-    bool ONEBRANCH = false;
+    double evolutionary_time = 0.0;
 
     size_t rng_seed = numeric_limits<size_t>::max();
     size_t iterations = 10;
@@ -263,30 +265,29 @@ int main(int argc, const char **argv) {
     string paramfile;
     string pathfile;
     string treefile_updated;
+    string tree_file;
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
                            "generate initial paths and parameters"
                            " given states at leaves",
-                           " <tree> <states>");
+                           "<tree-file> <states-file>");
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("iterations", 'i', "number of iterations",
                       false, iterations);
-    opt_parse.add_opt("param", 'p',
-                      "output file of parameters (default: stdout)",
+    opt_parse.add_opt("param", 'p', "output file of parameters",
                       false, paramfile);
-    opt_parse.add_opt("outtree", 't',
-                      "output file of tree (default: stdout)",
+    opt_parse.add_opt("outtree", 't', "output file of tree",
                       false, treefile_updated);
-    opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
-                      ONEBRANCH);
+    opt_parse.add_opt("evo-time", '\0', "evolutionary time (assumes no tree)",
+                      false, evolutionary_time);
     opt_parse.add_opt("path", 'o', "output file of local paths (default: stdout)",
                       false, pathfile);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, OPTBRANCH);
-
+    opt_parse.set_show_defaults();
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
     if (argc == 1 || opt_parse.help_requested()) {
@@ -302,28 +303,34 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() != 2) {
+    if (leftover_args.size() == 1) {
+      if (evolutionary_time == 0.0) {
+        cerr << opt_parse.help_message() << endl;
+        return EXIT_SUCCESS;
+      }
+      tree_file = leftover_args.front();
+    }
+    else if (leftover_args.size() != 2) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string tree(leftover_args[0]);
-    const string statesfile(leftover_args[1]);
+    const string statesfile(leftover_args.back());
     ////////////////////////////////////////////////////////////////////////
 
-    if (VERBOSE)
-      cerr << "[READING TREE: " << tree << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
     TreeHelper th;
-    if (ONEBRANCH) {
+    if (evolutionary_time > 0.0) {
       if (VERBOSE)
-        cerr << "initializing two node tree with time: " << tree << endl;
-      th = TreeHelper(std::stod(tree));
+        cerr << "[INITIALIZING TWO NODE TREE WITH TIME: "
+             << evolutionary_time << "]" << endl;
+      th = TreeHelper(evolutionary_time);
     }
     else {
-      cerr << "reading tree file: " << tree << endl;
-      std::ifstream tree_in(tree.c_str());
+      if (VERBOSE)
+        cerr << "[READING TREE: " << tree_file << "]" << endl;
+      ifstream tree_in(tree_file);
       if (!tree_in || !(tree_in >> the_tree))
-        throw std::runtime_error("bad tree file: " + tree);
+        throw runtime_error("bad tree file: " + tree_file);
       th = TreeHelper(the_tree);
     }
 

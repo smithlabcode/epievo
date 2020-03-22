@@ -60,8 +60,9 @@ using std::bind;
 using std::ofstream;
 
 /* generate initial paths */
+template <typename RandEngine>
 static void
-initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
+initialize_paths_indep(RandEngine &gen, const vector<bool> &root_seq,
                        const vector<bool> &leaf_seq,
                        vector<vector<Path> > &paths,
                        const EpiEvoModel &the_model, const double tot_time) {
@@ -72,7 +73,8 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
     paths[site_id].resize(2);
   }
 
-  std::uniform_real_distribution<double> unif(0.0, tot_time);
+  std::uniform_real_distribution<double> dist(0.0, tot_time);
+  auto unif = std::bind(dist, std::ref(gen));
 
   paths[0][0].init_state = root_seq[0];
   paths[0][1].init_state = root_seq[0];
@@ -83,9 +85,9 @@ initialize_paths_indep(std::mt19937 &gen, const vector<bool> &root_seq,
   paths[n_sites-1][1].tot_time = tot_time;
 
   if (paths[0][1].end_state() != leaf_seq[0])
-    paths[0][1].jumps.push_back(unif(gen));
+    paths[0][1].jumps.push_back(unif());
   if (paths[n_sites-1][1].end_state() != leaf_seq[n_sites-1])
-    paths[n_sites-1][1].jumps.push_back(unif(gen));
+    paths[n_sites-1][1].jumps.push_back(unif());
 
   for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
     const size_t l = site_id - 1;
@@ -214,7 +216,7 @@ int main(int argc, const char **argv) {
       // reading into node_names again here
       vector<vector<Path> > orig_paths; // [nodes] x [sites]
       read_paths(pathfile, node_names, orig_paths);
-      
+
       ////////// transposing
       paths.resize(orig_paths[1].size());
       for (size_t i = 0; i < orig_paths[1].size(); ++i) {
@@ -251,8 +253,7 @@ int main(int argc, const char **argv) {
       for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
         mcmc.Metropolis_Hastings_site(the_model, th, site_id, paths,
                                       tri_llh[site_id-1], tri_llh[site_id],
-                                      tri_llh[site_id+1],
-                                      gen);
+                                      tri_llh[site_id+1], gen);
       }
     }
     write_root_to_pathfile_local(outfile, th.node_names.front());
