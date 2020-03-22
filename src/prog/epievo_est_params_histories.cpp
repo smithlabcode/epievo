@@ -178,6 +178,7 @@ int main(int argc, const char **argv) {
       cerr << "[READING PARAMETERS: " << param_file << "]" << endl;
     EpiEvoModel the_model;
     read_model(param_file, the_model);
+    the_model.scale_triplet_rates();
     if (VERBOSE)
       cerr << the_model << endl;
 
