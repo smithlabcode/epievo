@@ -26,12 +26,12 @@ simulate epigenomic states of each sepecies
 and internal jumps, based on a context-dependent continuous-time
 Markov model. It will create two outputs:
 [epigenomic states](#epigenomic-states) at each genomic position and each
-node (file name could be provided after argument `-o`),
+node,
 and [mutation events](#global-jumps) ordered by node label, genomic
 position and evolutionary time (file name could be provided after argument `-p`).
 
 ```
-epievo_sim [options] <parameter file>
+epievo_sim [options] <parameter file> <outfile>
 ```
 Users can use `epievo_sim` to simulate multiple species (using argument `-t` to
 provide a [phylogenetic tree](#tree-format)), or one single branch by using
