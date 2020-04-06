@@ -17,7 +17,6 @@ cd epievo
 make install
 ```
 
-
 Usage
 ========================
 ### Simulating epigenome evolution
@@ -72,12 +71,26 @@ epievo_initialization [options] <tree file> <states file>
 Program `epievo_est_params_histories` runs a MCEM algorithm to estimate model
 parameters and sample evolution histories iteratively, which requires
 initial parameters, [evolution paths](#local-paths) to be provided.
-Users need to pass `-b` flag to estimate branch lengths as well.
+By default, only model parameters will be estimated and printed to output
+file (specified by `-p`).
+To estimate branch lengths simultanesously, 
+users need to pass the `-b` flag.
+If only one branch is included in the data, users should pass the `-T` flag.
+Other training parameters include MCEM total iterations (`-i`),
+MCMC sample size (`-B`) and MCMC burn-in length (`-L`).
 ```
-epievo_est_params_histories [options] <parameter file> <tree file> <local paths>
+epievo_est_params_histories [options] <parameter file> <tree file/time> <local paths>
 ```
 
-#### Running the tests
+### Inferring histories between two given state-sequences
+Program `epievo_sim_pairwise` runs a MCMC algorithm to infer epigenoic evolution
+between two given state-sequences. 
+```
+epievo_sim_pairwise [OPTIONS] <parameter file> <states file>
+```
+
+Running the tests
+========================
 
 The command below will generate the complete evolution information from
 a phylogenetic tree in `tree.nwk`, and model parameters in `test.param`.
@@ -176,14 +189,6 @@ NODE:NODE3
 ...
 ```
 Again, the root node block has no mutation information.
-
-
-Roadmap
-========================
-
-- [ ] Allow `epievo_initialization` to accept non-leaf states as observed data.
-- [ ] Allow `epievo_est_params_histories` to fix part of the data or model parameters.
-- [ ] Add MCMC convergence diagnostics.
 
 
 Contacts
