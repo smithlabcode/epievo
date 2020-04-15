@@ -6,14 +6,18 @@ on a Monte Carlo Expectation-Maximization algorithm.
 
 Building and Installing 
 =======================
-
-First, download `epievo` in recursive mode,
+`epievo` requires a C++ compiler that supports the C++11 standard.
+First, clone `smithlab_cpp` source code repo in the directory you want,
+and set the environment variable:
 ```
-git clone --recursive https://github.com/smithlabcode/epievo.git
+git clone git@github.com:smithlabcode/smithlab_cpp.git
+export SMITHLAB_CPP=$PWD/smithlab_cpp
 ```
-then install `epievo` by running
+Then, download `epievo` source code and compile:
 ```
+git clone https://github.com/smithlabcode/epievo.git
 cd epievo
+make
 make install
 ```
 
