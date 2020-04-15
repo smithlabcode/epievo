@@ -77,7 +77,7 @@ int main(int argc, const char **argv) {
     double evolutionary_time = std::numeric_limits<double>::max();
 
     OptionParser opt_parse(strip_path(argv[0]), "convert path file format",
-                           "<statefile> <pathfile> <outfile>");
+                           "<statefile> <jumpfile> <outfile>");
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, treefile);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", false,
                       evolutionary_time);
