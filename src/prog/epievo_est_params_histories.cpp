@@ -95,11 +95,11 @@ int main(int argc, const char **argv) {
 
     bool VERBOSE = false;
     bool optimize_branches = false;
-    bool ONEBRANCH = false;
+    double evolutionary_time = 0.0;
 
     string outfile;
     string param_file_updated;
-    string treefile_updated;
+    string tree_file, treefile_updated;
 
     size_t iteration = 10;           // MCMC-EM iterations
     size_t batch = 10;              // MCMC iterations
@@ -111,14 +111,12 @@ int main(int argc, const char **argv) {
     ///////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
                            "estimate parameters and evolutionary histories",
-                           "<param> <treefile> <path_file>");
+                           "<param> (<treefile>) <path_file>");
     opt_parse.add_opt("iteration", 'i', "number of MCMC-EM iteration",
                       false, iteration);
     opt_parse.add_opt("batch", 'B', "number of MCMC iteration", false, batch);
     opt_parse.add_opt("burnin", 'L', "MCMC burn-in length",
                       false, burnin);
-    opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
-                      ONEBRANCH);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
     opt_parse.add_opt("outfile", 'o', "output file of local paths",
                       true, outfile);
@@ -126,6 +124,8 @@ int main(int argc, const char **argv) {
                       false, param_file_updated);
     opt_parse.add_opt("outtree", 't', "output file of tree",
                       false, treefile_updated);
+    opt_parse.add_opt("evo-time", '\0', "evolutionary time (assumes no tree)",
+                      false, evolutionary_time);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths",
                       false, optimize_branches);
     opt_parse.add_opt("verbose", 'v', "print more run info",
@@ -146,30 +146,38 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() < 3) {
-      cerr << opt_parse.option_missing_message() << endl;
+    if (leftover_args.size() == 2) {
+      if (evolutionary_time == 0.0) {
+        cerr << opt_parse.help_message() << endl;
+        return EXIT_SUCCESS;
+      }
+    }
+    else if (leftover_args.size() != 3) {
+      cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string param_file(leftover_args[0]);
-    const string tree(leftover_args[1]);
-    const string input_file(leftover_args[2]);
+    else {
+      tree_file = leftover_args[1];
+    }
+    const string param_file(leftover_args.front());
+    const string input_file(leftover_args.back());
 
     ///////////////////////////////////////////////////////////////////////////
     /* LOADING (FAKE) TREE */
-    if (VERBOSE)
-      cerr << "[READING TREE: " << tree << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
     TreeHelper th;
-    if (ONEBRANCH) {
+    if (evolutionary_time > 0.0) {
       if (VERBOSE)
-        cerr << "initializing two node tree with time: " << tree << endl;
-      th = TreeHelper(std::stod(tree));
+        cerr << "[INITIALIZING TWO NODE TREE WITH TIME: "
+        << evolutionary_time << "]" << endl;
+      th = TreeHelper(evolutionary_time);
     }
     else {
-      cerr << "reading tree file: " << tree << endl;
-      std::ifstream tree_in(tree);
+      if (VERBOSE)
+        cerr << "[READING TREE: " << tree_file << "]" << endl;
+      std::ifstream tree_in(tree_file);
       if (!tree_in || !(tree_in >> the_tree))
-        throw std::runtime_error("bad tree file: " + tree);
+        throw runtime_error("bad tree file: " + tree_file);
       th = TreeHelper(the_tree);
     }
 

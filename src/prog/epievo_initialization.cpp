@@ -91,8 +91,8 @@ read_states_file(const string &statesfile, vector<vector<T> > &state_sequences,
                                             node_name);
     if (it != node_names_in.end())
       idx_in_tree[std::distance(node_names_in.begin(), it)] = node_id;
-    else
-      throw std::runtime_error("no data in node: " + node_name);
+    else if (th.is_leaf(node_id))
+      throw std::runtime_error("no data in leaf node: " + node_name);
   }
 
   // read states
@@ -262,14 +262,12 @@ int main(int argc, const char **argv) {
 
     string paramfile;
     string pathfile;
-    string treefile_updated;
-    string tree_file;
-
+    string tree_file, treefile_updated;
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]),
                            "generate initial paths and parameters"
                            " given states at leaves",
-                           "<tree-file> <states-file>");
+                           "(<tree-file>) <states-file>");
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
@@ -306,11 +304,13 @@ int main(int argc, const char **argv) {
         cerr << opt_parse.help_message() << endl;
         return EXIT_SUCCESS;
       }
-      tree_file = leftover_args.front();
     }
     else if (leftover_args.size() != 2) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
+    }
+    else {
+      tree_file = leftover_args.front();
     }
     const string statesfile(leftover_args.back());
     ////////////////////////////////////////////////////////////////////////
