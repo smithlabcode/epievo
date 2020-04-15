@@ -124,7 +124,7 @@ int main(int argc, const char **argv) {
                       false, param_file_updated);
     opt_parse.add_opt("outtree", 't', "output file of tree",
                       false, treefile_updated);
-    opt_parse.add_opt("evo-time", '\0', "evolutionary time (assumes no tree)",
+    opt_parse.add_opt("evo-time", 'T', "evolutionary time (assumes no tree)",
                       false, evolutionary_time);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths",
                       false, optimize_branches);

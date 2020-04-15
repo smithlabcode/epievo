@@ -55,21 +55,21 @@ int main(int argc, const char **argv) {
 
     bool VERBOSE = false;
     bool optimize_branches = false;
-    bool ONEBRANCH = false;
+    double evolutionary_time = 0.0;
 
     string outfile;
-    string treefile_updated;
+    string tree_file, treefile_updated;
 
     ////////////////////////////////////////////////////////////////////////
     OptionParser opt_parse(strip_path(argv[0]), "estimate parameters from"
                            " complete data (site-specific paths)",
-                           "<param> <treefile> <path_file>");
+                           "<param> (<treefile>) <path_file>");
     opt_parse.add_opt("verbose", 'v', "print more run info",
                       false, VERBOSE);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, optimize_branches);
     opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
-                      ONEBRANCH);
+                      evolutionary_time);
     opt_parse.add_opt("output", 'o', "output parameter file",
                       true, outfile);
     opt_parse.add_opt("outtree", 't', "output file of tree",
@@ -93,9 +93,21 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.help_message() << endl;
       return EXIT_SUCCESS;
     }
-    const string param_file(leftover_args[0]);
-    const string tree_file(leftover_args[1]);
-    const string path_file(leftover_args[2]);
+    if (leftover_args.size() == 2) {
+      if (evolutionary_time == 0.0) {
+        cerr << opt_parse.help_message() << endl;
+        return EXIT_SUCCESS;
+      }
+    }
+    else if (leftover_args.size() != 3) {
+      cerr << opt_parse.help_message() << endl;
+      return EXIT_SUCCESS;
+    }
+    else {
+      tree_file = leftover_args[1];
+    }
+    const string param_file(leftover_args.front());
+    const string path_file(leftover_args.back());
     ////////////////////////////////////////////////////////////////////////
 
     if (VERBOSE)
@@ -116,17 +128,18 @@ int main(int argc, const char **argv) {
     }
 
     /* LOADING (FAKE) TREE */
-    if (VERBOSE)
-      cerr << "[READING TREE: " << tree_file << "]" << endl;
     PhyloTreePreorder the_tree; // tree topology and branch lengths
     TreeHelper th;
-    if (ONEBRANCH) {
+    if (evolutionary_time > 0.0) {
       if (VERBOSE)
-        cerr << "initializing two node tree with time: " << tree_file << endl;
-      th = TreeHelper(std::stod(tree_file));
-    } else {
-      cerr << "reading tree file: " << tree_file << endl;
-      std::ifstream tree_in(tree_file.c_str());
+        cerr << "[INITIALIZING TWO NODE TREE WITH TIME: "
+        << evolutionary_time << "]" << endl;
+      th = TreeHelper(evolutionary_time);
+    }
+    else {
+      if (VERBOSE)
+        cerr << "[READING TREE: " << tree_file << "]" << endl;
+      std::ifstream tree_in(tree_file);
       if (!tree_in || !(tree_in >> the_tree))
         throw runtime_error("bad tree file: " + tree_file);
       th = TreeHelper(the_tree);
