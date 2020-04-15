@@ -103,8 +103,18 @@ epievo_sim_pairwise [OPTIONS] <parameter file> <states file>
 If only one branch is included in the data, users should pass the `-T` flag.
 MCMC burn-in length can be specified after argument `-L`.
 
+### Obtaining the average history from many paths
+Given a directory of multiple [local paths](#local-paths) (with `.local_paths` suffix),
+the average historical states can be calculated in equally spaced time windows using
+program `average_paths`:
+```
+average_paths [OPTIONS] <input directory>
+```
+Number of time windows can be specified after the argument `-n`. The output file includes
+the averaged epigenomic states that are organzed in a matrix (`time windows X sites`).
 
-Running the tests
+
+Running the simulation and inference tests
 ========================
 
 The command below will generate the complete evolution information from
@@ -152,10 +162,8 @@ Our model parameters are organized in below format:
 ```
 stationary  0.85    0.9
 baseline        -0.5    -1.5
-init    0.85        0.89
 ```
-The stationary line includes stationary distribution of horizontal Markov transition probabilities T00 and T11. Baseline parameters control the symmetric-context mutation rates r0_0 and r1_1. The third line is similar to the first line, which
-refers to horizontal transitions in root epigenome.
+The stationary line includes stationary distribution of horizontal Markov transition probabilities T00 and T11. Baseline parameters control the symmetric-context mutation rates r0_0 and r1_1.
 
 ### Tree format
 `EpiEvo` supports [Newick](http://evolution.genetics.washington.edu/phylip/newicktree.html)
