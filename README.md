@@ -81,7 +81,7 @@ epievo_initialization [options] <tree file> <states file>
 
 Program `epievo_est_params_histories` runs a MCEM algorithm to estimate model
 parameters and sample evolution histories iteratively, which requires
-initial parameters, [evolution paths](#local-paths) to be provided.
+initial parameters, [local paths](#local-paths) to be provided.
 By default, only model parameters will be estimated and printed to output
 file (specified by `-p`).
 To estimate branch lengths simultanesously, 
@@ -95,10 +95,14 @@ epievo_est_params_histories [options] <parameter file> <tree file/time> <local p
 
 ### Inferring histories between two given state-sequences
 Program `epievo_sim_pairwise` runs a MCMC algorithm to infer epigenomic evolution
-between two given state-sequences. The output will be a 
+between two given state-sequences. The output will be [local paths](#local-paths)
+between ending sequences.
 ```
 epievo_sim_pairwise [OPTIONS] <parameter file> <states file>
 ```
+If only one branch is included in the data, users should pass the `-T` flag.
+MCMC burn-in length can be specified after argument `-L`.
+
 
 Running the tests
 ========================
