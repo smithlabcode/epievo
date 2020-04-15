@@ -26,7 +26,7 @@ and internal jumps, based on a context-dependent continuous-time
 Markov model. It will create two outputs:
 [epigenomic states](#epigenomic-states) at each genomic position and each
 node,
-and [mutation events](#global-jumps) ordered by node label, genomic
+and [global jumps](#global-jumps) ordered by node label, genomic
 position and evolutionary time (file name could be provided after argument `-p`).
 
 ```
@@ -39,6 +39,17 @@ Epigenomic states of root species can be fixed by providing a states file
 after `-r`. By default, `epievo_sim` will normalize input parameters following
 "one-mutation-per-unit-time-per-site" rule. To use un-normalized
 parameters, users can use flat `-S`.
+
+### Converting global jumps to local paths
+The [global jumps](#global-jumps) data structure allows fast forward simulation,
+and ([local paths](#local-paths) data structure is more efficient and used in
+backward history inference.
+Global-jump files can be converted to local paths through program `global_jumps_to_paths`:
+```
+global_jumps_to_paths [options] <statefile> <jumpfile> <outfile>
+```
+Users can pass [Phylogenetic tree](#tree-format) in newick format after argument `-t`,
+or set the total evolution time of a single branch after argument `-T`.
 
 
 ### Estimating model parameters from complete history
@@ -83,8 +94,8 @@ epievo_est_params_histories [options] <parameter file> <tree file/time> <local p
 ```
 
 ### Inferring histories between two given state-sequences
-Program `epievo_sim_pairwise` runs a MCMC algorithm to infer epigenoic evolution
-between two given state-sequences. 
+Program `epievo_sim_pairwise` runs a MCMC algorithm to infer epigenomic evolution
+between two given state-sequences. The output will be a 
 ```
 epievo_sim_pairwise [OPTIONS] <parameter file> <states file>
 ```
