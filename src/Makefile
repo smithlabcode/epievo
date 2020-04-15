@@ -15,20 +15,22 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 
-subdirs=prog harnesses libepievo
+all_subdirs=prog harnesses libepievo
+lib_subdirs=libepievo
+app_subdirs=prog harnesses
 
 all:
-	@for i in $(subdirs); do \
+	@for i in $(app_subdirs); do \
 	make -C $${i}; \
 	done;
 
 install:
-	@for i in $(subdirs); do \
+	@for i in $(app_subdirs); do \
 	make -C $${i} install; \
 	done;
 
 clean:
-	@for i in $(subdirs); do \
+	@for i in $(all_subdirs); do \
 	make -C $${i} clean; \
 	done;
 .PHONY: clean
