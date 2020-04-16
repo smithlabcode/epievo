@@ -64,8 +64,10 @@ The maximum-likelihood estimates are obtained based on gradient-ascent approach.
 Initial values of model parameters are required.
 By default, `epievo_est_complete` will not update tree branches. To
 learn model parameters and branches together, flag `-b` needs to be specified.
+If only one branch is considered, the evolutionary time should be specified after the
+argument `-T`.
 ```
-epievo_est_complete [options] <parameter file> <tree file> <local paths>
+epievo_est_complete [options] <parameter file> (<tree file>) <local paths>
 ```
 
 ### Estimating model parameters and histories from leaf data
@@ -78,9 +80,10 @@ the leaf data and a starting tree (e.g. setting all branches to ones).
 `epievo_initialization` is used to generate initial evolution histories
 and model parameters through heuristics and site-independent-model-based
 methods.
-```
-epievo_initialization [options] <tree file> <states file>
-
+If only one branch is included in the data, users should pass
+the evolutionary time after `-T` flag.
+``` 
+epievo_initialization [options] (<tree file>) <states file>
 ```
 
 Program `epievo_est_params_histories` runs a MCEM algorithm to estimate model
@@ -90,11 +93,12 @@ By default, only model parameters will be estimated and printed to output
 file (specified by `-p`).
 To estimate branch lengths simultanesously, 
 users need to pass the `-b` flag.
-If only one branch is included in the data, users should pass the `-T` flag.
+If only one branch is included in the data, users should pass
+the evolutionary time after `-T` flag.
 Other training parameters include MCEM total iterations (`-i`),
 MCMC sample size (`-B`) and MCMC burn-in length (`-L`).
 ```
-epievo_est_params_histories [options] <parameter file> <tree file/time> <local paths>
+epievo_est_params_histories [options] <parameter file> (<tree file>) <local paths>
 ```
 
 ### Inferring histories between two given state-sequences
@@ -114,8 +118,10 @@ program `average_paths`:
 ```
 average_paths [OPTIONS] <input directory>
 ```
-Number of time windows can be specified after the argument `-n`. The output file includes
-the averaged epigenomic states that are organzed in a matrix (`time windows X sites`).
+Number of time windows can be specified after the argument `-n`.
+In the output file,
+average epigenomic states along each branch are organzed in a matrix
+(`time windows X sites`).
 
 
 Running the simulation and inference tests
@@ -125,16 +131,16 @@ The command below will generate the complete evolution information from
 a phylogenetic tree in `tree.nwk`, and model parameters in `test.param`.
 ```
 cd test
-../bin/epievo_sim -v -n 1000 -o test.states -p test.global_jumps -t tree.nwk test.param
+../bin/epievo_sim -v -n 10000 -p test.global_jumps -t tree.nwk test.param test.states
 ```
 Two output files will be generated from `epievo_sim`.
-`test.global_jumps` contains mutation information ordered by position
+`test.global_jumps` contains mutations ordered by position
 and time, and `test.states` contains epigenomic states at each position and each node.
 
 To run inference programs, the global jumps should be converted to
 local paths first, by running:
 ```
-../bin/global_jumps_to_paths -v tree.nwk test.states test.global_jumps test.local_paths
+../bin/global_jumps_to_paths -v -t tree.nwk test.states test.global_jumps test.local_paths
 ```
 
 The command below will estimate model parameters (saved in `test.param.updated`) from
@@ -154,10 +160,9 @@ Then, the command below will run a MCEM procedure to estimate model parameters a
 evolution histories, which will be printed in `test.local_path.est`
 and `test.local_path.est` respectively.
 ```
-../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_path.est \
+../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_paths b.est \
   test.param.init tree.nwk test.local_paths.init
 ```
-
 
 File formats
 ========================
