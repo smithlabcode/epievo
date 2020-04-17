@@ -160,7 +160,7 @@ Then, the command below will run a MCEM procedure to estimate model parameters a
 evolution histories, which will be printed in `test.local_path.est`
 and `test.local_path.est` respectively.
 ```
-../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_paths b.est \
+../bin/epievo_est_params_histories -v -o test.local_path.est -p test.local_paths.est \
   test.param.init tree.nwk test.local_paths.init
 ```
 
