@@ -544,7 +544,7 @@ SingleSiteSampler::single_iteration(const EpiEvoModel &the_model,
 
   for (size_t site_id = 1; site_id < paths.size() - 1; ++site_id)
     n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths, gen);
-  return n_accepted = 0;
+  return n_accepted;
 }
 
 void
