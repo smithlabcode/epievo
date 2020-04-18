@@ -313,7 +313,7 @@ estimate_rates(const double param_tol,
 }
 
 
-static void
+void
 set_one_change_per_site_per_unit_time(double(&rates)[8],
                                       vector<double> &branches) {
 

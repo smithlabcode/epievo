@@ -94,8 +94,8 @@ int main(int argc, const char **argv) {
   try {
 
     bool VERBOSE = false;
+    bool single_branch = false;
     bool optimize_branches = false;
-    double evolutionary_time = 0.0;
 
     string outfile;
     string param_file_updated;
@@ -124,8 +124,8 @@ int main(int argc, const char **argv) {
                       false, param_file_updated);
     opt_parse.add_opt("outtree", 't', "output file of tree",
                       false, treefile_updated);
-    opt_parse.add_opt("evo-time", 'T', "evolutionary time (assumes no tree)",
-                      false, evolutionary_time);
+    opt_parse.add_opt("single_branch", 'T', "pairwise process (assumes no tree)",
+                      false, single_branch);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths",
                       false, optimize_branches);
     opt_parse.add_opt("verbose", 'v', "print more run info",
@@ -147,7 +147,7 @@ int main(int argc, const char **argv) {
       return EXIT_SUCCESS;
     }
     if (leftover_args.size() == 2) {
-      if (evolutionary_time == 0.0) {
+      if (!single_branch) {
         cerr << opt_parse.help_message() << endl;
         return EXIT_SUCCESS;
       }
@@ -163,24 +163,6 @@ int main(int argc, const char **argv) {
     const string input_file(leftover_args.back());
 
     ///////////////////////////////////////////////////////////////////////////
-    /* LOADING (FAKE) TREE */
-    PhyloTreePreorder the_tree; // tree topology and branch lengths
-    TreeHelper th;
-    if (evolutionary_time > 0.0) {
-      if (VERBOSE)
-        cerr << "[INITIALIZING TWO NODE TREE WITH TIME: "
-        << evolutionary_time << "]" << endl;
-      th = TreeHelper(evolutionary_time);
-    }
-    else {
-      if (VERBOSE)
-        cerr << "[READING TREE: " << tree_file << "]" << endl;
-      std::ifstream tree_in(tree_file);
-      if (!tree_in || !(tree_in >> the_tree))
-        throw runtime_error("bad tree file: " + tree_file);
-      th = TreeHelper(the_tree);
-    }
-
     /* READING PARAMETERS FROM FILE */
     if (VERBOSE)
       cerr << "[READING PARAMETERS: " << param_file << "]" << endl;
@@ -209,6 +191,24 @@ int main(int argc, const char **argv) {
       }
     }
     //////////
+
+    /* LOADING (FAKE) TREE */
+    PhyloTreePreorder the_tree; // tree topology and branch lengths
+    TreeHelper th;
+    if (single_branch) {
+      if (VERBOSE)
+        cerr << "[INITIALIZING TWO NODE TREE WITH TIME: "
+        << paths.front().back().tot_time << "]" << endl;
+      th = TreeHelper(paths.front().back().tot_time);
+    }
+    else {
+      if (VERBOSE)
+        cerr << "[READING TREE: " << tree_file << "]" << endl;
+      std::ifstream tree_in(tree_file);
+      if (!tree_in || !(tree_in >> the_tree))
+        throw runtime_error("bad tree file: " + tree_file);
+      th = TreeHelper(the_tree);
+    }
 
     /* INITIALIZING THE RANDOM NUMBER GENERATOR */
     if (rng_seed == std::numeric_limits<size_t>::max()) {
@@ -251,14 +251,17 @@ int main(int argc, const char **argv) {
 
       /* PARAMETER ESTIMATION */
       double llh = 0.0;
-      if (!optimize_branches)
+      if (!optimize_branches) {
         llh = estimate_rates(false, param_tol, J_accum, D_accum, the_model);
+        set_one_change_per_site_per_unit_time(the_model.triplet_rates,
+                                              th.branches);
+      }
       else {
         llh = estimate_rates_and_branches(false, param_tol, J_accum,
                                           D_accum, th, the_model);
-        scale_jump_times(paths, th);
         the_tree.set_branch_lengths(th.branches);
       }
+      scale_jump_times(paths, th);
 
       if (VERBOSE)
         cerr << itr+1 << "\t" << the_model.T(0, 0) << "\t"

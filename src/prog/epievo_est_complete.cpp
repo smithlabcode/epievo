@@ -54,8 +54,8 @@ int main(int argc, const char **argv) {
     static const double param_tol = 1e-10;
 
     bool VERBOSE = false;
+    bool single_branch = false;
     bool optimize_branches = false;
-    double evolutionary_time = 0.0;
 
     string outfile;
     string tree_file, treefile_updated;
@@ -68,8 +68,8 @@ int main(int argc, const char **argv) {
                       false, VERBOSE);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
                       false, optimize_branches);
-    opt_parse.add_opt("one-branch", 'T', "one-branch tree", false,
-                      evolutionary_time);
+    opt_parse.add_opt("single_branch", 'T', "pairwise process (assumes no tree)",
+                      false, single_branch);
     opt_parse.add_opt("output", 'o', "output parameter file",
                       true, outfile);
     opt_parse.add_opt("outtree", 't', "output file of tree",
@@ -89,12 +89,8 @@ int main(int argc, const char **argv) {
       cerr << opt_parse.option_missing_message() << endl;
       return EXIT_SUCCESS;
     }
-    if (leftover_args.size() < 3) {
-      cerr << opt_parse.help_message() << endl;
-      return EXIT_SUCCESS;
-    }
     if (leftover_args.size() == 2) {
-      if (evolutionary_time == 0.0) {
+      if (!single_branch) {
         cerr << opt_parse.help_message() << endl;
         return EXIT_SUCCESS;
       }
@@ -110,6 +106,7 @@ int main(int argc, const char **argv) {
     const string path_file(leftover_args.back());
     ////////////////////////////////////////////////////////////////////////
 
+    /* LOADING PATHS */
     if (VERBOSE)
       cerr << "[READING PATHS FILE: " << path_file << "]" << endl;
     vector<string> node_names;
@@ -130,11 +127,11 @@ int main(int argc, const char **argv) {
     /* LOADING (FAKE) TREE */
     PhyloTreePreorder the_tree; // tree topology and branch lengths
     TreeHelper th;
-    if (evolutionary_time > 0.0) {
+    if (single_branch) {
       if (VERBOSE)
         cerr << "[INITIALIZING TWO NODE TREE WITH TIME: "
-        << evolutionary_time << "]" << endl;
-      th = TreeHelper(evolutionary_time);
+        << paths.front().back().tot_time << "]" << endl;
+      th = TreeHelper(paths.front().back().tot_time);
     }
     else {
       if (VERBOSE)

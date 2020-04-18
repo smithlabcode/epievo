@@ -254,7 +254,7 @@ int main(int argc, const char **argv) {
     static const double param_tol = 1e-10;
 
     bool VERBOSE = false;
-    bool OPTBRANCH = false;
+    bool optimize_branches = false;
     double evolutionary_time = 0.0;
 
     size_t rng_seed = numeric_limits<size_t>::max();
@@ -282,7 +282,7 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("path", 'o', "output file of local paths (default: stdout)",
                       false, pathfile);
     opt_parse.add_opt("branch", 'b', "optimize branch lengths as well",
-                      false, OPTBRANCH);
+                      false, optimize_branches);
     opt_parse.set_show_defaults();
     vector<string> leftover_args;
     opt_parse.parse(argc, argv, leftover_args);
@@ -362,7 +362,7 @@ int main(int argc, const char **argv) {
     }
 
     for (size_t itr = 0; itr < iterations; itr++) {
-      if (!OPTBRANCH)
+      if (!optimize_branches)
         estimate_rates(J, D, rates, th);
       else {
         estimate_rates_and_branches(J, D, rates, th, paths);
@@ -391,13 +391,16 @@ int main(int argc, const char **argv) {
     initialize_model_from_indep_rates(the_model, rates);
 
     // re-estimate triplet rates from paths
-    if (!OPTBRANCH)
+    if (!optimize_branches) {
       estimate_rates(false, param_tol, sampled_paths, the_model);
+      set_one_change_per_site_per_unit_time(the_model.triplet_rates,
+                                            th.branches);
+    }
     else {
       estimate_rates_and_branches(false, param_tol, sampled_paths, th, the_model);
-      scale_jump_times(sampled_paths, th);
       the_tree.set_branch_lengths(th.branches);
     }
+    scale_jump_times(sampled_paths, th);
 
     // write path file
     if (VERBOSE)
@@ -423,7 +426,7 @@ int main(int argc, const char **argv) {
 
     out_param << the_model.format_for_param_file() << endl;
 
-    if (OPTBRANCH) {
+    if (optimize_branches) {
       std::ofstream of_tree;
       if (!treefile_updated.empty()) of_tree.open(treefile_updated.c_str());
       std::ostream out_tree(treefile_updated.empty() ?

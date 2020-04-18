@@ -79,4 +79,8 @@ void
 scale_jump_times(std::vector<std::vector<Path> > &all_paths,
                  const TreeHelper &th);
 
+void
+set_one_change_per_site_per_unit_time(double(&rates)[8],
+                                      std::vector<double> &branches);
+
 #endif
