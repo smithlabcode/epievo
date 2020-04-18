@@ -42,10 +42,9 @@ expectation_sufficient_statistics(const std::vector<double> &rates,
 
 
 void
-sample_paths(const std::vector<double> &rates, const TreeHelper &th,
-             const std::vector<std::vector<Path> > &paths,
-             std::mt19937 &gen,
-             std::vector<std::vector<Path> > &sampled_paths);
+update_paths_indep(const std::vector<double> &rates, const TreeHelper &th,
+                   std::vector<std::vector<Path> > &paths,
+                   std::mt19937 &gen);
 
 
 void
@@ -55,18 +54,18 @@ compute_sufficient_statistics(const std::vector<std::vector<Path> > &paths,
 
 
 void
-estimate_rates(const std::vector<std::vector<double> > &J,
-               const std::vector<std::vector<double> > &D,
-               std::vector<double> &rates,
-               TreeHelper &th);
+estimate_rates_indep(const std::vector<std::vector<double> > &J,
+                     const std::vector<std::vector<double> > &D,
+                     std::vector<double> &rates,
+                     TreeHelper &th);
 
 
 void
-estimate_rates_and_branches(const std::vector<std::vector<double> > &J,
-                            const std::vector<std::vector<double> > &D,
-                            std::vector<double> &rates,
-                            TreeHelper &th,
-                            std::vector<std::vector<Path> > &paths);
+estimate_rates_and_branches_indep(const std::vector<std::vector<double> > &J,
+                                  const std::vector<std::vector<double> > &D,
+                                  std::vector<double> &rates,
+                                  TreeHelper &th,
+                                  std::vector<std::vector<Path> > &paths);
 
 void
 estimate_root_stationary(const std::vector<std::vector<Path> > &paths,

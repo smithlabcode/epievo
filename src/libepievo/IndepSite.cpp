@@ -241,17 +241,13 @@ expectation_sufficient_statistics(const vector<double> &rates,
 
 /* Sample new evolution history */
 void
-sample_paths(const vector<double> &rates, const TreeHelper &th,
-             const vector<vector<Path> > &paths,
-             std::mt19937 &gen, vector<vector<Path> > &sampled_paths) {
+update_paths_indep(const vector<double> &rates, const TreeHelper &th,
+                   vector<vector<Path> > &paths, std::mt19937 &gen) {
 
   assert(!paths.empty() && paths[0].size() > 1);
   const size_t n_sites = paths.size();
 
-  sampled_paths.resize(n_sites);
-
   for (size_t site_id = 0; site_id < n_sites; site_id++) {
-    sampled_paths[site_id].resize(paths[site_id].size());
     vector<FelsHelper> fh(th.n_nodes);
     upward_process(th, site_id, paths, rates, fh);
 
@@ -259,7 +255,7 @@ sample_paths(const vector<double> &rates, const TreeHelper &th,
     sampling_downward(th, paths[site_id], rates, fh, gen, site_path);
 
     for (size_t node_id = 0; node_id < th.n_nodes; ++node_id)
-      sampled_paths[site_id][node_id] = site_path[node_id];
+      paths[site_id][node_id] = site_path[node_id];
   }
 }
 
@@ -310,21 +306,21 @@ compute_sufficient_statistics(const vector<vector<Path> > &paths,
 
 
 void
-estimate_rates(const vector<vector<double> > &J,
-               const vector<vector<double> > &D,
-               vector<double> &rates, TreeHelper &th) {
-
+estimate_rates_indep(const vector<vector<double> > &J,
+                     const vector<vector<double> > &D,
+                     vector<double> &rates, TreeHelper &th) {
+  
   vector<double> J_sum(2, 0.0);
   vector<double> D_sum(2, 0.0);
-
+  
   for (size_t b = 1; b < th.n_nodes; ++b) {
     J_sum[0] += J[b][0];
     J_sum[1] += J[b][1];
-
+    
     D_sum[0] += D[b][0];
     D_sum[1] += D[b][1];
   }
-
+  
   // update rates
   if (D_sum[0] > 0)
     rates[0] = std::max(J_sum[0] / D_sum[0], 10e-6);
@@ -345,29 +341,29 @@ indep_rate_scaling_factor(const vector<double> &rates) {
 
 
 void
-estimate_rates_and_branches(const vector<vector<double> > &J,
-                            const vector<vector<double> > &D,
-                            vector<double> &rates, TreeHelper &th,
-                            vector<vector<Path> > &paths) {
-
+estimate_rates_and_branches_indep(const vector<vector<double> > &J,
+                                  const vector<vector<double> > &D,
+                                  vector<double> &rates, TreeHelper &th,
+                                  vector<vector<Path> > &paths) {
+  
   // estimate rates
-  estimate_rates(J, D, rates, th);
-
+  estimate_rates_indep(J, D, rates, th);
+  
   // update branch lengths
   for (size_t b = 1; b < th.n_nodes; ++b)
     th.branches[b] *= (J[b][0] + J[b][1]) / (D[b][0]*rates[0] + D[b][1]*rates[1]);
-
-
+  
+  
   // set one change per site per unit time
   const double scale_factor = indep_rate_scaling_factor(rates);
   transform(th.branches.begin(), th.branches.end(), th.branches.begin(),
             std::bind(std::multiplies<double>(), std::placeholders::_1,
                       scale_factor));
-
+  
   transform(rates.begin(), rates.end(), rates.begin(),
             std::bind(std::divides<double>(), std::placeholders::_1,
                       scale_factor));
-
+  
   // scale jump times
   for (size_t b = 1; b < paths[0].size(); ++b) {
     for (size_t i = 0; i < paths.size(); ++i) {
