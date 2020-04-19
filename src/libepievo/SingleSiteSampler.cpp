@@ -189,7 +189,6 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
 
   size_t prev_state = sampled_path.init_state;
   double time_passed = 0.0;
-  size_t jump_idx = 0;
   const size_t n_intervals = seg_info.size();
   for (size_t i = 0; i < n_intervals; ++i) {
 
@@ -201,20 +200,16 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
            fh.q[0] : fh.p[i + 1][0])/fh.p[i][prev_state];
 
     const size_t sampled_state = (unif(gen) > p0);
+    log_prob += (sampled_state == 0) ? log(p0) : log(1.0 - p0);
 
     end_cond_sample_forward_rejection(ctmm, prev_state, sampled_state,
                                       seg_info[i].len, gen, sampled_path.jumps,
                                       time_passed);
-
-    log_prob += end_cond_sample_prob(ctmm, sampled_path.jumps,
-                                     prev_state, sampled_state,
-                                     time_passed, time_passed + seg_info[i].len,
-                                     jump_idx, sampled_path.jumps.size());
-    log_prob += (sampled_state == 0) ? log(p0) : log(1.0 - p0);
+    log_prob -= log(ctmm.get_trans_prob(seg_info[i].len, prev_state,
+                                        sampled_state));
 
     // prepare for next interval
     time_passed += seg_info[i].len;
-    jump_idx = sampled_path.jumps.size();
     prev_state = sampled_state;
   }
 }
@@ -274,7 +269,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
   const size_t n_intervals = seg_info.size();
 
   size_t start_state = path.init_state, end_state = path.init_state;
-  double start_time = 0.0, end_time = 0.0;
+  double end_time = 0.0;
   size_t start_jump = 0, end_jump = 0;
 
   double log_prob = 0.0;
@@ -293,14 +288,8 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
     // calculate the probability for the end-conditioned path
     const TwoStateCTMarkovModel ctmm(seg_info[i].rate0, seg_info[i].rate1);
-
-    const double interval_prob = end_cond_sample_prob(ctmm, path.jumps,
-                                                      start_state, end_state,
-                                                      start_time, end_time,
-                                                      start_jump, end_jump);
-    log_prob += interval_prob;
-
     const double PT0 = ctmm.get_trans_prob(seg_info[i].len, start_state, 0);
+    log_prob -= log(ctmm.get_trans_prob(seg_info[i].len, start_state, end_state));
 
     // p0 = P_v(j, k) x q_k(v)/p_j(v) [along a branch, q[i]=p[i+1]
     const double p0 = PT0/fh.p[i][start_state]*((i == n_intervals-1) ?
@@ -310,7 +299,6 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
     // prepare for next interval
     start_jump = end_jump;
-    start_time = end_time;
     start_state = end_state;
   }
   return log_prob;
@@ -422,7 +410,6 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
   double llr = orig_proposal - update_proposal;
 
   const double llh_l_orig = llh_l;
-  const double llh_m_orig = llh_m;
   const double llh_r_orig = llh_r;
 
   if (site_id > 1)
@@ -434,8 +421,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
     llh_r = path_log_likelihood(mod, proposed_path, paths[site_id+1],
                                 paths[site_id+2], J, D, log_rates);
 
-  llr += (llh_l + llh_m + llh_r - llh_l_orig - llh_m_orig - llh_r_orig);
-
+  llr += (llh_l + llh_r - llh_l_orig - llh_r_orig);
   return llr;
 }
 
