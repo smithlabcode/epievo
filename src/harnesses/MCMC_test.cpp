@@ -68,15 +68,6 @@ add_sufficient_statistics(const vector<Path> &paths,
     add_sufficient_statistics(paths[i-1], paths[i], paths[i+1], J, D);
 }
 
-void
-add_sufficient_statistics(const vector<vector<Path> > &paths,
-                          vector<double> &J, vector<double> &D) {
-  // iterate over sites with valid triples (i.e. not the first and last)
-  const size_t n_sites = paths.size();
-  for (size_t i = 1; i < n_sites - 1; ++i)
-    add_sufficient_statistics(paths[i-1][1], paths[i][1], paths[i+1][1], J, D);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -228,11 +219,10 @@ end_cond_forward_simulation(const EpiEvoModel &the_model, const double &evo_time
 /* generate initial paths by heuristics */
 static void
 initialize_paths(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
-                 const double evo_time, vector<vector<Path> > paths,
+                 const double evo_time, vector<vector<Path> > &paths,
                  std::mt19937 &gen) {
 
   paths.resize(root_seq.size());
-
   auto unif =
   bind(std::uniform_real_distribution<double>(0.0, 1.0), std::ref(gen));
 
@@ -252,7 +242,7 @@ initialize_paths(const vector<bool> &root_seq, const vector<bool> &leaf_seq,
 static void
 write_statistics_header(const string outfile) {
   std::ofstream out(outfile.c_str());
-  out << "ITR\tSAMPLE\tJ_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
+  out << "SAMPLE\tJ_000\tJ_001\tJ_010\tJ_011\tJ_100\tJ_101\tJ_110\tJ_111\t"
       << "D_000\tD_001\tD_010\tD_011\tD_100\tD_101\tD_110\tD_111" << endl;
 }
 
@@ -261,7 +251,7 @@ static void
 write_statistics(const string outfile, const size_t sample,
                  const vector<double> &J, const vector<double> &D) {
   std::ofstream out(outfile, std::ofstream::app);
-  out << "\t" << sample << "\t";
+  out << sample << "\t";
   copy(begin(J), begin(J) + 8, std::ostream_iterator<double>(out, "\t"));
   copy(begin(D), begin(D) + 8, std::ostream_iterator<double>(out, "\t"));
   out << endl;
@@ -280,6 +270,7 @@ int main(int argc, const char **argv) {
 
     size_t n_sites = 5;
     size_t batch = 100;
+    size_t burnin = 100;
 
     size_t rng_seed = std::numeric_limits<size_t>::max();
 
@@ -290,8 +281,8 @@ int main(int argc, const char **argv) {
                            "test MCMC against forward-simulation summary stats",
                            "<param>");
     opt_parse.add_opt("n_sites", 'n', "number of sites", false, n_sites);
-    opt_parse.add_opt("batch", 'B', "batch size",
-                      false, batch);
+    opt_parse.add_opt("batch", 'B', "batch size", false, batch);
+    opt_parse.add_opt("burnin", 'L', "burn-in length", false, burnin);
     opt_parse.add_opt("tree", 't', "Newick format tree file", false, tree_file);
     opt_parse.add_opt("evo-time", 'T', "evolutionary time", true,
                       evolutionary_time);
@@ -354,13 +345,13 @@ int main(int argc, const char **argv) {
     vector<bool> leaf_seq;
     collect_end_sequences(paths, leaf_seq);
     if (VERBOSE) {
-      cout << "ROOT SEQ: ";
+      cerr << "ROOT SEQ: ";
       copy(begin(root_seq), end(root_seq),
-           std::ostream_iterator<int>(cout, ""));
-      cout << "\nEND SEQ: ";
+           std::ostream_iterator<int>(cerr, ""));
+      cerr << "\nEND SEQ: ";
       copy(begin(leaf_seq), end(leaf_seq),
-           std::ostream_iterator<int>(cout, ""));
-      cout << endl;
+           std::ostream_iterator<int>(cerr, ""));
+      cerr << endl;
     }
 
     /* (5) FORWARD SIMULATION */
@@ -388,28 +379,27 @@ int main(int argc, const char **argv) {
     }
 
     if (VERBOSE)
-      cerr << "[MCMC USING SINGLESITESAMPLER]" << endl;
+      cerr << "[MCMC USING SINGLE_SITE_SAMPLER]" << endl;
 
     // mcmc output files
     const string mcmc_stat = outfile + ".mcmc";
     write_statistics_header(mcmc_stat);
 
     // distort/randomize paths
-    vector<vector<Path> > mcmc_paths(2); // [sites] x [nodes]
+    vector<vector<Path> > mcmc_paths; // [sites] x [nodes]
     initialize_paths(root_seq, leaf_seq, evolutionary_time, mcmc_paths, gen);
+
     const TreeHelper th(evolutionary_time);
 
-    SingleSiteSampler mcmc(0, batch);
+    SingleSiteSampler mcmc(burnin, 1);
     mcmc.reset(the_model, mcmc_paths);
-
     for (size_t sample_id = 0; sample_id < batch; sample_id++) {
-      for (size_t site_id = 1; site_id < n_sites - 1; ++site_id)
-        mcmc.Metropolis_Hastings_site(the_model, th, site_id, mcmc_paths, gen);
+      vector<vector<double> > J, D;
+      double acceptance_rate;
+      mcmc.run_mcmc(the_model, th, mcmc_paths, gen, J, D, acceptance_rate);
 
       // write stats
-      vector<double> J(8), D(8);
-      add_sufficient_statistics(mcmc_paths, J, D);
-      write_statistics(mcmc_stat, sample_id, J, D);
+      write_statistics(mcmc_stat, sample_id, J[1], D[1]);
     }
 
   }
