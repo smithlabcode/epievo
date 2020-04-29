@@ -28,7 +28,6 @@
 #include <random>
 #include <functional>
 #include <iomanip>
-#include <omp.h>
 
 #include "SingleSiteSampler.hpp"
 #include "PhyloTreePreorder.hpp"
@@ -51,7 +50,6 @@ using std::multiplies;
 using std::accumulate;
 using std::runtime_error;
 using std::function;
-using std::exponential_distribution;
 using std::uniform_real_distribution;
 
 static const size_t n_triples = 8;
@@ -431,14 +429,12 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
 ////////////////////////////////////////////////////////////////////////////////
 
 SingleSiteSampler::SingleSiteSampler(const size_t n_burn_in,
-                                     const size_t n_batch,
-                                     const size_t n_threads) {
+                                     const size_t n_batch) {
   SAMPLE_ROOT = false;
   burn_in = n_burn_in;
   batch = n_batch;
-  threads = n_threads;
 
-  unif = std::uniform_real_distribution<double> (0.0, 1.0);
+  unif = uniform_real_distribution<double> (0.0, 1.0);
 }
 
 void
@@ -452,20 +448,17 @@ SingleSiteSampler::reset(const EpiEvoModel &the_model,
   proposed_path.resize(n_nodes);
   tri_llh.resize(n_sites, 0.0);
 
-  omp_set_num_threads(threads);
-
   // pre-compute log(rates)
   std::transform(std::begin(the_model.triplet_rates),
                  std::end(the_model.triplet_rates),
                  std::begin(log_rates),
                  static_cast<double(*)(double)>(log));
-#pragma omp parallel for
+
   for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
     tri_llh[site_id] = path_log_likelihood(the_model, paths[site_id-1],
                                            paths[site_id], paths[site_id+1],
                                            log_rates);
   }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -553,25 +546,14 @@ SingleSiteSampler::run_mcmc(const EpiEvoModel &the_model,
     single_iteration(the_model, th, paths, gen);
 
   // Prepare for taking MCMC samples
-#pragma omp parallel sections
-{
-#pragma omp section
-  {
-    J_all_sites.resize(th.n_nodes);
-    for(size_t b = 1; b < th.n_nodes; ++b) {
-      J_all_sites[b].clear();
-      J_all_sites[b].resize(n_triples, 0.0);
-    }
+  J_all_sites.resize(th.n_nodes);
+  D_all_sites.resize(th.n_nodes);
+  for(size_t b = 1; b < th.n_nodes; ++b) {
+    J_all_sites[b].clear();
+    J_all_sites[b].resize(n_triples, 0.0);
+    D_all_sites[b].clear();
+    D_all_sites[b].resize(n_triples, 0.0);
   }
-#pragma omp section
-  {
-    D_all_sites.resize(th.n_nodes);
-    for(size_t b = 1; b < th.n_nodes; ++b) {
-      D_all_sites[b].clear();
-      D_all_sites[b].resize(n_triples, 0.0);
-    }
-  }
-}
 
   size_t n_accepted = 0;
   vector<vector<double> > J_one_site, D_one_site;
@@ -582,7 +564,6 @@ SingleSiteSampler::run_mcmc(const EpiEvoModel &the_model,
     /* CALCULATE SUFFICIENT STATS */
     get_sufficient_statistics(paths, J_one_site, D_one_site);
       
-#pragma omp simd collapse(2)
     for (size_t b = 1; b < th.n_nodes; b++)
       for (size_t i = 0; i < n_triples; i++) {
         J_all_sites[b][i] += J_one_site[b][i];
@@ -591,7 +572,6 @@ SingleSiteSampler::run_mcmc(const EpiEvoModel &the_model,
     }
   
   /* CALCULATE BATCH AVERAGE */
-#pragma omp simd collapse(2)
   for (size_t b = 1; b < th.n_nodes; ++b)
     for (size_t i = 0; i < n_triples; i++) {
       J_all_sites[b][i] /= batch;
