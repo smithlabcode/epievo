@@ -458,6 +458,11 @@ end_cond_sample_direct_prop(const TwoStateCTMarkovModel &the_model,
 ////////
 //////// Hobolth & Stone (2009)
 
+inline double rexp_inv(const double mu, std::mt19937 &gen,
+                       uniform_real_distribution<double> &unif) {
+  return (- 1 / mu * log(unif(gen)));
+}
+
 size_t
 forward_sampling(vector<function<double()> > &the_distrs,
                  size_t a, const double T, const double start_time,
@@ -503,6 +508,37 @@ end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
   return (sample_count < max_sample_count);
 }
 
+
+bool
+end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
+                                  const size_t start_state,
+                                  const size_t end_state,
+                                  const double T,
+                                  std::mt19937 &gen,
+                                  uniform_real_distribution<double> &unif,
+                                  vector<double> &jump_times,
+                                  const double start_time) {
+
+  vector<function<double()> > the_distrs = {
+    function<double()>(bind(rexp_inv, the_model.rate0, ref(gen),ref(unif))),
+    function<double()>(bind(rexp_inv, the_model.rate1, ref(gen), ref(unif)))
+  };
+  size_t sample_count = 0;
+  vector<double> proposal;
+  while (forward_sampling(the_distrs, start_state, T, 0.0,
+                          proposal) != end_state &&
+         sample_count < max_sample_count) {
+    ++sample_count;
+    proposal.clear();
+  }
+  
+  if (sample_count < max_sample_count)
+    transform(begin(proposal), end(proposal), std::back_inserter(jump_times),
+              bind(std::plus<double>(), _1, start_time));
+  assert((proposal.size() % 2) == static_cast<size_t>(start_state != end_state));
+  
+  return (sample_count < max_sample_count);
+}
 
 /* Used for inverse transform sampling, from Nielsen (2001), eqn (A2) */
 static double

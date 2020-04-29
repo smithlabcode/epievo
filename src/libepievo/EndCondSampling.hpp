@@ -42,6 +42,15 @@ end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
                                   std::mt19937 &gen, std::vector<double> &jump_times,
                                   const double start_time = 0.0);
 
+bool
+end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
+                                  const size_t start_state, const size_t end_state,
+                                  const double time_interval,
+                                  std::mt19937 &gen,
+                                  std::uniform_real_distribution<double> &unif,
+                                  std::vector<double> &jump_times,
+                                  const double start_time = 0.0);
+
 /* "nielsen" */
 bool
 end_cond_sampling_Nielsen(const TwoStateCTMarkovModel &the_model,
