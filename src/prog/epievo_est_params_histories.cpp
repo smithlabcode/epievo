@@ -101,6 +101,7 @@ int main(int argc, const char **argv) {
     string param_file_updated;
     string tree_file, treefile_updated;
 
+    size_t n_threads = 1;
     size_t iteration = 10;           // MCMC-EM iterations
     size_t batch = 10;              // MCMC iterations
     size_t burnin = 10;           // burn-in MCMC iterations
@@ -118,6 +119,7 @@ int main(int argc, const char **argv) {
     opt_parse.add_opt("burnin", 'L', "MCMC burn-in length",
                       false, burnin);
     opt_parse.add_opt("seed", 's', "rng seed", false, rng_seed);
+    opt_parse.add_opt("n-threads", 'm', "number of threads", false, n_threads);
     opt_parse.add_opt("outfile", 'o', "output file of local paths",
                       true, outfile);
     opt_parse.add_opt("outparam", 'p', "output file of parameters",
@@ -233,7 +235,7 @@ int main(int argc, const char **argv) {
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     
-    SingleSiteSampler mcmc(burnin, batch);
+    SingleSiteSampler mcmc(burnin, batch, n_threads);
 
     /* METROPOLIS-HASTINGS ALGORITHM */
     for (size_t itr = 0; itr  < iteration; itr++) {

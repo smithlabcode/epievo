@@ -34,7 +34,8 @@ struct FelsHelper;
 class SingleSiteSampler {
 public:
 
-  SingleSiteSampler(const size_t n_burn_in, const size_t n_batch);
+  SingleSiteSampler(const size_t n_burn_in, const size_t n_batch,
+                    const size_t n_threads = 1);
 
   void
   reset(const EpiEvoModel &the_model, std::vector<std::vector<Path> > &paths);
@@ -53,6 +54,9 @@ public:
            std::vector<std::vector<double> > &D_all_sites,
            double &acceptance_rate);
 
+  // performance configuration
+  size_t threads;
+  
   // MCMC parameter constants
   bool SAMPLE_ROOT;
   size_t burn_in;

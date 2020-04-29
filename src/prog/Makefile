@@ -19,7 +19,7 @@ PROGS = epievo_sim global_jumps_to_paths \
 	average_paths
 
 CXX = g++
-CXXFLAGS = -Wall -std=c++11
+CXXFLAGS = -Wall -std=c++11 -fopenmp
 OPTFLAGS = -O2
 CPPFLAGS = -I $(SMITHLAB_CPP)
 DEBUGFLAGS = -g
