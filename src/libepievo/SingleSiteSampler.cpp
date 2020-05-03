@@ -42,7 +42,8 @@ using std::endl;
 using std::cerr;
 using std::string;
 using std::pair;
-using std::make_pair;
+using std::begin;
+using std::end;
 
 using std::bind;
 using std::placeholders::_1;
@@ -60,10 +61,10 @@ static const size_t n_triples = 8;
 
 struct FelsHelper {
   FelsHelper() {}
-  FelsHelper(const std::vector<std::vector<double> > &_p,
-             const std::vector<double> &_q) : p(_p), q(_q) {}
-  std::vector<std::vector<double> > p;
-  std::vector<double> q;
+  FelsHelper(const vector<vector<double> > &_p,
+             const vector<double> &_q) : p(_p), q(_q) {}
+  vector<vector<double> > p;
+  vector<double> q;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -449,9 +450,9 @@ SingleSiteSampler::reset(const EpiEvoModel &the_model,
   tri_llh.resize(n_sites, 0.0);
 
   // pre-compute log(rates)
-  std::transform(std::begin(the_model.triplet_rates),
-                 std::end(the_model.triplet_rates),
-                 std::begin(log_rates),
+  std::transform(begin(the_model.triplet_rates),
+                 end(the_model.triplet_rates),
+                 begin(log_rates),
                  static_cast<double(*)(double)>(log));
 
   for (size_t site_id = 1; site_id < n_sites - 1; ++site_id) {
@@ -532,10 +533,11 @@ SingleSiteSampler::single_iteration(const EpiEvoModel &the_model,
     n_accepted += Metropolis_Hastings_site(the_model, th, site_id, paths, gen);
   return n_accepted;
 }
+
 void
 SingleSiteSampler::run_mcmc(const EpiEvoModel &the_model,
                             const TreeHelper &th,
-                            vector<std::vector<Path> > &paths,
+                            vector<vector<Path> > &paths,
                             std::mt19937 &gen,
                             vector<vector<double> > &J_all_sites,
                             vector<vector<double> > &D_all_sites,
@@ -563,14 +565,14 @@ SingleSiteSampler::run_mcmc(const EpiEvoModel &the_model,
 
     /* CALCULATE SUFFICIENT STATS */
     get_sufficient_statistics(paths, J_one_site, D_one_site);
-      
+
     for (size_t b = 1; b < th.n_nodes; b++)
       for (size_t i = 0; i < n_triples; i++) {
         J_all_sites[b][i] += J_one_site[b][i];
         D_all_sites[b][i] += D_one_site[b][i];
       }
     }
-  
+
   /* CALCULATE BATCH AVERAGE */
   for (size_t b = 1; b < th.n_nodes; ++b)
     for (size_t i = 0; i < n_triples; i++) {
