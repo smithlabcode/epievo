@@ -477,6 +477,39 @@ forward_sampling(vector<function<double()> > &the_distrs,
 
 
 bool
+end_cond_sample_forward_rejection(exponential_distribution<double> &exp0,
+                                  exponential_distribution<double> &exp1,
+                                  const size_t start_state,
+                                  const size_t end_state,
+                                  const double T,
+                                  std::mt19937 &gen,
+                                  vector<double> &jump_times,
+                                  const double start_time) {
+  
+  vector<function<double()> > the_distrs = {
+    function<double()>(bind(exp0, ref(gen))),
+    function<double()>(bind(exp1, ref(gen)))
+  };
+
+  size_t sample_count = 0;
+  vector<double> proposal;
+  while (forward_sampling(the_distrs, start_state, T, 0.0,
+                          proposal) != end_state &&
+         sample_count < max_sample_count) {
+    ++sample_count;
+    proposal.clear();
+  }
+
+  if (sample_count < max_sample_count)
+    transform(begin(proposal), end(proposal), std::back_inserter(jump_times),
+              bind(std::plus<double>(), _1, start_time));
+  assert((proposal.size() % 2) == static_cast<size_t>(start_state != end_state));
+
+  return (sample_count < max_sample_count);
+}
+
+
+bool
 end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
                                   const size_t start_state,
                                   const size_t end_state,

@@ -36,6 +36,14 @@ end_cond_sample_direct(const TwoStateCTMarkovModel &the_model,
 
 /* "forward" */
 bool
+end_cond_sample_forward_rejection(std::exponential_distribution<double> &exp1,
+                                  std::exponential_distribution<double> &exp2,
+                                  const size_t start_state, const size_t end_state,
+                                  const double time_interval,
+                                  std::mt19937 &gen, std::vector<double> &jump_times,
+                                  const double start_time = 0.0);
+
+bool
 end_cond_sample_forward_rejection(const TwoStateCTMarkovModel &the_model,
                                   const size_t start_state, const size_t end_state,
                                   const double time_interval,
