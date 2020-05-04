@@ -68,7 +68,10 @@ private:
   // internal variables for faster computation
   std::vector<double> tri_llh;
   double log_rates[8];
+
+  // random distributions
   std::uniform_real_distribution<double> unif;
+  std::vector<std::exponential_distribution<double> > exp_distr;
 
   // scratch variables
   std::vector<double> J;
