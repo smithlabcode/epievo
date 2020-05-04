@@ -51,6 +51,7 @@ using std::accumulate;
 using std::runtime_error;
 using std::function;
 using std::uniform_real_distribution;
+using std::exponential_distribution;
 
 static const size_t n_triples = 8;
 
@@ -180,6 +181,7 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
                          const double branch_length,
                          std::mt19937 &gen,
                          uniform_real_distribution<double> &unif,
+                         vector<exponential_distribution<double> > &exp,
                          Path &sampled_path, double &log_prob) {
 
   sampled_path.init_state = start_state;
@@ -201,7 +203,9 @@ downward_sampling_branch(const vector<SegmentInfo> &seg_info,
     const size_t sampled_state = (unif(gen) > p0);
     log_prob += (sampled_state == 0) ? log(p0) : log(1.0 - p0);
 
-    end_cond_sample_forward_rejection(ctmm, prev_state, sampled_state,
+    end_cond_sample_forward_rejection(exp[seg_info[i].trip0],
+                                      exp[seg_info[i].trip1],
+                                      prev_state, sampled_state,
                                       seg_info[i].len, gen, sampled_path.jumps,
                                       time_passed);
     log_prob -= log(ctmm.get_trans_prob(seg_info[i].len, prev_state,
@@ -224,6 +228,7 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
                   const vector<vector<SegmentInfo> > &seg_info,
                   const vector<FelsHelper> &fh,
                   std::mt19937 &gen, uniform_real_distribution<double> &unif,
+                  vector<exponential_distribution<double> > &exp,
                   const bool sample_root,
                   vector<Path> &proposed_path, double &log_prob) {
 
@@ -241,7 +246,7 @@ downward_sampling(const EpiEvoModel &mod, const TreeHelper &th,
   for (size_t node_id = 1; node_id < th.n_nodes; ++node_id) {
     const size_t start_state = proposed_path[th.parent_ids[node_id]].end_state();
     downward_sampling_branch(seg_info[node_id], fh[node_id], start_state,
-                             th.branches[node_id], gen, unif,
+                             th.branches[node_id], gen, unif, exp,
                              proposed_path[node_id], log_prob);
   }
 }
@@ -435,6 +440,7 @@ SingleSiteSampler::SingleSiteSampler(const size_t n_burn_in,
   batch = n_batch;
 
   unif = uniform_real_distribution<double> (0.0, 1.0);
+  exp_distr.resize(8);
 }
 
 void
@@ -447,6 +453,10 @@ SingleSiteSampler::reset(const EpiEvoModel &the_model,
   D.resize(n_triples, 0.0);
   proposed_path.resize(n_nodes);
   tri_llh.resize(n_sites, 0.0);
+
+  // update exponential distributions
+  for(size_t i = 0; i < the_model.n_triplets; i++)
+    exp_distr[i] = exponential_distribution<double>(the_model.triplet_rates[i]);
 
   // pre-compute log(rates)
   std::transform(std::begin(the_model.triplet_rates),
@@ -489,7 +499,8 @@ SingleSiteSampler::Metropolis_Hastings_site(const EpiEvoModel &the_model,
                     paths[site_id-1][1].init_state,
                     paths[site_id][1].init_state,
                     paths[site_id+1][1].init_state,
-                    seg_info, fh, gen, unif, SAMPLE_ROOT,
+                    seg_info, fh, gen, unif, exp_distr,
+                    SAMPLE_ROOT,
                     proposed_path, proposal_log_prob);
 
   // acceptance rate
