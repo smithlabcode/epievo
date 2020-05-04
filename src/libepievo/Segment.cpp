@@ -43,25 +43,29 @@ collect_segment_info(const double(&rates)[8],
   vector<double>::const_iterator j(begin(r.jumps)), j_lim = end(r.jumps);
   while (i != i_lim && j != j_lim)
     if (*i < *j) {
-      seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *i-prev_time));
+      seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1],
+                                     trip0, trip1, *i-prev_time));
       trip0 = flip_left_bit(trip0);
       trip1 = flip_left_bit(trip1);
       prev_time = *i++;
     }
     else {
-      seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *j-prev_time));
+      seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1],
+                                     trip0, trip1, *j-prev_time));
       trip0 = flip_right_bit(trip0);
       trip1 = flip_right_bit(trip1);
       prev_time = *j++;
     }
   for (; i != i_lim; ++i) {
-    seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *i - prev_time));
+    seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1],
+                                   trip0, trip1, *i - prev_time));
     trip0 = flip_left_bit(trip0);
     trip1 = flip_left_bit(trip1);
     prev_time = *i;
   }
   for (; j != j_lim; ++j) {
-    seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1], *j - prev_time));
+    seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1],
+                                   trip0, trip1, *j - prev_time));
     trip0 = flip_right_bit(trip0);
     trip1 = flip_right_bit(trip1);
     prev_time = *j;
@@ -69,5 +73,5 @@ collect_segment_info(const double(&rates)[8],
 
   assert(l.tot_time == r.tot_time);
   seg_info.push_back(SegmentInfo(rates[trip0], rates[trip1],
-                                 l.tot_time - prev_time));
+                                 trip0, trip1, l.tot_time - prev_time));
 }

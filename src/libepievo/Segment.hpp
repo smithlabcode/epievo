@@ -30,10 +30,13 @@
 
 struct SegmentInfo {
   SegmentInfo() {}
-  SegmentInfo(const double r0, const double r1, const double l) :
-    rate0(r0), rate1(r1), len(l) {}
+  SegmentInfo(const double r0, const double r1,
+              const size_t i0, const size_t i1, const double l) :
+    rate0(r0), rate1(r1), trip0(i0), trip1(i1), len(l) {}
   double rate0;
   double rate1;
+  size_t trip0;
+  size_t trip1;
   double len;
 };
 
