@@ -23,6 +23,7 @@
 #define SINGLE_SITE_SAMPLER_HPP
 
 #include <vector>
+#include <array>
 
 #include "Path.hpp"
 #include "Segment.hpp"
@@ -67,7 +68,7 @@ private:
 
   // internal variables for faster computation
   std::vector<double> tri_llh;
-  double log_rates[8];
+  std::array<double, 8> log_rates;
 
   // random distributions
   std::uniform_real_distribution<double> unif;

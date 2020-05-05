@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <array>
 
 #include "epievo_utils.hpp"
 
@@ -37,11 +38,11 @@ struct EpiEvoModel {
   two_by_two T;       // horizontal transition probs (stationary)
   two_by_two Q;       // pair-wise potential densities (stationary)
 
-  double triplet_rates[n_triplets];
+  std::array<double, n_triplets> triplet_rates;
   //std::vector<double> triplet_rates; // rates for triples
 
   // mutators
-  void rebuild_from_triplet_rates(const double(&updated_rates)[n_triplets]);
+  void rebuild_from_triplet_rates(const std::array<double, n_triplets> &updated_rates);
   void scale_triplet_rates();
   void initialize(); // assuming rates are always scaled to one change
                      // per site per unit time
@@ -73,7 +74,7 @@ void
 read_model(const std::string &param_file, EpiEvoModel &m);
 
 double
-rate_scaling_factor(const double(&triplet_rates)[8]);
+rate_scaling_factor(const std::array<double, 8> &triplet_rates);
 
 
 void

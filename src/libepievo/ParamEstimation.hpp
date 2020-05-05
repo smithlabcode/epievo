@@ -30,6 +30,7 @@
 #include "epievo_utils.hpp"
 
 #include <vector>
+#include <array>
 
 double
 estimate_rates(const bool VERBOSE,
@@ -80,7 +81,7 @@ scale_jump_times(std::vector<std::vector<Path> > &all_paths,
                  const TreeHelper &th);
 
 void
-set_one_change_per_site_per_unit_time(double(&rates)[8],
+set_one_change_per_site_per_unit_time(std::array<double, 8> &rates,
                                       std::vector<double> &branches);
 
 #endif

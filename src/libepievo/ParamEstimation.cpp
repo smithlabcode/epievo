@@ -21,6 +21,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -36,6 +37,7 @@
 #include "epievo_utils.hpp"
 
 using std::vector;
+using std::array;
 using std::endl;
 using std::cerr;
 using std::cout;
@@ -128,7 +130,7 @@ get_root_frequencies(const vector<vector<Path>> &all_paths,
 
 static double
 log_likelihood(const vector<double> &J, const vector<double> &D,
-               const double(&rates)[8]) {
+               const array<double, 8> &rates) {
 
   static const size_t n_triplets = 8;
   assert(J.size() == n_triplets && D.size() == n_triplets);
@@ -144,7 +146,7 @@ log_likelihood(const vector<double> &J, const vector<double> &D,
 /* compute gradients wrt log(rate[i]) */
 static void
 add_to_gradient(const vector<double> &J, const vector<double> &D,
-                const double(&rates)[8], vector<double> &gradient) {
+                const array<double, 8> &rates, vector<double> &gradient) {
   static const size_t n_params = 8;
   assert(gradient.size() == n_params);
 
@@ -184,7 +186,7 @@ add_to_gradient(const vector<double> &J, const vector<double> &D,
 /* compute gradients wrt log(rate[i]) */
 static void
 get_gradient(const vector<double> &J, const vector<double> &D,
-             const double(&rates)[8], vector<double> &gradient) {
+             const array<double, 8> &rates, vector<double> &gradient) {
   static const size_t n_params = 8;
   gradient.clear();
   gradient.resize(n_params, 0.0);
@@ -198,8 +200,8 @@ get_gradient(const vector<double> &J, const vector<double> &D,
 static void
 candidate_rates(const double step_size,
                 const vector<double> &gradient,
-                const double(&rates)[8],
-                double(&updated_rates)[8]) {
+                const array<double, 8> &rates,
+                array<double, 8> &updated_rates) {
 
   static const size_t n_rates = 8;
 
@@ -222,7 +224,7 @@ candidate_rates(const double step_size,
 static void
 candidate_branches(const vector<vector<double> > &J,
                    const vector<vector<double> > &D,
-                   const double(&rates)[8],
+                   const array<double, 8> &rates,
                    vector<double> &updated_branches) {
 
   assert(J.size() == D.size());
@@ -254,8 +256,8 @@ get_starting_step_size(const vector<double> &gradient) {
 static bool
 gradient_ascent(const double param_tol,
                 const vector<double> &J, const vector<double> &D,
-                const double llh, const double(&rates)[8],
-                double &updated_llh, double(&updated_rates)[8]) {
+                const double llh, const array<double, 8> &rates,
+                double &updated_llh, array<double, 8> &updated_rates) {
 
   assert(llh == log_likelihood(J, D, rates));
 
@@ -277,18 +279,18 @@ gradient_ascent(const double param_tol,
 static double
 estimate_rates(const double param_tol,
                const vector<double> &J, const vector<double> &D,
-               const double(&input_rates)[8],
-               double(&rates)[8]) {
+               const array<double, 8> &input_rates,
+               array<double, 8> &rates) {
 
   double llh = log_likelihood(J, D, input_rates);
   std::copy(begin(input_rates), end(input_rates), begin(rates));
 
-  double tmp_rates[8];
+  array<double, 8> tmp_rates;
   std::copy(begin(rates), end(rates), begin(tmp_rates));
   double tmp_llh = llh;
   while (gradient_ascent(param_tol, J, D, llh, rates, tmp_llh, tmp_rates)) {
     llh = tmp_llh;
-    std::swap(rates, tmp_rates);
+    rates.swap(tmp_rates);
   }
   return llh;
 }
@@ -298,8 +300,8 @@ static double
 estimate_rates(const double param_tol,
                const vector<vector<double> > &J,
                const vector<vector<double> > &D,
-               const double(&input_rates)[8],
-               double(&rates)[8]) {
+               const array<double, 8> &input_rates,
+               array<double, 8> &rates) {
 
   const size_t n_rates = J.back().size();
   vector<double> J_clps(n_rates, 0.0), D_clps(n_rates, 0.0);
@@ -314,7 +316,7 @@ estimate_rates(const double param_tol,
 
 
 void
-set_one_change_per_site_per_unit_time(double(&rates)[8],
+set_one_change_per_site_per_unit_time(array<double, 8> &rates,
                                       vector<double> &branches) {
 
   /* scale rates and branches to have unit branch length corresponding
@@ -341,7 +343,7 @@ estimate_rates(const bool VERBOSE, const double param_tol,
   if (VERBOSE)
     cerr << "[ESTIMATING PARAMETERS]" << endl;
 
-  double updated_rates[8];
+  array<double, 8> updated_rates;
   const double llh =
     estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
 
@@ -388,7 +390,7 @@ estimate_rates_and_branches(const bool VERBOSE, const double param_tol,
     cerr << "[ESTIMATING PARAMETERS AND BRANCHES]" << endl;
 
   // stage 1: update rates
-  double updated_rates[8];
+  array<double, 8> updated_rates;
   estimate_rates(param_tol, J, D, the_model.triplet_rates, updated_rates);
 
   // stage 2: update branches

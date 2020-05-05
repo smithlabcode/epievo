@@ -16,6 +16,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -37,6 +38,7 @@
 #include "ParamEstimation.hpp"
 
 using std::vector;
+using std::array;
 using std::endl;
 using std::cerr;
 using std::cout;
@@ -241,7 +243,7 @@ initialize_model_from_indep_rates(EpiEvoModel &the_model,
   the_model.Q.reset();
 
   // set r_0_ = r0, r_1_ = r1
-  double triplet_rates[8];
+  array<double, 8> triplet_rates;
   for (size_t i = 0; i < the_model.n_triplets; i++)
     triplet_rates[i] = rates[(i/2) % 2];
 

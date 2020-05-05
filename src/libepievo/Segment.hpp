@@ -24,6 +24,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <cassert>
 
 #include "Path.hpp"
@@ -41,7 +42,7 @@ struct SegmentInfo {
 };
 
 void
-collect_segment_info(const double(&rates)[8],
+collect_segment_info(const std::array<double, 8> &rates,
                      const Path &l, const Path &r,
                      std::vector<SegmentInfo> &seg_info);
 #endif

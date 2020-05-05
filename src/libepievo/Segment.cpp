@@ -21,6 +21,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <cassert>
 #include <exception>
 
@@ -28,10 +29,11 @@
 #include "epievo_utils.hpp"
 
 using std::vector;
+using std::array;
 
 /* collect rates and interval lengths */
 void
-collect_segment_info(const double(&rates)[8],
+collect_segment_info(const array<double, 8> &rates,
                      const Path &l, const Path &r,
                      vector<SegmentInfo> &seg_info) {
   seg_info.clear();

@@ -21,6 +21,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <cassert>
 #include <algorithm>
 #include <iostream>
@@ -38,6 +39,7 @@
 #include "epievo_utils.hpp"
 
 using std::vector;
+using std::array;
 using std::endl;
 using std::cerr;
 using std::string;
@@ -312,7 +314,7 @@ proposal_prob_branch(const vector<SegmentInfo> &seg_info,
 
 /* compute proposal prob with a single path (along all nodes) as input*/
 double
-proposal_prob(const double(&triplet_rates)[8], const TreeHelper &th,
+proposal_prob(const array<double, 8> &triplet_rates, const TreeHelper &th,
               const bool rt_left_st, const bool rt_right_st,
               const two_by_two &horiz_trans_prob,
               const vector<FelsHelper> &fh,
@@ -338,9 +340,9 @@ proposal_prob(const double(&triplet_rates)[8], const TreeHelper &th,
 
 
 static double
-log_likelihood(const double(&rates)[8],
+log_likelihood(const array<double, 8> &rates,
                const vector<double> &J, const vector<double> &D,
-               const double(&log_rates)[8]) {
+               const array<double, 8> &log_rates) {
   static const size_t n_triples = 8;
   double r = 0.0;
   for (size_t i = 0; i < n_triples; ++i) {
@@ -354,7 +356,7 @@ log_likelihood(const double(&rates)[8],
 double
 path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
                     const vector<Path> &m, const vector<Path> &r,
-                    const double(&log_rates)[8]) {
+                    const array<double, 8> &log_rates) {
   vector<double> D(n_triples, 0.0), J(n_triples, 0.0);
 
   /* calculate likelihood involving root states */
@@ -373,7 +375,7 @@ static double
 path_log_likelihood(const EpiEvoModel &mod, const vector<Path> &l,
                     const vector<Path> &m, const vector<Path> &r,
                     vector<double> &J, vector<double> &D,
-                    const double(&log_rates)[8]) {
+                    const array<double, 8> &log_rates) {
   fill_n(begin(D), n_triples, 0.0);
   fill_n(begin(J), n_triples, 0.0);
 
@@ -400,7 +402,7 @@ log_accept_rate(const EpiEvoModel &mod, const TreeHelper &th,
                 const vector<vector<SegmentInfo> > &seg_info,
                 const vector<Path> &proposed_path,
                 const double update_proposal, const bool sample_root,
-                const double(&log_rates)[8]) {
+                const array<double, 8> &log_rates) {
 
   assert(site_id > 0 && site_id < paths.size());
 
