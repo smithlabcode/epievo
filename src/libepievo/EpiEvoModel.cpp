@@ -399,12 +399,6 @@ EpiEvoModel::compute_triplet_rates() {
   exp_stat_bl = exp(stationary_baseline(1, 1));
   triplet_rates[triple2idx(1,0,1)] = Q(1,1)*Q(1,1)*exp_stat_bl;
   triplet_rates[triple2idx(1,1,1)] = Q(1,0)*Q(0,1)*exp_stat_bl;
-
-  // for (size_t i = 0; i < 2; ++i)
-  //   for (size_t j = 0; j < 2; ++j)
-  //     for (size_t k = 0; k < 2; ++k)
-  //       triplet_rates[triple2idx(i, j, k)] =
-  //         Q(i, 1-j)*Q(1-j, k)*std::exp(stationary_baseline(i, k));
 }
 
 
