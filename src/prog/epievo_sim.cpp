@@ -313,6 +313,11 @@ int main(int argc, const char **argv) {
                       begin(the_model.triplet_rates), 0.0);
       cerr << "[expected mutations per site at root: "
            << total_rate << "]" << endl;
+      vector<double> triplet_freqs;
+      the_model.get_stationary_triplet_substitutions(triplet_freqs);
+      cerr << "[expected frequencies of mutations]" << endl;
+      for (size_t i = 0; i < 8; ++i)
+        cerr << std::bitset<3>(i) << '\t' << triplet_freqs[i] << endl;
     }
 
     write_root_to_pathfile_global(pathfile, th.node_names[0], s);

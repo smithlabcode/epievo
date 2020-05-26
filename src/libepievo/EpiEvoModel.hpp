@@ -52,6 +52,7 @@ struct EpiEvoModel {
   bool is_unit_rate() const;
   void get_stationary_state_proportions(std::vector<double> &pi) const;
   void get_stationary_triplet_proportions(std::vector<double> &props) const;
+  void get_stationary_triplet_substitutions(std::vector<double> &props) const;
 
   void sample_state_sequence(const size_t n_sites, std::mt19937 &gen,
                              std::vector<bool> &sequence) const;

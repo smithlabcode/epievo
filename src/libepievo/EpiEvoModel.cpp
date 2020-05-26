@@ -264,6 +264,21 @@ EpiEvoModel::get_stationary_triplet_proportions(vector<double> &props) const {
 
 
 void
+EpiEvoModel::get_stationary_triplet_substitutions(vector<double> &props) const {
+  props.resize(n_triplets, 0.0);
+  compute_stationary_triplet_proportions(T, props);
+  double sum_props = 0.0;
+  for (size_t i = 0; i < n_triplets; i++) {
+    props[i] *= triplet_rates[i];
+    sum_props += props[i];
+  }
+  transform(props.begin(), props.end(), props.begin(),
+            std::bind(std::divides<double>(), std::placeholders::_1,
+                      sum_props));
+}
+
+
+void
 EpiEvoModel::sample_state_sequence(const size_t n_sites,
                                    std::mt19937 &gen,
                                    vector<bool> &sequence) const {
