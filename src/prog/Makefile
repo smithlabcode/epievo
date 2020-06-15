@@ -16,7 +16,7 @@
 PROGS = epievo_sim global_jumps_to_paths \
 	extract_state_sequences epievo_est_complete epievo_sim_pairwise \
 	epievo_est_params_histories epievo_initialization scale_tree \
-	average_paths
+	epievo_est_histories average_paths
 
 CXX = g++
 CXXFLAGS = -Wall -std=c++11 -fopenmp
